@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>5P Logistics - Smart Management System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        p_blue: '#2F6BCE',
+                        p_yellow: '#F2C94C',
+                        p_orange: '#F2994A',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+
+<body class="bg-gray-50 text-gray-800 font-sans">
+    <div id="app" class="flex h-screen overflow-hidden">
+
+        <aside class="w-64 bg-white shadow-md flex flex-col z-10">
+            <div class="h-16 flex items-center justify-center border-b border-gray-100">
+                <h1 class="text-2xl font-bold text-p_blue tracking-wider">5P <span class="text-p_orange">VIETNAM</span>
+                </h1>
+            </div>
+            <nav class="flex-1 px-2 py-4 space-y-2">
+                <a href="#" class="flex items-center px-4 py-3 bg-blue-50 text-p_blue rounded-lg transition-colors">
+                    <i class="fas fa-th-large w-6"></i>
+                    <span class="font-medium">Dashboard</span>
+                </a>
+                <a href="#"
+                    class="flex items-center px-4 py-3 text-gray-600 hover:bg-gray-50 hover:text-p_blue rounded-lg transition-colors">
+                    <i class="fas fa-truck w-6"></i>
+                    <span class="font-medium">Điều Phối Xe</span>
+                    <span class="ml-auto bg-p_orange text-white text-xs px-2 py-0.5 rounded-full">3</span>
+                </a>
+                <a href="#"
+                    class="flex items-center px-4 py-3 text-gray-600 hover:bg-gray-50 hover:text-p_blue rounded-lg transition-colors">
+                    <i class="fas fa-file-invoice-dollar w-6"></i>
+                    <span class="font-medium">Báo Giá & Rate</span>
+                </a>
+                <a href="#"
+                    class="flex items-center px-4 py-3 text-gray-600 hover:bg-gray-50 hover:text-p_blue rounded-lg transition-colors">
+                    <i class="fas fa-robot w-6"></i>
+                    <span class="font-medium">AI Automation</span>
+                </a>
+            </nav>
+            <div class="p-4 border-t border-gray-100">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-full bg-p_blue text-white flex items-center justify-center font-bold">A
+                    </div>
+                    <div>
+                        <p class="text-sm font-medium">Admin User</p>
+                        <p class="text-xs text-gray-500">Ops Manager</p>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <main class="flex-1 flex flex-col overflow-hidden relative">
+            <header class="h-16 bg-white shadow-sm flex items-center justify-between px-6 z-10">
+                <h2 class="text-xl font-semibold text-gray-700">Tổng quan hoạt động</h2>
+                <div class="flex items-center gap-4">
+                    <button class="p-2 text-gray-400 hover:text-p_blue relative">
+                        <i class="fas fa-bell"></i>
+                        <span class="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+                    </button>
+                    <button
+                        class="bg-p_blue hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow-md shadow-blue-200">
+                        <i class="fas fa-plus mr-2"></i> Tạo Job Mới
+                    </button>
+                </div>
+            </header>
+
+            <div class="flex-1 overflow-y-auto p-6">
+
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                    <div class="bg-white p-6 rounded-xl shadow-sm border-l-4 border-p_blue">
+                        <p class="text-gray-500 text-sm font-medium mb-1">Jobs Hôm Nay</p>
+                        <h3 class="text-2xl font-bold text-gray-800">12</h3>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-sm border-l-4 border-p_yellow">
+                        <p class="text-gray-500 text-sm font-medium mb-1">Chờ Điều Xe</p>
+                        <h3 class="text-2xl font-bold text-gray-800">3</h3>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-sm border-l-4 border-p_orange">
+                        <p class="text-gray-500 text-sm font-medium mb-1">Doanh Thu Tạm Tính</p>
+                        <h3 class="text-2xl font-bold text-gray-800">45.2M</h3>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-sm border-l-4 border-green-500">
+                        <p class="text-gray-500 text-sm font-medium mb-1">Hoàn Thành</p>
+                        <h3 class="text-2xl font-bold text-gray-800">8</h3>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+                    <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
+                        <h3 class="font-bold text-gray-800">Tiến Độ Điều Xe (Live)</h3>
+                        <span class="text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full animate-pulse">● Đang cập
+                            nhật từ Telegram</span>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-gray-50 text-gray-600 text-sm uppercase tracking-wider">
+                                    <th class="px-6 py-3 font-semibold">Job ID</th>
+                                    <th class="px-6 py-3 font-semibold">Khách Hàng</th>
+                                    <th class="px-6 py-3 font-semibold">Tuyến</th>
+                                    <th class="px-6 py-3 font-semibold">Xe / Tài Xế</th>
+                                    <th class="px-6 py-3 font-semibold">Trạng Thái</th>
+                                    <th class="px-6 py-3 font-semibold">Hành Động</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100">
+                                <tr class="hover:bg-gray-50 transition">
+                                    <td class="px-6 py-4 font-medium text-p_blue">LG2601/001</td>
+                                    <td class="px-6 py-4">Samsung Electronics</td>
+                                    <td class="px-6 py-4 text-sm text-gray-600">Bắc Ninh ➝ Nội Bài</td>
+                                    <td class="px-6 py-4">
+                                        <div class="flex flex-col">
+                                            <span class="font-bold text-gray-800">29H-123.45</span>
+                                            <span class="text-xs text-gray-500">Nguyễn Văn A - 0912...</span>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <span
+                                            class="px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">
+                                            Đã Có Xe
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <button class="text-gray-400 hover:text-p_blue"><i
+                                                class="fas fa-edit"></i></button>
+                                    </td>
+                                </tr>
+                                <tr class="hover:bg-gray-50 transition bg-yellow-50/50">
+                                    <td class="px-6 py-4 font-medium text-p_blue">LG2601/002</td>
+                                    <td class="px-6 py-4">Foxconn</td>
+                                    <td class="px-6 py-4 text-sm text-gray-600">Bắc Giang ➝ Hải Phòng</td>
+                                    <td class="px-6 py-4">
+                                        <span class="text-sm text-p_orange italic"><i
+                                                class="fas fa-spinner fa-spin mr-1"></i> Đang chờ Vendor...</span>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <span
+                                            class="px-3 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-700">
+                                            Pending
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <button class="text-p_blue font-medium text-sm hover:underline">Gửi
+                                            nhắc</button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="bg-white p-6 rounded-xl shadow-sm">
+                        <h4 class="font-bold text-gray-800 mb-4 flex items-center"><i
+                                class="fab fa-telegram text-blue-500 mr-2 text-xl"></i> Mô phỏng Telegram Vendor</h4>
+                        <div class="bg-gray-100 rounded-lg p-4 h-48 overflow-y-auto mb-4 space-y-3">
+                            <div class="flex items-end">
+                                <div
+                                    class="bg-blue-500 text-white px-4 py-2 rounded-lg rounded-bl-none text-sm max-w-xs">
+                                    Job LG2601/002 cần 1 xe 10 tấn đi Hải Phòng gấp.
+                                </div>
+                            </div>
+                            <div class="flex items-end justify-end">
+                                <div
+                                    class="bg-white border border-gray-200 text-gray-800 px-4 py-2 rounded-lg rounded-br-none text-sm max-w-xs shadow-sm">
+                                    Ok shop. Xe 98C-56789 tài xế Trần Văn B sdt 0988777666 nhé.
+                                </div>
+                            </div>
+                            <div class="flex items-end">
+                                <div
+                                    class="bg-blue-500 text-white px-4 py-2 rounded-lg rounded-bl-none text-sm max-w-xs">
+                                    <i class="fas fa-check-circle mr-1"></i> Đã nhận thông tin xe 98C-56789. Hệ thống
+                                    đang gửi tin cho khách.
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex gap-2">
+                            <input type="text" placeholder="Nhập tin nhắn giả lập..."
+                                class="flex-1 border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-p_blue">
+                            <button class="bg-p_blue text-white px-4 py-2 rounded-lg hover:bg-blue-600"><i
+                                    class="fas fa-paper-plane"></i></button>
+                        </div>
+                    </div>
+
+                    <div class="bg-gray-900 p-6 rounded-xl shadow-sm text-gray-300 font-mono text-sm">
+                        <h4 class="font-bold text-white mb-4"><i class="fas fa-terminal mr-2"></i> n8n System Log</h4>
+                        <div class="space-y-2 h-56 overflow-y-auto custom-scrollbar">
+                            <p><span class="text-green-400">[10:01:22]</span> Webhook received from Telegram</p>
+                            <p><span class="text-blue-400">[10:01:23]</span> AI Processing: "Xe 98C-56789 tài xế Trần
+                                Văn B..."</p>
+                            <p><span class="text-yellow-400">[10:01:24]</span> Extracted Data: {"plate": "98C-56789",
+                                "driver": "Trần Văn B"}</p>
+                            <p><span class="text-green-400">[10:01:25]</span> Database Updated: Job LG2601/002 ->
+                                CONFIRMED</p>
+                            <p><span class="text-green-400">[10:01:26]</span> SMS Sent to Customer via ZNS</p>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+</body>
+
+</html>

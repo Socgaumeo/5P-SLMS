@@ -1,0 +1,94 @@
+{
+    "name": "5P Logistics - Auto Dieu Xe",
+    "nodes": [
+        {
+            "parameters": {},
+            "name": "Start",
+            "type": "n8n-nodes-base.start",
+            "typeVersion": 1,
+            "position": [
+                250,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "updates": [
+                    "message"
+                ]
+            },
+            "name": "Telegram Trigger",
+            "type": "n8n-nodes-base.telegramTrigger",
+            "typeVersion": 1,
+            "position": [
+                450,
+                300
+            ],
+            "credentials": {
+                "telegramApi": {
+                    "id": "YOUR_CREDENTIAL_ID_HERE"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "model": "gpt-4o-mini",
+                "prompt": "Trích xuất thông tin từ tin nhắn điều xe sau thành JSON. Các trường cần lấy: job_no (dạng LGxx/xxx), plate_number (biển số xe chuẩn hóa), driver_name (tên tài xế), driver_phone (sdt). \nTin nhắn: {{$json.message.text}}"
+            },
+            "name": "AI Parser",
+            "type": "n8n-nodes-base.openAi",
+            "typeVersion": 1,
+            "position": [
+                650,
+                300
+            ],
+            "credentials": {
+                "openAiApi": {
+                    "id": "YOUR_OPENAI_ID_HERE"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "operation": "executeQuery",
+                "query": "UPDATE job_services SET status_code='CONFIRMED', vendor_text_input=$json.text, msg_vendor='Đã nhận xe: ' || $json.plate_number WHERE job_id = (SELECT job_id FROM jobs WHERE job_no = $json.job_no LIMIT 1);"
+            },
+            "name": "Update PostgreSQL",
+            "type": "n8n-nodes-base.postgres",
+            "typeVersion": 1,
+            "position": [
+                850,
+                300
+            ],
+            "credentials": {
+                "postgres": {
+                    "id": "YOUR_POSTGRES_ID_HERE"
+                }
+            }
+        }
+    ],
+    "connections": {
+        "Telegram Trigger": {
+            "main": [
+                [
+                    {
+                        "node": "AI Parser",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "AI Parser": {
+            "main": [
+                [
+                    {
+                        "node": "Update PostgreSQL",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    }
+}
