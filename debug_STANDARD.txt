@@ -1,0 +1,703 @@
+
+[
+  {
+    "origin": "Nội Bài",
+    "origin_province": "Hà Nội",
+    "destination": "Nội Bài",
+    "destination_province": "Hà Nội",
+    "rate_code": "TB18",
+    "temperature_range": null,
+    "prices": {
+      "1.25T": 200000,
+      "1.5T": 310000,
+      "2.5T": 420000,
+      "3.5T": 570000,
+      "5T": 710000,
+      "7T": 820000,
+      "8T": 900000,
+      "10T": 1040000,
+      "15T": 1310000
+    }
+  },
+  {
+    "origin": "Nội Bài",
+    "origin_province": "Hà Nội",
+    "destination": "KCN Nội Bài",
+    "destination_province": "Hà Nội",
+    "rate_code": "TB20",
+    "temperature_range": null,
+    "prices": {
+      "1.25T": 220000,
+      "1.5T": 330000,
+      "2.5T": 440000,
+      "3.5T": 600000,
+      "5T": 770000,
+      "7T": 870000,
+      "8T": 930000,
+      "10T": 1090000,
+      "15T": 1370000
+    }
+  },
+  {
+    "origin": "Nội Bài",
+    "origin_province": "Hà Nội",
+    "destination": "KCN Quang Minh",
+    "destination_province": "Hà Nội",
+    "rate_code": "TB20",
+    "temperature_range": null,
+    "prices": {
+      "1.25T": 220000,
+      "1.5T": 330000,
+      "2.5T": 440000,
+      "3.5T": 600000,
+      "5T": 770000,
+      "7T": 870000,
+      "8T": 930000,
+      "10T": 1090000,
+      "15T": 1370000
+    }
+  },
+  {
+    "origin": "Nội Bài",
+    "origin_province": "Hà Nội",
+    "destination": "Xã Mê Linh",
+    "destination_province": "Hà Nội",
+    "rate_code": "TB25",
+    "temperature_range": null,
+    "prices": {
+      "1.25T": 270000,
+      "1.5T": 350000,
+      "2.5T": 520000,
+      "3.5T": 630000,
+      "5T": 850000,
+      "7T": 980000,
+      "8T": 1070000,
+      "10T": 1310000,
+      "15T": 1530000
+    }
+  },
+  {
+    "origin": "Nội Bài",
+    "origin_province": "Hà Nội",
+    "destination": "Xã Yên Lãng",
+    "destination_province": "Hà Nội",
+    "rate_code": "TB30",
+    "temperature_range": null,
+    "prices": {
+      "1.25T": 330000,
+      "1.5T": 420000,
+      "2.5T": 600000,
+      "3.5T": 710000,
+      "5T": 960000,
+      "7T": 1070000,
+      "8T": 1200000,
+      "10T": 1480000,
+      "15T": 1730000
+    }
+  },
+  {
+    "origin": "Nội Bài",
+    "origin_province": "Hà Nội",
+    "destination": "Xã Tiến Thắng",
+    "destination_province": "Hà Nội",
+    "rate_code": "TB25",
+    "temperature_range": null,
+    "prices": {
+      "1.25T": 270000,
+      "1.5T": 350000,
+      "2.5T": 520000,
+      "3.5T": 630000,
+      "5T": 850000,
+      "7T": 980000,
+      "8T": 1070000,
+      "10T": 1310000,
+      "15T": 1530000
+    }
+  },
+  {
+    "origin": "Nội Bài",
+    "origin_province": "Hà Nội",
+    "destination": "Xã Quang Minh",
+    "destination_province": "Hà Nội",
+    "rate_code": "TB20",
+    "temperature_range": null,
+    "prices": {
+      "1.25T": 220000,
+      "1.5T": 330000,
+      "2.5T": 440000,
+      "3.5T": 600000,
+      "5T": 770000,
+      "7T": 870000,
+      "8T": 930000,
+      "10T": 1090000,
+      "15T": 1370000
+    }
+  },
+  {
+    "origin": "Nội Bài",
+    "origin_province": "Hà Nội",
+    "destination": "KCN Nguyên Khê",
+    "destination_province": "Hà Nội",
+    "rate_code": "TB20",
+    "temperature_range": null,
+    "prices": {
+      "1.25T": 220000,
+      "1.5T": 330000,
+      "2.5T": 440000,
+      "3.5T": 600000,
+      "5T": 770000,
+      "7T": 870000,
+      "8T": 930000,
+      "10T": 1090000,
+      "15T": 1370000
+    }
+  },
+  {
+    "origin": "Nội Bài",
+    "origin_province": "Hà Nội",
+    "destination": "KCN Thăng Long",
+    "destination_province": "Hà Nội",
+    "rate_code": "TB25",
+    "temperature_range": null,
+    "prices": {
+      "1.25T": 270000,
+      "1.5T": 350000,
+      "2.5T": 520000,
+      "3.5T": 630000,
+      "5T": 850000,
+      "7T": 980000,
+      "8T": 1070000,
+      "10T": 1310000,
+      "15T": 1530000
+    }
+  },
+  {
+    "origin": "Nội Bài",
+    "origin_province": "Hà Nội",
+    "destination": "TT Sóc Sơn",
+    "destination_province": "Hà Nội",
+    "rate_code": "TB20",
+    "temperature_range": null,
+    "prices": {
+      "1.25T": 220000,
+      "1.5T": 330000,
+      "2.5T": 440000,
+      "3.5T": 600000,
+      "5T": 770000,
+      "7T": 870000,
+      "8T": 930000,
+      "10T": 1090000,
+      "15T": 1370000
+    }
+  },
+  {
+    "origin": "Nội Bài",
+    "origin_province": "Hà Nội",
+    "destination": "Xã Sóc Sơn",
+    "destination_province": "Hà Nội",
+    "rate_code": "TB20",
+    "temperature_range": null,
+    "prices": {
+      "1.25T": 220000,
+      "1.5T": 330000,
+      "2.5T": 440000,
+      "3.5T": 600000,
+      "5T": 770000,
+      "7T": 870000,
+      "8T": 930000,
+      "10T": 1090000,
+      "15T": 1370000
+    }
+  },
+  {
+    "origin": "Nội Bài",
+    "origin_province": "Hà Nội",
+    "destination": "Xã Đa Phúc",
+    "destination_province": "Hà Nội",
+    "rate_code": "TB30",
+    "temperature_range": null,
+    "prices": {
+      "1.25T": 330000,
+      "1.5T": 420000,
+      "2.5T": 600000,
+      "3.5T": 710000,
+      "5T": 960000,
+      "7T": 1070000,
+      "8T": 1200000,
+      "10T": 1480000,
+      "15T": 1730000
+    }
+  },
+  {
+    "origin": "Nội Bài",
+    "origin_province": "Hà Nội",
+    "destination": "Xã Nội Bài",
+    "destination_province": "Hà Nội",
+    "rate_code": "TB20",
+    "temperature_range": null,
+    "prices": {
+      "1.25T": 220000,
+      "1.5T": 330000,
+      "2.5T": 440000,
+      "3.5T": 600000,
+      "5T": 770000,
+      "7T": 870000,
+      "8T": 930000,
+      "10T": 1090000,
+      "15T": 1370000
+    }
+  },
+  {
+    "origin": "Nội Bài",
+    "origin_province": "Hà Nội",
+    "destination": "Xã Trung Giã",
+    "destination_province": "Hà Nội",
+    "rate_code": "TB30",
+    "temperature_range": null,
+    "prices": {
+      "1.25T": 330000,
+      "1.5T": 420000,
+      "2.5T": 600000,
+      "3.5T": 710000,
+      "5T": 960000,
+      "7T": 1070000,
+      "8T": 1200000,
+      "10T": 1480000,
+      "15T": 1730000
+    }
+  },
+  {
+    "origin": "Nội Bài",
+    "origin_province": "Hà Nội",
+    "destination": "Xã Kim Anh",
+    "destination_province": "Hà Nội",
+    "rate_code": "TB30",
+    "temperature_range": null,
+    "prices": {
+      "1.25T": 330000,
+      "1.5T": 420000,
+      "2.5T": 600000,
+      "3.5T": 710000,
+      "5T": 960000,
+      "7T": 1070000,
+      "8T": 1200000,
+      "10T": 1480000,
+      "15T": 1730000
+    }
+  },
+  {
+    "origin": "Nội Bài",
+    "origin_province": "Hà Nội",
+    "destination": "Xã Thư Lâm",
+    "destination_province": "Hà Nội",
+    "rate_code": "TB25",
+    "temperature_range": null,
+    "prices": {
+      "1.25T": 270000,
+      "1.5T": 350000,
+      "2.5T": 520000,
+      "3.5T": 630000,
+      "5T": 850000,
+      "7T": 980000,
+      "8T": 1070000,
+      "10T": 1310000,
+      "15T": 1530000
+    }
+  },
+  {
+    "origin": "Nội Bài",
+    "origin_province": "Hà Nội",
+    "destination": "Xã Đông Anh",
+    "destination_province": "Hà Nội",
+    "rate_code": "TB30",
+    "temperature_range": null,
+    "prices": {
+      "1.25T": 330000,
+      "1.5T": 420000,
+      "2.5T": 600000,
+      "3.5T": 710000,
+      "5T": 960000,
+      "7T": 1070000,
+      "8T": 1200000,
+      "10T": 1480000,
+      "15T": 1730000
+    }
+  },
+  {
+    "origin": "Nội Bài",
+    "origin_province": "Hà Nội",
+    "destination": "Xã Phúc Thịnh",
+    "destination_province": "Hà Nội",
+    "rate_code": "TB20",
+    "temperature_range": null,
+    "prices": {
+      "1.25T": 220000,
+      "1.5T": 330000,
+      "2.5T": 440000,
+      "3.5T": 600000,
+      "5T": 770000,
+      "7T": 870000,
+      "8T": 930000,
+      "10T": 1090000,
+      "15T": 1370000
+    }
+  },
+  {
+    "origin": "Nội Bài",
+    "origin_province": "Hà Nội",
+    "destination": "Xã Thiên Lộc",
+    "destination_province": "Hà Nội",
+    "rate_code": "TB28",
+    "temperature_range": null,
+    "prices": {
+      "1.25T": 310000,
+      "1.5T": 390000,
+      "2.5T": 580000,
+      "3.5T": 690000,
+      "5T": 930000,
+      "7T": 1040000,
+      "8T": 1150000,
+      "10T": 1420000,
+      "15T": 1690000
+    }
+  },
+  {
+    "origin": "Nội Bài",
+    "origin_province": "Hà Nội",
+    "destination": "Xã Vĩnh Thanh",
+    "destination_province": "Hà Nội",
+    "rate_code": "TB25",
+    "temperature_range": null,
+    "prices": {
+      "1.25T": 270000,
+      "1.5T": 350000,
+      "2.5T": 520000,
+      "3.5T": 630000,
+      "5T": 850000,
+      "7T": 980000,
+      "8T": 1070000,
+      "10T": 1310000,
+      "15T": 1530000
+    }
+  },
+  {
+    "origin": "Nội Bài",
+    "origin_province": "Hà Nội",
+    "destination": "Ga Yên Viên",
+    "destination_province": "Hà Nội",
+    "rate_code": "TB35",
+    "temperature_range": null,
+    "prices": {
+      "1.25T": 380000,
+      "1.5T": 470000,
+      "2.5T": 660000,
+      "3.5T": 770000,
+      "5T": 1010000,
+      "7T": 1180000,
+      "8T": 1260000,
+      "10T": 1590000,
+      "15T": 1800000
+    }
+  },
+  {
+    "origin": "Nội Bài",
+    "origin_province": "Hà Nội",
+    "destination": "Phường Long Biên",
+    "destination_province": "Hà Nội",
+    "rate_code": "TB36",
+    "temperature_range": null,
+    "prices": {
+      "1.25T": 390000,
+      "1.5T": 490000,
+      "2.5T": 690000,
+      "3.5T": 800000,
+      "5T": 1040000,
+      "7T": 1200000,
+      "8T": 1290000,
+      "10T": 1620000,
+      "15T": 1860000
+    }
+  },
+  {
+    "origin": "Nội Bài",
+    "origin_province": "Hà Nội",
+    "destination": "Phường Bồ Đề",
+    "destination_province": "Hà Nội",
+    "rate_code": "TB36",
+    "temperature_range": null,
+    "prices": {
+      "1.25T": 390000,
+      "1.5T": 490000,
+      "2.5T": 690000,
+      "3.5T": 800000,
+      "5T": 1040000,
+      "7T": 1200000,
+      "8T": 1290000,
+      "10T": 1620000,
+      "15T": 1860000
+    }
+  },
+  {
+    "origin": "Nội Bài",
+    "origin_province": "Hà Nội",
+    "destination": "Phường Việt Hưng",
+    "destination_province": "Hà Nội",
+    "rate_code": "TB36",
+    "temperature_range": null,
+    "prices": {
+      "1.25T": 390000,
+      "1.5T": 490000,
+      "2.5T": 690000,
+      "3.5T": 800000,
+      "5T": 1040000,
+      "7T": 1200000,
+      "8T": 1290000,
+      "10T": 1620000,
+      "15T": 1860000
+    }
+  },
+  {
+    "origin": "Nội Bài",
+    "origin_province": "Hà Nội",
+    "destination": "Phường Phúc Lợi",
+    "destination_province": "Hà Nội",
+    "rate_code": "TB36",
+    "temperature_range": null,
+    "prices": {
+      "1.25T": 390000,
+      "1.5T": 490000,
+      "2.5T": 690000,
+      "3.5T": 800000,
+      "5T": 1040000,
+      "7T": 1200000,
+      "8T": 1290000,
+      "10T": 1620000,
+      "15T": 1860000
+    }
+  },
+  {
+    "origin": "Nội Bài",
+    "origin_province": "Hà Nội",
+    "destination": "KCN Sài Đồng",
+    "destination_province": "Hà Nội",
+    "rate_code": "TB38",
+    "temperature_range": null,
+    "prices": {
+      "1.25T": 420000,
+      "1.5T": 520000,
+      "2.5T": 710000,
+      "3.5T": 820000,
+      "5T": 1070000,
+      "7T": 1220000,
+      "8T": 1310000,
+      "10T": 1640000,
+      "15T": 1910000
+    }
+  },
+  {
+    "origin": "Nội Bài",
+    "origin_province": "Hà Nội",
+    "destination": "KCN Đài Tư",
+    "destination_province": "Hà Nội",
+    "rate_code": "TB38",
+    "temperature_range": null,
+    "prices": {
+      "1.25T": 420000,
+      "1.5T": 520000,
+      "2.5T": 710000,
+      "3.5T": 820000,
+      "5T": 1070000,
+      "7T": 1220000,
+      "8T": 1310000,
+      "10T": 1640000,
+      "15T": 1910000
+    }
+  },
+  {
+    "origin": "Nội Bài",
+    "origin_province": "Hà Nội",
+    "destination": "Xã Gia Lâm",
+    "destination_province": "Hà Nội",
+    "rate_code": "TB38",
+    "temperature_range": null,
+    "prices": {
+      "1.25T": 420000,
+      "1.5T": 520000,
+      "2.5T": 710000,
+      "3.5T": 820000,
+      "5T": 1070000,
+      "7T": 1220000,
+      "8T": 1310000,
+      "10T": 1640000,
+      "15T": 1910000
+    }
+  },
+  {
+    "origin": "Nội Bài",
+    "origin_province": "Hà Nội",
+    "destination": "Xã Thuận An",
+    "destination_province": "Hà Nội",
+    "rate_code": "TB40",
+    "temperature_range": null,
+    "prices": {
+      "1.25T": 440000,
+      "1.5T": 550000,
+      "2.5T": 710000,
+      "3.5T": 850000,
+      "5T": 1090000,
+      "7T": 1260000,
+      "8T": 1340000,
+      "10T": 1710000,
+      "15T": 1950000
+    }
+  },
+  {
+    "origin": "Nội Bài",
+    "origin_province": "Hà Nội",
+    "destination": "Xã Bát Tràng",
+    "destination_province": "Hà Nội",
+    "rate_code": "TB40",
+    "temperature_range": null,
+    "prices": {
+      "1.25T": 440000,
+      "1.5T": 550000,
+      "2.5T": 710000,
+      "3.5T": 850000,
+      "5T": 1090000,
+      "7T": 1260000,
+      "8T": 1340000,
+      "10T": 1710000,
+      "15T": 1950000
+    }
+  },
+  {
+    "origin": "Nội Bài",
+    "origin_province": "Hà Nội",
+    "destination": "Xã Phù Đổng",
+    "destination_province": "Hà Nội",
+    "rate_code": "TB38",
+    "temperature_range": null,
+    "prices": {
+      "1.25T": 420000,
+      "1.5T": 520000,
+      "2.5T": 710000,
+      "3.5T": 820000,
+      "5T": 1070000,
+      "7T": 1220000,
+      "8T": 1310000,
+      "10T": 1640000,
+      "15T": 1910000
+    }
+  },
+  {
+    "origin": "Nội Bài",
+    "origin_province": "Hà Nội",
+    "destination": "KCN Ninh Hiệp",
+    "destination_province": "Hà Nội",
+    "rate_code": "TB38",
+    "temperature_range": null,
+    "prices": {
+      "1.25T": 420000,
+      "1.5T": 520000,
+      "2.5T": 710000,
+      "3.5T": 820000,
+      "5T": 1070000,
+      "7T": 1220000,
+      "8T": 1310000,
+      "10T": 1640000,
+      "15T": 1910000
+    }
+  },
+  {
+    "origin": "Nội Bài",
+    "origin_province": "Hà Nội",
+    "destination": "Phường Hoàn Kiếm",
+    "destination_province": "Hà Nội",
+    "rate_code": "TB38",
+    "temperature_range": null,
+    "prices": {
+      "1.25T": 420000,
+      "1.5T": 520000,
+      "2.5T": 710000,
+      "3.5T": 820000,
+      "5T": 1070000,
+      "7T": 1220000,
+      "8T": 1310000,
+      "10T": 1640000,
+      "15T": 1910000
+    }
+  },
+  {
+    "origin": "Nội Bài",
+    "origin_province": "Hà Nội",
+    "destination": "Phường Cửa Nam",
+    "destination_province": "Hà Nội",
+    "rate_code": "TB38",
+    "temperature_range": null,
+    "prices": {
+      "1.25T": 420000,
+      "1.5T": 520000,
+      "2.5T": 710000,
+      "3.5T": 820000,
+      "5T": 1070000,
+      "7T": 1220000,
+      "8T": 1310000,
+      "10T": 1640000,
+      "15T": 1910000
+    }
+  },
+  {
+    "origin": "Nội Bài",
+    "origin_province": "Hà Nội",
+    "destination": "Phường Hồng Hà",
+    "destination_province": "Hà Nội",
+    "rate_code": "TB38",
+    "temperature_range": null,
+    "prices": {
+      "1.25T": 420000,
+      "1.5T": 520000,
+      "2.5T": 710000,
+      "3.5T": 820000,
+      "5T": 1070000,
+      "7T": 1220000,
+      "8T": 1310000,
+      "10T": 1640000,
+      "15T": 1910000
+    }
+  },
+  {
+    "origin": "Nội Bài",
+    "origin_province": "Hà Nội",
+    "destination": "Phường Tây Hồ",
+    "destination_province": "Hà Nội",
+    "rate_code": "TB38",
+    "temperature_range": null,
+    "prices": {
+      "1.25T": 420000,
+      "1.5T": 520000,
+      "2.5T": 710000,
+      "3.5T": 820000,
+      "5T": 1070000,
+      "7T": 1220000,
+      "8T": 1310000,
+      "10T": 1640000,
+      "15T": 1910000
+    }
+  },
+  {
+    "origin": "Nội Bài",
+    "origin_province": "Hà Nội",
+    "destination": "Phường Ba Đình",
+    "destination_province": "Hà Nội",
+    "rate_code": "TB38",
+    "temperature_range": null,
+    "prices": {
+      "1.25T": 420000,
+      "1.5T": 520000,
+      "2.5T": 710000,
+      "3.5T": 820000,
+      "5T": 1070000,
+      "7T": 1220000,
+      "8T": 1310000,
+      "10T": 1640000,
+      "15T": 191000
