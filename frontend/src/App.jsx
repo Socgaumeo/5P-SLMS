@@ -71,11 +71,15 @@ const FloatingAIButton = ({ onClick, hasNotification }) => (
 )
 
 // ========================================
-// JOB DETAIL MODAL
+// JOB DETAIL MODAL (with Edit Mode)
 // ========================================
-function JobDetailModal({ job, onClose }) {
+function JobDetailModal({ job, onClose, onUpdate }) {
   const [services, setServices] = useState([])
   const [loading, setLoading] = useState(true)
+  const [editMode, setEditMode] = useState(false)
+  const [vendors, setVendors] = useState([])
+  const [employees, setEmployees] = useState([])
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     const fetchJobDetails = async () => {
@@ -95,15 +99,49 @@ function JobDetailModal({ job, onClose }) {
     fetchJobDetails()
   }, [job])
 
+  useEffect(() => {
+    if (editMode) {
+      // Fetch vendors and employees for dropdowns
+      fetch(`${API_URL}/api/vendors`).then(r => r.json()).then(d => setVendors(d.vendors || []))
+      fetch(`${API_URL}/api/employees`).then(r => r.json()).then(d => setEmployees(d.employees || []))
+    }
+  }, [editMode])
+
+  const handleAssign = async (svc_id, vendor_id, employee_id) => {
+    setSaving(true)
+    try {
+      const res = await fetch(`${API_URL}/api/services/${svc_id}/assign`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ vendor_id, employee_id })
+      })
+      const result = await res.json()
+      if (result.success) {
+        // Update local state
+        setServices(prev => prev.map(s =>
+          s.svc_id === svc_id ? {
+            ...s, vendor_id, employee_id,
+            vendor_name: vendors.find(v => v.vendor_id === vendor_id)?.short_name,
+            employee_name: employees.find(e => e.employee_id === employee_id)?.short_name
+          } : s
+        ))
+      }
+    } catch (error) {
+      console.error('Failed to assign:', error)
+    } finally {
+      setSaving(false)
+    }
+  }
+
   if (!job) return null
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={e => e.stopPropagation()}>
+      <div className="modal-content large" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <div>
             <h2 className="modal-title">📋 {job.job_no}</h2>
-            <p className="modal-subtitle">{job.customer_name || job.customer_code}</p>
+            <p className="modal-subtitle">{job.customer || job.customer_name || job.customer_code}</p>
           </div>
           <StatusBadge status={job.status_code || 'PENDING'} />
           <button className="modal-close" onClick={onClose}>✕</button>
@@ -112,19 +150,24 @@ function JobDetailModal({ job, onClose }) {
         <div className="modal-body">
           {/* Job Info */}
           <div className="detail-section">
-            <h3>Thông tin Job</h3>
+            <div className="section-header">
+              <h3>Thông tin Job</h3>
+              <button className={`btn-edit ${editMode ? 'active' : ''}`} onClick={() => setEditMode(!editMode)}>
+                {editMode ? '🔒 Xong' : '✏️ Sửa'}
+              </button>
+            </div>
             <div className="detail-grid">
               <div className="detail-item">
                 <span className="detail-label">Khách hàng:</span>
-                <span className="detail-value">{job.customer_name || job.customer_code}</span>
+                <span className="detail-value">{job.customer || job.customer_name || job.customer_code}</span>
               </div>
               <div className="detail-item">
                 <span className="detail-label">Ngày tạo:</span>
                 <span className="detail-value">{job.created_at?.split('T')[0]}</span>
               </div>
               <div className="detail-item">
-                <span className="detail-label">ETD:</span>
-                <span className="detail-value">{job.etd || '-'}</span>
+                <span className="detail-label">Ngày thực hiện:</span>
+                <span className="detail-value">{job.scheduled_date || job.etd || '-'}</span>
               </div>
               <div className="detail-item">
                 <span className="detail-label">Status:</span>
@@ -146,14 +189,124 @@ function JobDetailModal({ job, onClose }) {
                       <span className="service-type-badge">{svc.service_type_code}</span>
                       <StatusBadge status={svc.status_code || 'PENDING'} />
                     </div>
-                    {/* Assignment info */}
+
+                    {/* Assignment info - Editable */}
                     <div className="service-assignment">
                       <strong>Người xử lý:</strong>
-                      <span className={`assigned-badge ${svc.vendor_id ? 'vendor' : svc.employee_id ? 'employee' : 'unassigned'}`}>
-                        {svc.vendor_id ? '🏢 ' : svc.employee_id ? '👤 ' : ''}
-                        {svc.vendor_name || svc.employee_name || 'Chưa gán'}
-                      </span>
+                      {editMode ? (
+                        <div className="assign-controls">
+                          {/* Searchable Vendor Dropdown */}
+                          <div className="vendor-search-wrapper" style={{ position: 'relative', display: 'inline-block' }}>
+                            <input
+                              type="text"
+                              placeholder="🔍 Tìm vendor..."
+                              value={svc.vendorSearch || ''}
+                              onChange={(e) => {
+                                const searchValue = e.target.value
+                                setJobDetail(prev => ({
+                                  ...prev,
+                                  services: prev.services.map(s =>
+                                    s.svc_id === svc.svc_id ? { ...s, vendorSearch: searchValue, showVendorDropdown: true } : s
+                                  )
+                                }))
+                              }}
+                              onFocus={() => {
+                                setJobDetail(prev => ({
+                                  ...prev,
+                                  services: prev.services.map(s =>
+                                    s.svc_id === svc.svc_id ? { ...s, showVendorDropdown: true } : s
+                                  )
+                                }))
+                              }}
+                              onKeyDown={(e) => e.stopPropagation()}
+                              onMouseDown={(e) => e.stopPropagation()}
+                              onClick={(e) => e.stopPropagation()}
+                              style={{
+                                padding: '6px 10px',
+                                borderRadius: '6px',
+                                border: '1px solid var(--border)',
+                                minWidth: '200px',
+                                fontSize: '12px'
+                              }}
+                            />
+                            {svc.showVendorDropdown && (
+                              <div style={{
+                                position: 'absolute',
+                                top: '100%',
+                                left: 0,
+                                right: 0,
+                                maxHeight: '200px',
+                                overflowY: 'auto',
+                                background: 'var(--bg-card)',
+                                border: '1px solid var(--border)',
+                                borderRadius: '6px',
+                                marginTop: '4px',
+                                zIndex: 1000,
+                                boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
+                              }}>
+                                <div
+                                  style={{ padding: '8px 10px', cursor: 'pointer', borderBottom: '1px solid var(--border)' }}
+                                  onClick={() => {
+                                    handleAssign(svc.svc_id, null, null)
+                                    setJobDetail(prev => ({
+                                      ...prev,
+                                      services: prev.services.map(s =>
+                                        s.svc_id === svc.svc_id ? { ...s, showVendorDropdown: false, vendorSearch: '' } : s
+                                      )
+                                    }))
+                                  }}
+                                >
+                                  -- Bỏ chọn --
+                                </div>
+                                {vendors.filter(v =>
+                                  !svc.vendorSearch ||
+                                  (v.short_name || v.company_name || '').toLowerCase().includes((svc.vendorSearch || '').toLowerCase())
+                                ).map(v => (
+                                  <div
+                                    key={v.vendor_id}
+                                    style={{
+                                      padding: '8px 10px',
+                                      cursor: 'pointer',
+                                      background: svc.vendor_id === v.vendor_id ? 'rgba(37, 99, 235, 0.2)' : 'transparent'
+                                    }}
+                                    onMouseEnter={(e) => e.target.style.background = 'rgba(37, 99, 235, 0.1)'}
+                                    onMouseLeave={(e) => e.target.style.background = svc.vendor_id === v.vendor_id ? 'rgba(37, 99, 235, 0.2)' : 'transparent'}
+                                    onClick={() => {
+                                      handleAssign(svc.svc_id, v.vendor_id, null)
+                                      setJobDetail(prev => ({
+                                        ...prev,
+                                        services: prev.services.map(s =>
+                                          s.svc_id === svc.svc_id ? { ...s, showVendorDropdown: false, vendorSearch: '', vendor_name: v.short_name || v.company_name } : s
+                                        )
+                                      }))
+                                    }}
+                                  >
+                                    🏢 {v.short_name || v.company_name}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                          <span>hoặc</span>
+                          <select
+                            value={svc.employee_id || ''}
+                            onChange={e => handleAssign(svc.svc_id, null, e.target.value ? parseInt(e.target.value) : null)}
+                            disabled={saving}
+                          >
+                            <option value="">-- Nhân viên --</option>
+                            {employees.map(e => (
+                              <option key={e.employee_id} value={e.employee_id}>👤 {e.full_name}</option>
+                            ))}
+                          </select>
+                        </div>
+                      ) : (
+                        <span className={`assigned-badge ${svc.vendor_id ? 'vendor' : svc.employee_id ? 'employee' : 'unassigned'}`}>
+                          {svc.vendor_id ? '🏢 ' : svc.employee_id ? '👤 ' : ''}
+                          {svc.vendor_name || svc.employee_name || 'Chưa gán'}
+                        </span>
+                      )}
                     </div>
+
                     <div className="service-details-grid">
                       {svc.cargo_type && <div><strong>Hàng:</strong> {svc.cargo_type}</div>}
                       {svc.weight_kg && <div><strong>Khối lượng:</strong> {svc.weight_kg}kg</div>}
@@ -162,18 +315,6 @@ function JobDetailModal({ job, onClose }) {
                       {svc.dest_address && <div><strong>Điểm đến:</strong> {svc.dest_address}</div>}
                       {svc.scheduled_date && <div><strong>Ngày:</strong> {svc.scheduled_date}</div>}
                       {svc.scheduled_time && <div><strong>Giờ:</strong> {svc.scheduled_time}</div>}
-                      {svc.vehicle_id && <div><strong>Xe:</strong> ID {svc.vehicle_id}</div>}
-                      {svc.driver_id && <div><strong>Tài xế:</strong> ID {svc.driver_id}</div>}
-                      {/* Packing specific */}
-                      {svc.before_length_cm && (
-                        <div><strong>Kích thước trước:</strong> {svc.before_length_cm}x{svc.before_width_cm}x{svc.before_height_cm}cm</div>
-                      )}
-                      {svc.after_length_cm && (
-                        <div><strong>Kích thước sau:</strong> {svc.after_length_cm}x{svc.after_width_cm}x{svc.after_height_cm}cm</div>
-                      )}
-                      {svc.vacuum_pack && <div>✅ Hút chân không</div>}
-                      {svc.shrink_wrap && <div>✅ Màng co</div>}
-                      {svc.lashing && <div>✅ Chằng buộc</div>}
                     </div>
                   </div>
                 ))}
@@ -186,6 +327,7 @@ function JobDetailModal({ job, onClose }) {
 
         <div className="modal-footer">
           <button className="btn-secondary" onClick={onClose}>Đóng</button>
+          {editMode && <button className="btn-primary" onClick={() => { setEditMode(false); onUpdate && onUpdate(); }}>✓ Lưu thay đổi</button>}
         </div>
       </div>
     </div>
@@ -439,13 +581,67 @@ function JobCreateForm({ onClose, onSuccess }) {
 }
 
 // ========================================
-// CHAT WINDOW (simplified)
+// CHAT WINDOW (with Drag-Drop & File Upload)
 // ========================================
+const CHAT_STORAGE_KEY = 'slms_chat_history'
+const CHAT_RETENTION_DAYS = 15
+
 function ChatWindow({ isOpen, onClose }) {
-  const [messages, setMessages] = useState([])
+  const [messages, setMessages] = useState(() => {
+    // Load from localStorage on initial mount
+    try {
+      const saved = localStorage.getItem(CHAT_STORAGE_KEY)
+      if (saved) {
+        const { messages: savedMessages, timestamp } = JSON.parse(saved)
+        // Check if within retention period
+        const savedDate = new Date(timestamp)
+        const now = new Date()
+        const diffDays = (now - savedDate) / (1000 * 60 * 60 * 24)
+        if (diffDays < CHAT_RETENTION_DAYS) {
+          return savedMessages || []
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load chat history:', e)
+    }
+    return []
+  })
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [isDragging, setIsDragging] = useState(false)
+  const [attachedFile, setAttachedFile] = useState(null)
   const messagesEndRef = useRef(null)
+  const inputRef = useRef(null)
+  const fileInputRef = useRef(null)
+
+  // Edit mode state
+  const [editingMsgIndex, setEditingMsgIndex] = useState(null)
+  const [editFormData, setEditFormData] = useState({})
+  const [customers, setCustomers] = useState([])
+  const [customerSearch, setCustomerSearch] = useState('')
+  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false)
+
+  // Fetch customers list
+  useEffect(() => {
+    fetch(`${API_URL}/api/chat/search-customers`)
+      .then(res => res.json())
+      .then(data => setCustomers(data.customers || []))
+      .catch(err => console.error('Failed to load customers:', err))
+  }, [])
+
+  // Save to localStorage when messages change
+  useEffect(() => {
+    if (messages.length > 0) {
+      try {
+        localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify({
+          messages,
+          timestamp: new Date().toISOString()
+        }))
+      } catch (e) {
+        console.error('Failed to save chat history:', e)
+      }
+    }
+  }, [messages])
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -455,23 +651,142 @@ function ChatWindow({ isOpen, onClose }) {
     scrollToBottom()
   }, [messages])
 
-  const handleSend = async () => {
-    if (!input.trim() || isLoading) return
 
-    const userMessage = { role: 'user', content: input, timestamp: new Date().toLocaleTimeString('vi-VN') }
+  // ESC key to close, focus input when opened
+  useEffect(() => {
+    if (!isOpen) return
+
+    // Scroll to bottom when chat window opens
+    scrollToBottom()
+
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        onClose()
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    // Focus input when chat opens
+    setTimeout(() => inputRef.current?.focus(), 100)
+
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [isOpen, onClose])
+
+  // Drag & Drop handlers
+  const handleDragOver = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(true)
+  }
+
+  const handleDragLeave = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(false)
+  }
+
+  const handleDrop = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(false)
+
+    const files = e.dataTransfer.files
+    if (files && files.length > 0) {
+      handleFileSelect(files[0])
+    }
+  }
+
+  // File selection handler
+  const handleFileSelect = (file) => {
+    const allowedTypes = [
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // xlsx
+      'application/vnd.ms-excel', // xls
+      'application/pdf',
+      'image/png',
+      'image/jpeg',
+      'image/jpg'
+    ]
+
+    if (!allowedTypes.includes(file.type)) {
+      alert('Chỉ hỗ trợ file Excel, PDF hoặc ảnh (PNG/JPG)')
+      return
+    }
+
+    setAttachedFile(file)
+  }
+
+  // File input change
+  const handleFileInputChange = (e) => {
+    if (e.target.files && e.target.files.length > 0) {
+      handleFileSelect(e.target.files[0])
+    }
+  }
+
+  // Remove attached file
+  const removeAttachedFile = () => {
+    setAttachedFile(null)
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
+  }
+
+  // Send message (with optional file)
+  const handleSend = async () => {
+    if ((!input.trim() && !attachedFile) || isLoading) return
+
+    const userMessage = {
+      role: 'user',
+      content: input || (attachedFile ? `📎 ${attachedFile.name}` : ''),
+      hasFile: !!attachedFile,
+      fileName: attachedFile?.name,
+      timestamp: new Date().toISOString()
+    }
     setMessages(prev => [...prev, userMessage])
+    const currentInput = input
+    const currentFile = attachedFile
     setInput('')
+    setAttachedFile(null)
     setIsLoading(true)
 
     try {
-      const response = await fetch(`${API_URL}/api/chat/process`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: input, content_type: 'text' })
-      })
+      let result
 
-      if (!response.ok) throw new Error('AI processing failed')
-      const result = await response.json()
+      if (currentFile) {
+        // Upload file
+        const formData = new FormData()
+
+        // Check if image or document
+        if (currentFile.type.startsWith('image/')) {
+          formData.append('image', currentFile)
+          formData.append('context', JSON.stringify({ additional_text: currentInput }))
+
+          const response = await fetch(`${API_URL}/api/chat/process-image`, {
+            method: 'POST',
+            body: formData
+          })
+          if (!response.ok) throw new Error('Image processing failed')
+          result = await response.json()
+        } else {
+          formData.append('file', currentFile)
+          formData.append('context', JSON.stringify({ additional_text: currentInput }))
+
+          const response = await fetch(`${API_URL}/api/chat/process-file`, {
+            method: 'POST',
+            body: formData
+          })
+          if (!response.ok) throw new Error('File processing failed')
+          result = await response.json()
+        }
+      } else {
+        // Text only
+        const response = await fetch(`${API_URL}/api/chat/process`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: currentInput, content_type: 'text' })
+        })
+        if (!response.ok) throw new Error('AI processing failed')
+        result = await response.json()
+      }
 
       const aiMessage = {
         role: 'assistant',
@@ -480,19 +795,29 @@ function ChatWindow({ isOpen, onClose }) {
         entities: result.entities,
         enriched_data: result.enriched_data,
         summary: result.display_summary,
-        timestamp: new Date().toLocaleTimeString('vi-VN'),
+        timestamp: new Date().toISOString(),
         status: 'pending'
       }
       setMessages(prev => [...prev, aiMessage])
     } catch (error) {
-      setMessages(prev => [...prev, { role: 'error', content: error.message, timestamp: new Date().toLocaleTimeString('vi-VN') }])
+      setMessages(prev => [...prev, { role: 'error', content: error.message, timestamp: new Date().toISOString() }])
     } finally {
       setIsLoading(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
     }
   }
 
   const handleConfirm = async (msgIndex) => {
     const msg = messages[msgIndex]
+
+    // Use editFormData if available (when edit was done), else use original
+    const finalEntities = editFormData.customer_id
+      ? { ...msg.entities, ...editFormData }
+      : msg.entities
+    const finalEnriched = editFormData.customer_id
+      ? { ...msg.enriched_data, ...editFormData }
+      : msg.enriched_data
+
     setMessages(prev => prev.map((m, i) => i === msgIndex ? { ...m, status: 'confirming' } : m))
 
     try {
@@ -500,23 +825,203 @@ function ChatWindow({ isOpen, onClose }) {
         const response = await fetch(`${API_URL}/api/jobs/create`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ entities: msg.entities, enriched_data: msg.enriched_data })
+          body: JSON.stringify({ entities: finalEntities, enriched_data: finalEnriched })
         })
         const result = await response.json()
         if (!result.success) throw new Error(result.message)
         setMessages(prev => prev.map((m, i) => i === msgIndex ? { ...m, status: 'confirmed', job_number: result.job_number } : m))
+
+      } else if (msg.intent === 'ASSIGN_VEHICLE') {
+        // Handle vehicle assignment
+        const jobId = msg.entities?.job_id || msg.enriched_data?.job_id || (msg.entities?.linked_job_hint ? getJobIdFromHint(msg.entities.linked_job_hint) : null)
+
+        // If we still don't have job_id but we have a job_number hint, try to find it?
+        // Ideally backend should have found job_id during initial processing if context was clear.
+        // For now, assume job_id is present or we can't assign.
+
+        if (!jobId && msg.entities?.job_number) {
+          // Try to use job_number if job_id missing (would need lookup, but let's assume entity has id or we fail)
+          // Actually, let's rely on backend enriching job_id in previous step or prompt user?
+          // Frontend simple fix: check if we have a job context?
+        }
+
+        if (!jobId) {
+          throw new Error('Không tìm thấy Job ID. Vui lòng kiểm tra lại job number.')
+        }
+
+        const payload = {
+          license_plate: finalEntities.license_plate,
+          driver_name: finalEntities.driver_name,
+          driver_phone: finalEntities.driver_phone,
+          driver_id_card: finalEntities.driver_id_card,
+          vendor_name: finalEntities.vendor_name,
+          vehicle_type: finalEntities.vehicle_type
+        }
+
+        const response = await fetch(`${API_URL}/api/jobs/${jobId}/assign-vehicle`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        })
+        const result = await response.json()
+        if (!result.success) throw new Error(result.message)
+
+        // Update message with enriched data for template
+        setMessages(prev => prev.map((m, i) =>
+          i === msgIndex ? {
+            ...m,
+            status: 'confirmed',
+            job_number: result.job_number,
+            enriched_data: { ...m.enriched_data, ...result.enriched_data } // Merge response data
+          } : m
+        ))
+
       } else {
         setMessages(prev => prev.map((m, i) => i === msgIndex ? { ...m, status: 'confirmed' } : m))
       }
+
+      // Reset edit state
+      setEditingMsgIndex(null)
+      setEditFormData({})
     } catch (error) {
-      setMessages(prev => prev.map((m, i) => i === msgIndex ? { ...m, status: 'error', error: error.message } : m))
+      // Keep status as 'pending' so user can continue editing after error
+      setMessages(prev => prev.map((m, i) => i === msgIndex ? {
+        ...m,
+        status: 'pending',  // Allow continued editing
+        lastError: error.message  // Store error separately
+      } : m))
     }
   }
+
+  // Edit handlers
+  const handleEdit = (msgIndex) => {
+    const msg = messages[msgIndex]
+    setEditingMsgIndex(msgIndex)
+    setEditFormData({
+      customer_id: msg.enriched_data?.customer_id,
+      customer_code: msg.enriched_data?.customer_code || msg.entities?.customer_code,
+      customer_name: msg.enriched_data?.customer_name,
+      booking_date: msg.entities?.booking_date,
+      pickup_time: msg.entities?.pickup_time,
+      cargo_type: msg.entities?.cargo_type,
+      package_quantity: msg.entities?.package_quantity,
+      package_unit: msg.entities?.package_unit || 'kiện',
+      pickup_address: msg.entities?.pickup_address,
+      delivery_address: msg.entities?.delivery_address,
+      vehicle_type: msg.entities?.vehicle_type,
+      // Vehicle Assignment Fields
+      license_plate: msg.entities?.license_plate,
+      driver_name: msg.entities?.driver_name,
+      driver_phone: msg.entities?.driver_phone,
+      driver_id_card: msg.entities?.driver_id_card || msg.entities?.driver_cccd,
+      vendor_name: msg.entities?.vendor_name,
+      job_number: msg.entities?.job_number || msg.enriched_data?.job_number,
+      linked_job_hint: msg.entities?.linked_job_hint,
+    })
+    setCustomerSearch(msg.enriched_data?.customer_name || msg.entities?.customer_code || '')
+  }
+
+  const handleSaveEdit = (msgIndex) => {
+    // Update message with edited data
+    setMessages(prev => prev.map((m, i) => {
+      if (i !== msgIndex) return m
+      return {
+        ...m,
+        entities: { ...m.entities, ...editFormData },
+        enriched_data: { ...m.enriched_data, ...editFormData }
+      }
+    }))
+    setEditingMsgIndex(null)
+  }
+
+  const handleCancelEdit = () => {
+    setEditingMsgIndex(null)
+    setEditFormData({})
+    setShowCustomerDropdown(false)
+  }
+
+  // Handle edit confirmed job (reset to pending status)
+  const handleEditConfirmed = (msgIndex) => {
+    const msg = messages[msgIndex]
+    // Reset status to pending so user can edit and re-confirm
+    setMessages(prev => prev.map((m, i) =>
+      i === msgIndex ? { ...m, status: 'pending' } : m
+    ))
+    // Open edit form
+    handleEdit(msgIndex)
+  }
+
+  // Handle cancel/delete job
+  const handleCancelJob = async (msgIndex) => {
+    const msg = messages[msgIndex]
+    if (!confirm(`Bạn có chắc muốn huỷ job ${msg.job_number || ''}?`)) return
+
+    try {
+      // Call API to cancel job if it exists in DB
+      if (msg.job_id || msg.job_number) {
+        const response = await fetch(`${API_URL}/api/jobs/update`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            entities: {
+              job_number: msg.job_number,
+              new_status: 'CANCELLED'
+            }
+          })
+        })
+        const result = await response.json()
+        if (!result.success) {
+          console.warn('Failed to cancel job in DB:', result.message)
+        }
+      }
+
+      // Mark message as cancelled
+      setMessages(prev => prev.map((m, i) =>
+        i === msgIndex ? { ...m, status: 'cancelled' } : m
+      ))
+    } catch (error) {
+      console.error('Error cancelling job:', error)
+      alert('Lỗi huỷ job: ' + error.message)
+    }
+  }
+
+  const handleSelectCustomer = (customer) => {
+    setEditFormData(prev => ({
+      ...prev,
+      customer_id: customer.id,
+      customer_code: customer.code,
+      customer_name: customer.name
+    }))
+    setCustomerSearch(customer.name || customer.code)
+    setShowCustomerDropdown(false)
+  }
+
+  // Filter customers based on search
+  const filteredCustomers = customers.filter(c =>
+    (c.name?.toLowerCase() || '').includes(customerSearch.toLowerCase()) ||
+    (c.code?.toLowerCase() || '').includes(customerSearch.toLowerCase())
+  ).slice(0, 10)
 
   if (!isOpen) return null
 
   return (
-    <div className="chat-window">
+    <div
+      className={`chat-window ${isDragging ? 'dragging' : ''}`}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {/* Drop zone overlay */}
+      {isDragging && (
+        <div className="chat-drop-overlay">
+          <div className="drop-zone-content">
+            <span className="drop-icon">📁</span>
+            <span>Thả file vào đây</span>
+            <span className="drop-hint">Excel, PDF hoặc ảnh</span>
+          </div>
+        </div>
+      )}
+
       <div className="chat-header">
         <div className="chat-header-info">
           <div className="chat-avatar">🤖</div>
@@ -533,26 +1038,367 @@ function ChatWindow({ isOpen, onClose }) {
           <div className="chat-welcome">
             <span className="welcome-icon">💬</span>
             <p>Paste tin nhắn hoặc nhập yêu cầu...</p>
+            <div className="welcome-shortcuts">
+              <span>📎 Kéo thả file Excel/PDF/Ảnh</span>
+              <span>⌨️ Ctrl+K mở/đóng chat</span>
+            </div>
+          </div>
+        )}
+
+        {messages.length > 0 && (
+          <div className="chat-history-info">
+            <span>💾 {messages.length} tin nhắn đã lưu (tự động xóa sau 15 ngày)</span>
+            <button className="clear-history-btn" onClick={() => {
+              if (confirm('Xóa toàn bộ lịch sử chat?')) {
+                setMessages([])
+                localStorage.removeItem(CHAT_STORAGE_KEY)
+              }
+            }}>🗑️ Xóa</button>
           </div>
         )}
 
         {messages.map((msg, idx) => (
           <div key={idx} className={`chat-message ${msg.role}`}>
-            {msg.role === 'user' && <div className="message-bubble user">{msg.content}</div>}
+            {msg.role === 'user' && (
+              <>
+                <div className="message-bubble user">
+                  {msg.hasFile && <span className="file-indicator">📎 {msg.fileName}</span>}
+                  {msg.content}
+                </div>
+                <div className="message-timestamp">
+                  {(() => {
+                    if (!msg.timestamp) return ''
+                    const msgDate = new Date(msg.timestamp)
+                    if (isNaN(msgDate.getTime())) return ''
+                    const now = new Date()
+                    const isToday = msgDate.toDateString() === now.toDateString()
+                    const timeStr = msgDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+                    return isToday ? timeStr : `${msgDate.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })} ${timeStr}`
+                  })()}
+                </div>
+              </>
+            )}
             {msg.role === 'assistant' && (
               <div className="message-bubble assistant">
                 <div className="intent-badges">
                   <span className="intent-badge">{msg.intent}</span>
-                  <span className="confidence-badge">{msg.confidence}%</span>
+                  <span className="confidence-badge">{(msg.confidence * 100).toFixed(0)}%</span>
                 </div>
-                {msg.summary && <div className="message-summary">{msg.summary}</div>}
+
+                {/* Extracted Info Table - VIEW MODE */}
+                {msg.enriched_data && Object.keys(msg.enriched_data).length > 0 && editingMsgIndex !== idx && (
+                  <div className="extracted-info">
+                    <div className="extracted-header">📋 Thông tin trích xuất:</div>
+                    <div className="entities-grid">
+                      {Object.entries(msg.enriched_data).map(([key, value]) => {
+                        if (key.startsWith('available_') || key === 'customer_matched' || key === 'customer_warning' || value === null || value === undefined) return null
+                        return (
+                          <div key={key} className="entity-item">
+                            <span className="entity-key">{key}:</span>
+                            <span className="entity-value">{typeof value === 'object' ? JSON.stringify(value) : String(value)}</span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* EDIT MODE FORM */}
+                {editingMsgIndex === idx && (
+                  <div className="edit-form">
+                    <div className="edit-form-header">✏️ Chỉnh sửa thông tin:</div>
+
+                    {/* Customer Dropdown with Search */}
+                    <div className="edit-field customer-field">
+                      <label>Khách hàng:</label>
+                      <div className="customer-search-container">
+                        {editFormData.customer_id && (
+                          <div className="selected-customer">
+                            ✓ Đã chọn: <strong>{editFormData.customer_code}</strong> - {editFormData.customer_name}
+                            <button type="button" className="btn-change-customer" onClick={() => {
+                              setEditFormData(prev => ({ ...prev, customer_id: null, customer_code: '', customer_name: '' }))
+                              setCustomerSearch('')
+                            }}>Đổi</button>
+                          </div>
+                        )}
+                        {!editFormData.customer_id && (
+                          <>
+                            <input
+                              type="text"
+                              value={customerSearch}
+                              onChange={(e) => {
+                                setCustomerSearch(e.target.value)
+                                setShowCustomerDropdown(true)
+                              }}
+                              onFocus={() => setShowCustomerDropdown(true)}
+                              placeholder="Tìm khách hàng..."
+                              className="customer-search-input"
+                            />
+                            {showCustomerDropdown && filteredCustomers.length > 0 && (
+                              <div className="customer-dropdown">
+                                {filteredCustomers.map(c => (
+                                  <div
+                                    key={c.id}
+                                    className="customer-option"
+                                    onClick={() => handleSelectCustomer(c)}
+                                  >
+                                    <span className="customer-code">{c.code}</span>
+                                    <span className="customer-name">{c.name}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Other editable fields */}
+                    <div className="edit-fields-grid">
+                      <div className="edit-field">
+                        <label>Ngày:</label>
+                        <input
+                          type="date"
+                          value={editFormData.booking_date || ''}
+                          onChange={e => setEditFormData({ ...editFormData, booking_date: e.target.value })}
+                        />
+                      </div>
+                      <div className="edit-field">
+                        <label>Giờ:</label>
+                        <input
+                          type="time"
+                          value={editFormData.pickup_time || ''}
+                          onChange={e => setEditFormData({ ...editFormData, pickup_time: e.target.value })}
+                        />
+                      </div>
+                      <div className="edit-field">
+                        <label>Loại hàng:</label>
+                        <input
+                          type="text"
+                          value={editFormData.cargo_type || ''}
+                          onChange={e => setEditFormData({ ...editFormData, cargo_type: e.target.value })}
+                        />
+                      </div>
+                      <div className="edit-field">
+                        <label>Số kiện:</label>
+                        <input
+                          type="number"
+                          value={editFormData.package_quantity || ''}
+                          onChange={e => setEditFormData({ ...editFormData, package_quantity: parseInt(e.target.value) || 0 })}
+                        />
+                      </div>
+                      <div className="edit-field">
+                        <label>Điểm lấy hàng:</label>
+                        <input
+                          type="text"
+                          value={editFormData.pickup_address || ''}
+                          onChange={e => setEditFormData({ ...editFormData, pickup_address: e.target.value })}
+                        />
+                      </div>
+                      <div className="edit-field">
+                        <label>Điểm giao:</label>
+                        <input
+                          type="text"
+                          value={editFormData.delivery_address || ''}
+                          onChange={e => setEditFormData({ ...editFormData, delivery_address: e.target.value })}
+                        />
+                      </div>
+
+                      {/* ASSIGN_VEHICLE Specific Fields */}
+                      {(messages[idx].intent === 'ASSIGN_VEHICLE' || editFormData.license_plate) && (
+                        <>
+                          <div className="edit-field">
+                            <label>Biển số xe:</label>
+                            <input
+                              type="text"
+                              value={editFormData.license_plate || ''}
+                              onChange={e => setEditFormData({ ...editFormData, license_plate: e.target.value })}
+                              placeholder="29H-..."
+                            />
+                          </div>
+                          <div className="edit-field">
+                            <label>Vendor:</label>
+                            <input
+                              type="text"
+                              value={editFormData.vendor_name || ''}
+                              onChange={e => setEditFormData({ ...editFormData, vendor_name: e.target.value })}
+                              placeholder="Tên nhà xe"
+                            />
+                          </div>
+                          <div className="edit-field">
+                            <label>Tài xế:</label>
+                            <input
+                              type="text"
+                              value={editFormData.driver_name || ''}
+                              onChange={e => setEditFormData({ ...editFormData, driver_name: e.target.value })}
+                              placeholder="Tên tài xế"
+                            />
+                          </div>
+                          <div className="edit-field">
+                            <label>SĐT Tài xế:</label>
+                            <input
+                              type="text"
+                              value={editFormData.driver_phone || ''}
+                              onChange={e => setEditFormData({ ...editFormData, driver_phone: e.target.value })}
+                              placeholder="09..."
+                            />
+                          </div>
+                          <div className="edit-field">
+                            <label>CCCD:</label>
+                            <input
+                              type="text"
+                              value={editFormData.driver_id_card || ''}
+                              onChange={e => setEditFormData({ ...editFormData, driver_id_card: e.target.value })}
+                            />
+                          </div>
+                        </>
+                      )}
+                    </div>
+
+                    <div className="edit-actions">
+                      <button className="btn-save-edit" onClick={() => handleSaveEdit(idx)}>💾 Lưu</button>
+                      <button className="btn-cancel-edit" onClick={handleCancelEdit}>✕ Hủy</button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Warning if customer not matched */}
+                {msg.enriched_data?.customer_warning && editingMsgIndex !== idx && (
+                  <div className="warning-message">⚠️ {msg.enriched_data.customer_warning}</div>
+                )}
+
+                {/* Show error from failed confirmation attempt */}
+                {msg.lastError && (
+                  <div className="error-message">❌ {msg.lastError}</div>
+                )}
+
+                {/* Action Buttons */}
                 {msg.status === 'pending' && (
                   <div className="message-actions">
+                    {editingMsgIndex !== idx && (
+                      <button className="btn-edit" onClick={() => handleEdit(idx)}>✏️ Chỉnh sửa</button>
+                    )}
                     <button className="btn-confirm" onClick={() => handleConfirm(idx)}>✓ Xác nhận</button>
                   </div>
                 )}
-                {msg.status === 'confirmed' && <div className="confirmed-message">✅ Đã xác nhận! {msg.job_number}</div>}
+
+
+                {/* Confirmed - Show Job Number and Vendor Message */}
+                {msg.status === 'confirmed' && (
+                  <div className="confirmed-section">
+                    <div className="confirmed-message">✅ Đã xác nhận thành công! ({msg.job_number})</div>
+
+                    {/* Vendor Message to Copy */}
+                    <div className="vendor-message-section">
+                      <div className="vendor-message-header">🚚 Tin nhắn gửi Vendor:</div>
+                      <pre className="vendor-message-content" onClick={e => {
+                        navigator.clipboard.writeText(e.target.innerText)
+                        alert('Đã copy!')
+                      }}>
+                        {(() => {
+                          // Build cargo info from cargo_items if available
+                          const ent = msg.entities || {}
+                          const enr = msg.enriched_data || {}
+                          const cargoItems = ent.cargo_items || []
+
+                          // Aggregate invoice numbers from cargo_items
+                          let invoices = enr.invoice_numbers || ent.invoice_numbers || ent.invoices || []
+                          if (!invoices.length && cargoItems.length) {
+                            invoices = cargoItems.map(item => item.invoice_no).filter(Boolean)
+                          }
+                          const invoiceStr = Array.isArray(invoices) ? invoices.join(', ') : invoices
+
+                          // Aggregate cargo info
+                          let cargoDesc = ent.cargo_type || enr.cargo_type || ''
+                          let totalPackages = ent.package_quantity || ent.total_packages || 0
+                          let packageUnit = ent.package_unit || 'kiện'
+
+                          if (cargoItems.length) {
+                            // Build from cargo_items
+                            const descriptions = [...new Set(cargoItems.map(i => i.description).filter(Boolean))]
+                            cargoDesc = descriptions.join(', ') || 'PCB'
+                            totalPackages = cargoItems.reduce((sum, item) => sum + (item.package_quantity || 1), 0)
+                            packageUnit = cargoItems[0]?.package_unit || 'kiện'
+                          }
+
+                          // Dimensions
+                          const dims = ent.dimension_length_cm
+                            ? `${ent.dimension_length_cm}x${ent.dimension_width_cm}x${ent.dimension_height_cm}cm`
+                            : (cargoItems.length ? 'Xem chi tiết' : '')
+
+                          return `🚚 YÊU CẦU XE - ${enr.customer_code || ent.customer_code || ''}
+
+📅 Ngày lấy hàng: ${enr.pickup_date || enr.scheduled_date || ent.pickup_date || ent.scheduled_date || ''}
+⏰ Giờ: ${enr.pickup_time || ent.pickup_time || ''}
+📋 Invoice: ${invoiceStr}
+📦 Hàng: ${cargoDesc} - ${totalPackages} ${packageUnit}
+📐 Kích thước: ${dims}
+🚛 Loại xe: ${ent.vehicle_type || enr.vehicle_type || ''}
+📍 Lấy tại: ${enr.pickup_address || ent.pickup_address || ''}
+📍 Giao tại: ${enr.delivery_address || ent.delivery_address || ''}`
+                        })()}
+                      </pre>
+                      <div className="copy-hint">👆 Click để copy</div>
+                    </div>
+
+                    {/* Reply button for CREATE_JOB to assign vehicle */}
+                    {msg.intent === 'CREATE_JOB' && (
+                      <div className="reply-section">
+                        <button
+                          className="btn-reply"
+                          onClick={() => {
+                            // Pre-populate input with job context for vehicle assignment
+                            const replyText = `xe [BKS] / tài xế [Tên] / vendor [Tên vendor] cho job ${msg.job_number}`
+                            setInput(replyText)
+                            inputRef.current?.focus()
+                            // Select the placeholder text for easy replacement
+                            setTimeout(() => {
+                              const inp = inputRef.current
+                              if (inp) {
+                                inp.setSelectionRange(3, 8) // Select [BKS]
+                              }
+                            }, 50)
+                          }}
+                        >
+                          🚗 Gán xe vào job này
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Edit/Cancel buttons for confirmed jobs */}
+                    <div className="confirmed-actions">
+                      <button className="btn-edit-confirmed" onClick={() => handleEditConfirmed(idx)}>
+                        ✏️ Sửa
+                      </button>
+                      <button className="btn-cancel-job" onClick={() => handleCancelJob(idx)}>
+                        ❌ Huỷ Job
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Cancelled Status */}
+                {msg.status === 'cancelled' && (
+                  <div className="cancelled-section">
+                    <div className="cancelled-message">🚫 Job đã bị huỷ ({msg.job_number})</div>
+                  </div>
+                )}
+
+                {msg.status === 'confirming' && <div className="loading-message">⏳ Đang xử lý...</div>}
                 {msg.status === 'error' && <div className="error-message">❌ {msg.error}</div>}
+
+                {/* Timestamp */}
+                <div className="message-timestamp">
+                  {(() => {
+                    if (!msg.timestamp) return ''
+                    const msgDate = new Date(msg.timestamp)
+                    if (isNaN(msgDate.getTime())) return ''
+                    const now = new Date()
+                    const isToday = msgDate.toDateString() === now.toDateString()
+                    const timeStr = msgDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+                    return isToday ? timeStr : `${msgDate.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })} ${timeStr}`
+                  })()}
+                </div>
               </div>
             )}
             {msg.role === 'error' && <div className="message-bubble error">❌ {msg.content}</div>}
@@ -562,13 +1408,71 @@ function ChatWindow({ isOpen, onClose }) {
         <div ref={messagesEndRef} />
       </div>
 
+      {/* Attached file preview */}
+      {attachedFile && (
+        <div className="attached-file-preview">
+          <span className="file-icon">
+            {attachedFile.type.startsWith('image/') ? '🖼️' :
+              attachedFile.type.includes('pdf') ? '📄' : '📊'}
+          </span>
+          <span className="file-name">{attachedFile.name}</span>
+          <span className="file-size">({(attachedFile.size / 1024).toFixed(1)} KB)</span>
+          <button className="remove-file" onClick={removeAttachedFile}>✕</button>
+        </div>
+      )}
+
       <div className="chat-input-area">
+        {/* Hidden file input */}
         <input
-          type="text" value={input} onChange={e => setInput(e.target.value)}
-          onKeyPress={e => e.key === 'Enter' && handleSend()}
-          placeholder="Paste tin nhắn hoặc nhập yêu cầu..." className="chat-input"
+          ref={fileInputRef}
+          type="file"
+          accept=".xlsx,.xls,.pdf,.png,.jpg,.jpeg"
+          style={{ display: 'none' }}
+          onChange={handleFileInputChange}
         />
-        <button onClick={handleSend} disabled={isLoading} className="chat-send-btn">🚀 Gửi</button>
+
+        {/* Attachment button */}
+        <button
+          className="attach-btn"
+          onClick={() => fileInputRef.current?.click()}
+          title="Đính kèm file (Excel, PDF, Ảnh)"
+        >
+          📎
+        </button>
+
+        <textarea
+          ref={inputRef}
+          value={input}
+          onChange={e => {
+            setInput(e.target.value)
+            e.target.style.height = 'auto'
+            e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px'
+          }}
+          onKeyDown={e => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault()
+              handleSend()
+            }
+          }}
+          onPaste={e => {
+            // Handle paste images
+            const items = e.clipboardData?.items
+            if (items) {
+              for (let i = 0; i < items.length; i++) {
+                if (items[i].type.indexOf('image') !== -1) {
+                  e.preventDefault()
+                  const file = items[i].getAsFile()
+                  if (file) handleFileSelect(file)
+                  break
+                }
+              }
+            }
+          }}
+          placeholder="Paste tin nhắn, kéo thả file, hoặc Ctrl+V ảnh..."
+          className="chat-input"
+          rows="1"
+        />
+        <button onClick={handleSend} disabled={isLoading} className="chat-send-btn">🚀</button>
       </div>
     </div>
   )
@@ -590,6 +1494,57 @@ function App() {
   const [selectedJob, setSelectedJob] = useState(null)
   const [showJobDetail, setShowJobDetail] = useState(false)
   const [showJobCreate, setShowJobCreate] = useState(false)
+
+  // ========================================
+  // KEYBOARD SHORTCUTS
+  // ========================================
+  useEffect(() => {
+    const handleGlobalKeyDown = (e) => {
+      // Skip if user is typing in an input/textarea
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') {
+        // Only handle Escape in inputs
+        if (e.key === 'Escape') {
+          e.target.blur()
+          setChatOpen(false)
+          setShowJobDetail(false)
+          setShowJobCreate(false)
+        }
+        return
+      }
+
+      // Ctrl/Cmd + K: Toggle AI Chat
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault()
+        setChatOpen(prev => !prev)
+      }
+      // Ctrl/Cmd + N: New Job
+      if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+        e.preventDefault()
+        setShowJobCreate(true)
+      }
+      // Ctrl/Cmd + F: Focus Search
+      if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+        e.preventDefault()
+        document.querySelector('.search-input')?.focus()
+      }
+      // Escape: Close modals
+      if (e.key === 'Escape') {
+        setChatOpen(false)
+        setShowJobDetail(false)
+        setShowJobCreate(false)
+      }
+      // Number keys 1-5: Quick navigation
+      if (!e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
+        const navMap = { '1': 'dashboard', '2': 'jobs', '3': 'trucking', '4': 'warehouse', '5': 'customs' }
+        if (navMap[e.key]) {
+          setActiveNav(navMap[e.key])
+        }
+      }
+    }
+
+    document.addEventListener('keydown', handleGlobalKeyDown)
+    return () => document.removeEventListener('keydown', handleGlobalKeyDown)
+  }, [])
 
   // Fetch dashboard data
   useEffect(() => {
@@ -647,7 +1602,14 @@ function App() {
   }
 
   const handleViewJob = (job) => {
-    setSelectedJob(job)
+    // Ensure we have job_id - it might be named differently in different views
+    const jobId = job.job_id || job.svc_job_id || job.id
+    if (!jobId) {
+      console.error('Missing job_id in job data:', job)
+      alert('Không tìm thấy job ID')
+      return
+    }
+    setSelectedJob({ ...job, job_id: jobId })
     setShowJobDetail(true)
   }
 
@@ -722,7 +1684,6 @@ function App() {
               <span className="search-icon">🔍</span>
               <input type="text" placeholder="Search jobs, customers..." className="search-input" />
             </div>
-            <button className="notification-btn">🔔<span className="notification-dot" /></button>
             <div className="user-avatar">KH</div>
           </div>
         </header>
@@ -799,8 +1760,32 @@ function App() {
             <div className="card full-width">
               <div className="card-header">
                 <h3 className="card-title">{getServiceIcon(activeNav)} {activeNav.charAt(0).toUpperCase() + activeNav.slice(1)} Services</h3>
-                <button className="add-job-btn" onClick={() => setShowJobCreate(true)}>+ New Job</button>
+                <div className="header-actions">
+                  {/* Export Button with Month Filter */}
+                  <div className="export-section">
+                    <input
+                      type="month"
+                      className="export-month-input"
+                      onChange={(e) => {
+                        const month = e.target.value
+                        if (month) {
+                          window.open(`${API_URL}/api/jobs/export/${activeNav}?month=${month}`, '_blank')
+                        }
+                      }}
+                      title="Chọn tháng để xuất Excel"
+                    />
+                    <button
+                      className="export-btn"
+                      onClick={() => window.open(`${API_URL}/api/jobs/export/${activeNav}`, '_blank')}
+                      title="Xuất tất cả ra Excel"
+                    >
+                      📥 Xuất Excel
+                    </button>
+                  </div>
+                  <button className="add-job-btn" onClick={() => setShowJobCreate(true)}>+ New Job</button>
+                </div>
               </div>
+
               <table className="services-table">
                 <thead>
                   <tr>

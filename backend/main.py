@@ -91,3 +91,96 @@ async def list_customers():
         return {"customers": customers}
     except Exception as e:
         return {"customers": [], "error": str(e)}
+
+
+@app.get("/api/vendors")
+async def list_vendors():
+    """Get vendors for dropdown in assignment form"""
+    from app.services.data_service import get_data_service
+    data_service = get_data_service()
+    conn = data_service._get_connection()
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute("""
+            SELECT vendor_id, vendor_code, short_name, company_name, vendor_type 
+            FROM vendors 
+            WHERE is_active = true
+            ORDER BY short_name
+        """)
+        vendors = [dict(row) for row in cursor.fetchall()]
+        return {"vendors": vendors}
+    except Exception as e:
+        return {"vendors": [], "error": str(e)}
+
+
+@app.get("/api/employees")
+async def list_employees():
+    """Get employees for dropdown in assignment form"""
+    from app.services.data_service import get_data_service
+    data_service = get_data_service()
+    conn = data_service._get_connection()
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute("""
+            SELECT employee_id, employee_code, full_name, short_name, department, position 
+            FROM employees 
+            WHERE is_active = true
+            ORDER BY full_name
+        """)
+        employees = [dict(row) for row in cursor.fetchall()]
+        return {"employees": employees}
+    except Exception as e:
+        return {"employees": [], "error": str(e)}
+
+
+from pydantic import BaseModel
+from typing import Optional
+
+class AssignServiceRequest(BaseModel):
+    vendor_id: Optional[int] = None
+    employee_id: Optional[int] = None
+    status_code: Optional[str] = None
+
+@app.put("/api/services/{svc_id}/assign")
+async def assign_service(svc_id: int, request: AssignServiceRequest):
+    """Assign vendor or employee to a service"""
+    from app.services.data_service import get_data_service
+    data_service = get_data_service()
+    conn = data_service._get_connection()
+    cursor = conn.cursor()
+    
+    try:
+        updates = []
+        params = []
+        
+        if request.vendor_id is not None:
+            updates.append("vendor_id = %s")
+            params.append(request.vendor_id if request.vendor_id > 0 else None)
+        
+        if request.employee_id is not None:
+            updates.append("employee_id = %s")
+            params.append(request.employee_id if request.employee_id > 0 else None)
+        
+        if request.status_code:
+            updates.append("status_code = %s")
+            params.append(request.status_code)
+        
+        if not updates:
+            return {"success": False, "message": "No fields to update"}
+        
+        updates.append("updated_at = NOW()")
+        params.append(svc_id)
+        
+        cursor.execute(f"""
+            UPDATE job_services 
+            SET {', '.join(updates)}
+            WHERE svc_id = %s
+        """, params)
+        conn.commit()
+        
+        return {"success": True, "message": "Service updated successfully"}
+    except Exception as e:
+        conn.rollback()
+        return {"success": False, "message": str(e)}

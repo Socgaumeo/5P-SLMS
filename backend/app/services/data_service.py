@@ -60,6 +60,7 @@ class DataService:
             customer_code = entities.get("customer_code")
             enriched["customer_matched"] = False  # Track if customer was found
             
+            # Search by customer_code first
             if customer_code:
                 cursor.execute("""
                     SELECT customer_id, customer_code, company_name, short_name
@@ -73,21 +74,44 @@ class DataService:
                     enriched["customer_code"] = customer["customer_code"]
                     enriched["customer_name"] = customer["short_name"] or customer["company_name"]
                     enriched["customer_matched"] = True
-                else:
-                    # Customer not found - get list of available customers for selection
+            
+            # Fallback: search customer from pickup_address if not matched
+            if not enriched["customer_matched"]:
+                pickup_addr = entities.get("pickup_address", "")
+                delivery_addr = entities.get("delivery_address", "")
+                search_terms = [t.strip() for t in (pickup_addr + " " + delivery_addr).split() if len(t.strip()) > 2]
+                
+                for term in search_terms:
                     cursor.execute("""
-                        SELECT customer_id, customer_code, short_name 
+                        SELECT customer_id, customer_code, company_name, short_name
                         FROM customers 
-                        WHERE is_active = TRUE
-                        ORDER BY short_name
-                        LIMIT 20
-                    """)
-                    available = cursor.fetchall()
-                    enriched["available_customers"] = [
-                        {"id": c["customer_id"], "code": c["customer_code"], "name": c["short_name"]}
-                        for c in available
-                    ]
-                    enriched["customer_warning"] = f"Không tìm thấy khách hàng '{customer_code}' trong DB. Vui lòng chọn khách hàng đúng."
+                        WHERE customer_code ILIKE %s OR short_name ILIKE %s OR company_name ILIKE %s
+                        LIMIT 1
+                    """, (f"%{term}%", f"%{term}%", f"%{term}%"))
+                    customer = cursor.fetchone()
+                    if customer:
+                        enriched["customer_id"] = customer["customer_id"]
+                        enriched["customer_code"] = customer["customer_code"]
+                        enriched["customer_name"] = customer["short_name"] or customer["company_name"]
+                        enriched["customer_matched"] = True
+                        enriched["customer_from_address"] = term  # Note that we matched from address
+                        break
+            
+            # If still not matched, show available customers
+            if not enriched["customer_matched"]:
+                cursor.execute("""
+                    SELECT customer_id, customer_code, short_name 
+                    FROM customers 
+                    WHERE is_active = TRUE
+                    ORDER BY short_name
+                    LIMIT 20
+                """)
+                available = cursor.fetchall()
+                enriched["available_customers"] = [
+                    {"id": c["customer_id"], "code": c["customer_code"], "name": c["short_name"]}
+                    for c in available
+                ]
+                enriched["customer_warning"] = f"Không tìm thấy khách hàng '{customer_code or 'N/A'}' trong DB. Vui lòng chọn khách hàng đúng."
             
             # Lookup route based on addresses
             pickup = entities.get("pickup_address", "")
@@ -122,7 +146,7 @@ class DataService:
                 
                 # Get suggested vendor and cost
                 cursor.execute("""
-                    SELECT v.vendor_id, v.vendor_name, v.short_name, vr.price as cost
+                    SELECT v.vendor_id, v.company_name, v.short_name, vr.price as cost
                     FROM vendor_rates vr
                     JOIN vendors v ON vr.vendor_id = v.vendor_id
                     WHERE vr.route_id = %s AND vr.vehicle_type = %s
@@ -137,7 +161,7 @@ class DataService:
                 if vendor_rate:
                     pricing["cost"] = float(vendor_rate["cost"])
                     enriched["vendor_id"] = vendor_rate["vendor_id"]
-                    enriched["vendor_name"] = vendor_rate["short_name"] or vendor_rate["vendor_name"]
+                    enriched["vendor_name"] = vendor_rate["short_name"] or vendor_rate["company_name"]
                 
                 if "revenue" in pricing and "cost" in pricing:
                     pricing["profit"] = pricing["revenue"] - pricing["cost"]
@@ -247,10 +271,55 @@ class DataService:
         cursor = conn.cursor()
         
         try:
-            # Find pending jobs that might match (use job_services for trucking)
+            # First priority: Lookup by job_number if provided
+            job_number = entities.get("job_number")
+            if job_number:
+                cursor.execute("""
+                    SELECT j.job_id, j.job_no, c.customer_code, js.scheduled_date, js.scheduled_time,
+                           js.service_details, js.origin_address, js.dest_address, j.description
+                    FROM jobs j
+                    JOIN customers c ON j.customer_id = c.customer_id  
+                    LEFT JOIN job_services js ON j.job_id = js.job_id
+                    WHERE j.job_no ILIKE %s
+                    LIMIT 1
+                """, (f"%{job_number}%",))
+                
+                matched_job = cursor.fetchone()
+                
+                if matched_job:
+                    enriched["job_id"] = matched_job["job_id"]
+                    enriched["job_number"] = matched_job["job_no"]
+                    enriched["job_customer"] = matched_job["customer_code"]
+                    enriched["job_date"] = str(matched_job["scheduled_date"]) if matched_job.get("scheduled_date") else None
+                    enriched["pickup_address"] = matched_job.get("origin_address")
+                    enriched["delivery_address"] = matched_job.get("dest_address")
+                    
+                    # Parse description for cargo if needed
+                    if matched_job.get("description"):
+                        enriched["cargo_type"] = matched_job["description"].split("-")[0].strip()
+                    
+                    # Parse service_details
+                    if matched_job.get("service_details"):
+                        details = matched_job["service_details"]
+                        if isinstance(details, str):
+                            details = json.loads(details)
+                        if details.get("invoice_numbers"):
+                            enriched["invoice_numbers"] = details["invoice_numbers"]
+                        if details.get("package_quantity"):
+                            enriched["package_quantity"] = details["package_quantity"]
+                        if details.get("package_unit"):
+                            enriched["package_unit"] = details["package_unit"]
+                    
+                    # Found via job_number, skip pending jobs query
+                    cursor.close()
+                    conn.close()
+                    return enriched
+            
+            # Fallback: Find pending jobs that might match (use job_services for trucking)
+            # Fetch FULL details needed for Vendor Message
             cursor.execute("""
                 SELECT j.job_id, j.job_no, c.customer_code, js.scheduled_date, js.scheduled_time,
-                       js.service_details
+                       js.service_details, js.origin_address, js.dest_address, j.description
                 FROM jobs j
                 JOIN customers c ON j.customer_id = c.customer_id
                 LEFT JOIN job_services js ON j.job_id = js.job_id
@@ -262,12 +331,16 @@ class DataService:
             pending_jobs = cursor.fetchall()
             
             # Try to match based on hints
-            hint = entities.get("linked_job_hint", "")
+            hint = entities.get("linked_job_hint", "") or entities.get("job_number", "")
             matched_job = None
             
             for job in pending_jobs:
+                # Match by Job Number (First Priority)
+                if hint and job["job_no"] and job["job_no"].upper() in hint.upper():
+                    matched_job = job
+                    break
                 # Match by customer code in hint
-                if job["customer_code"] and job["customer_code"].lower() in hint.lower():
+                elif job["customer_code"] and job["customer_code"].lower() in hint.lower():
                     matched_job = job
                     break
             
@@ -280,13 +353,27 @@ class DataService:
                 enriched["job_number"] = matched_job["job_no"]
                 enriched["job_customer"] = matched_job["customer_code"]
                 enriched["job_date"] = str(matched_job["scheduled_date"]) if matched_job.get("scheduled_date") else None
-                # Get invoice from service_details if available
+                
+                # New fields for Vendor Message
+                enriched["pickup_address"] = matched_job.get("origin_address")
+                enriched["delivery_address"] = matched_job.get("dest_address")
+                
+                # Parse description for cargo info
+                if matched_job.get("description"):
+                     # Basic heuristic: First part of description
+                     enriched["cargo_type"] = matched_job["description"].split("-")[0].strip()
+
+                # Get invoice/cargo from service_details if available
                 if matched_job.get("service_details"):
                     details = matched_job["service_details"]
                     if isinstance(details, str):
                         details = json.loads(details)
                     if details.get("invoice_numbers"):
                         enriched["invoice_numbers"] = details["invoice_numbers"]
+                    if details.get("package_quantity"):
+                        enriched["package_quantity"] = details["package_quantity"]
+                    if details.get("package_unit"):
+                        enriched["package_unit"] = details["package_unit"]
             
             # Lookup driver if exists
             license_plate = entities.get("license_plate", "").replace(" ", "").replace(".", "")
@@ -389,12 +476,36 @@ class DataService:
             cargo_items = job_data.get("cargo_items", [])
             packing_items = job_data.get("packing_items", [])
             
-            # Use cargo_items for general services, packing_items for SVC_* services
-            items_to_process = packing_items if service_type.startswith("SVC") else cargo_items
+            logger.info(f"cargo_items from job_data: {cargo_items}")
+            logger.info(f"cargo_items type: {type(cargo_items)}")
+            logger.info(f"packing_items from job_data: {packing_items}")
             
-            if items_to_process:
+            # For trucking/warehouse: use cargo_items
+            # For packing (SVC_*): use packing_items
+            if service_type.startswith("SVC"):
+                items_to_process = packing_items
+            else:
+                items_to_process = cargo_items
+            
+            logger.info(f"Items to process: {len(items_to_process) if items_to_process else 0} items")
+            logger.info(f"items_to_process content: {items_to_process}")
+            
+            # CREATE SERVICES FROM CARGO ITEMS (if any)
+            if items_to_process and len(items_to_process) > 0:
+                logger.info(">>> Creating job_services from cargo_items")
+
                 # Create job_service for each cargo/packing item
                 for item in items_to_process:
+                    # Build service_details JSONB
+                    import json
+                    service_details_json = {
+                        "invoice_numbers": [item.get("invoice_no")] if item.get("invoice_no") else (job_data.get("invoice_numbers") or []),
+                        "cargo_items": [item] if item else [],
+                        "package_quantity": item.get("package_quantity") or 1,
+                        "package_unit": item.get("package_unit") or job_data.get("package_unit") or "kiện",
+                        "cargo_type": item.get("description") or job_data.get("cargo_type"),
+                    }
+                    service_details_str = json.dumps(service_details_json)
                     cursor.execute("""
                         INSERT INTO job_services (
                             job_id, service_type_code, scheduled_date, scheduled_time,
@@ -408,7 +519,8 @@ class DataService:
                             packing_type, items_count, packages_output,
                             before_length_cm, before_width_cm, before_height_cm,
                             after_length_cm, after_width_cm, after_height_cm,
-                            shrink_wrap, vacuum_pack, lashing, fumigation
+                            shrink_wrap, vacuum_pack, lashing, fumigation,
+                            service_details
                         ) VALUES (
                             %s, %s, %s, %s, %s, %s, %s, 'PENDING',
                             %s, %s, %s, %s,
@@ -420,7 +532,8 @@ class DataService:
                             %s, %s, %s,
                             %s, %s, %s,
                             %s, %s, %s,
-                            %s, %s, %s, %s
+                            %s, %s, %s, %s,
+                            %s
                     ) RETURNING svc_id
                     """, (
                         job_id,
@@ -467,7 +580,8 @@ class DataService:
                         item.get("shrink_wrap") or False,
                         item.get("vacuum_pack") or False,
                         item.get("lashing") or False,
-                        item.get("fumigation") or False
+                        item.get("fumigation") or False,
+                        service_details_str  # Add service_details JSON
                     ))
                     
                     svc = cursor.fetchone()
@@ -479,6 +593,24 @@ class DataService:
             
             # Insert each service (for non-packing or single-item packing)
             for svc_type in services:
+                # Build service_details JSONB for this service
+                import json
+                invoice_nums = job_data.get("invoice_numbers") or []
+                if isinstance(invoice_nums, str):
+                    invoice_nums = [i.strip() for i in invoice_nums.split(",") if i.strip()]
+                
+                service_details_json = {
+                    "invoice_numbers": invoice_nums,
+                    "cargo_items": [],  # No items in single-service mode
+                    "package_quantity": job_data.get("package_quantity") or 0,
+                    "package_unit": job_data.get("package_unit") or "kiện",
+                    "cargo_type": job_data.get("cargo_type"),
+                    "dimension_length_cm": job_data.get("dimension_length_cm"),
+                    "dimension_width_cm": job_data.get("dimension_width_cm"),
+                    "dimension_height_cm": job_data.get("dimension_height_cm"),
+                }
+                service_details_str = json.dumps(service_details_json)
+                
                 cursor.execute("""
                     INSERT INTO job_services (
                         job_id, service_type_code, scheduled_date, scheduled_time,
@@ -494,7 +626,8 @@ class DataService:
                         packing_type, items_count, packages_output,
                         before_length_cm, before_width_cm, before_height_cm,
                         after_length_cm, after_width_cm, after_height_cm,
-                        shrink_wrap, vacuum_pack, lashing, fumigation
+                        shrink_wrap, vacuum_pack, lashing, fumigation,
+                        service_details
                     ) VALUES (
                         %s, %s, %s, %s, %s, %s, %s, 'PENDING',
                         %s, %s, %s, %s,
@@ -506,7 +639,8 @@ class DataService:
                         %s, %s, %s,
                         %s, %s, %s,
                         %s, %s, %s,
-                        %s, %s, %s, %s
+                        %s, %s, %s, %s,
+                        %s
                     ) RETURNING svc_id
                 """, (
                     job_id,
@@ -551,7 +685,8 @@ class DataService:
                     job_data.get("shrink_wrap") or False,
                     job_data.get("vacuum_pack") or False,
                     job_data.get("lashing") or False,
-                    job_data.get("fumigation") or False
+                    job_data.get("fumigation") or False,
+                    service_details_str  # Add service_details JSONB
                 ))
                 
                 svc = cursor.fetchone()
@@ -581,10 +716,51 @@ class DataService:
         cursor = conn.cursor()
         
         try:
-            # Update job_services with vehicle info
+            vendor_id = None
+            vendor_name = vehicle_data.get("vendor_name")
+            license_plate = vehicle_data.get("license_plate", "").replace(" ", "").replace(".", "")
+            driver_phone = vehicle_data.get("driver_phone", "").replace(" ", "").replace("-", "")
+            
+            # Priority 1: Auto-lookup by license plate in vehicles table
+            if license_plate:
+                cursor.execute("""
+                    SELECT vendor_id FROM vehicles
+                    WHERE REPLACE(REPLACE(plate_number, ' ', ''), '.', '') ILIKE %s
+                    LIMIT 1
+                """, (f"%{license_plate}%",))
+                result = cursor.fetchone()
+                if result and result['vendor_id']:
+                    vendor_id = result['vendor_id']
+                    logger.info(f"Auto-found vendor {vendor_id} by license plate {license_plate}")
+            
+            # Priority 2: Auto-lookup by driver phone in drivers table
+            if driver_phone and not vendor_id:
+                cursor.execute("""
+                    SELECT vendor_id FROM drivers
+                    WHERE REPLACE(REPLACE(phone, ' ', ''), '-', '') ILIKE %s
+                    LIMIT 1
+                """, (f"%{driver_phone}%",))
+                result = cursor.fetchone()
+                if result and result['vendor_id']:
+                    vendor_id = result['vendor_id']
+                    logger.info(f"Auto-found vendor {vendor_id} by driver phone {driver_phone}")
+            
+            # Priority 3: Manual vendor name search if provided and not found yet
+            if vendor_name and not vendor_id:
+                cursor.execute("""
+                    SELECT vendor_id FROM vendors 
+                    WHERE short_name ILIKE %s OR company_name ILIKE %s
+                """, (f"%{vendor_name}%", f"%{vendor_name}%"))
+                result = cursor.fetchone()
+                if result:
+                    vendor_id = result['vendor_id']
+                    logger.info(f"Found vendor {vendor_id} by name {vendor_name}")
+            
+            # Update job_services with vehicle info and vendor_id
             cursor.execute("""
                 UPDATE job_services SET
                     vendor_text_input = %s,
+                    vendor_id = COALESCE(%s, vendor_id),
                     status_code = 'DISPATCHED',
                     updated_at = NOW()
                 WHERE job_id = %s
@@ -594,8 +770,10 @@ class DataService:
                     "license_plate": vehicle_data.get("license_plate"),
                     "driver_name": vehicle_data.get("driver_name"),
                     "driver_phone": vehicle_data.get("driver_phone"),
-                    "driver_id_card": vehicle_data.get("driver_id_card")
+                    "driver_id_card": vehicle_data.get("driver_id_card"),
+                    "vendor_name": vendor_name  # Keep the name text even if ID not found
                 }),
+                vendor_id,
                 job_id
             ))
             
@@ -629,7 +807,7 @@ class DataService:
             cursor.execute("""
                 SELECT j.*, 
                        c.customer_code, c.short_name as customer_name,
-                       v.vendor_name, v.short_name as vendor_short_name,
+                       v.company_name as vendor_name, v.short_name as vendor_short_name,
                        js.scheduled_date, js.scheduled_time, js.origin_address, js.dest_address,
                        js.service_details, js.vendor_text_input
                 FROM jobs j

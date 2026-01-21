@@ -45,6 +45,7 @@ class VehicleAssignRequest(BaseModel):
     driver_name: str
     driver_phone: Optional[str] = None
     driver_id_card: Optional[str] = None
+    vendor_name: Optional[str] = None
 
 
 class JobResponse(BaseModel):
@@ -53,6 +54,7 @@ class JobResponse(BaseModel):
     job_number: Optional[str] = None
     status: Optional[str] = None
     message: Optional[str] = None
+    enriched_data: Optional[Dict[str, Any]] = None
 
 
 # Endpoints
@@ -91,10 +93,11 @@ async def create_job(request: JobCreateFromChatRequest):
             except:
                 pass
         
-        # Handle invoice numbers
-        inv_nums = entities.get('invoice_numbers') or enriched.get('invoice_numbers')
+        # Handle invoice numbers - AI may return 'invoices' or 'invoice_numbers'
+        inv_nums = (entities.get('invoice_numbers') or entities.get('invoices') or 
+                   enriched.get('invoice_numbers') or enriched.get('invoices'))
         if isinstance(inv_nums, list):
-            invoice_numbers = ', '.join(inv_nums)
+            invoice_numbers = ', '.join(str(i) for i in inv_nums)
         else:
             invoice_numbers = inv_nums
         
@@ -222,20 +225,138 @@ async def assign_vehicle(job_id: int, request: VehicleAssignRequest):
             raise HTTPException(404, f"Job {job_id} not found")
         
         # Assign vehicle
-        await data_service.assign_vehicle(job_id, request.model_dump(), user_id=1)
+        await data_service.assign_vehicle(job_id, request.dict(), user_id=1)
         
-        # Get updated job
-        job_data = await data_service.get_job(job_id)
+        # Get updated job with full details for frontend template
+        # Re-using get_job_details logic to fetch everything needed for the message
+        details = await get_job_details(job_id)
+        job_info = details["job"]
+        services = details["services"]
+        
+        # Get first service for time/address details (or aggregate if multiple)
+        first_service = services[0] if services else {}
+        
+        # Map fields to match what frontend expects in enriched_data
+        enriched = {
+            "customer_code": job_info.get("customer_code"),
+            "customer_name": job_info.get("customer_name"),
+            "booking_date": str(first_service.get("scheduled_date") or job_info.get("etd") or ""),
+            "scheduled_date": str(first_service.get("scheduled_date") or job_info.get("etd") or ""),
+            "pickup_date": str(first_service.get("scheduled_date") or job_info.get("etd") or ""),
+            "pickup_time": str(first_service.get("scheduled_time") or ""),
+            "pickup_address": first_service.get("origin_address"),
+            "delivery_address": first_service.get("dest_address"),
+            "vehicle_type": request.model_dump().get("vehicle_type"),
+            "invoice_numbers": [], # Will be populated below
+            "cargo_type": "", # Will be populated below
+            # Include vehicle info we just assigned
+            "license_plate": request.license_plate,
+            "driver_name": request.driver_name,
+            "driver_phone": request.driver_phone,
+            "vendor_name": request.vendor_name 
+        }
+
+        # Extract cargo items and invoices from services
+        all_cargo_items = []
+        invoices = []
+        package_quantity = 0
+        package_unit = "kiện"
+        cargo_descriptions = set()
+        dimensions = None
+        
+        if services:
+            for svc in services:
+                service_details = svc.get("service_details")
+                
+                # Parse service_details if it's a string
+                if isinstance(service_details, str):
+                    try:
+                        import json
+                        service_details = json.loads(service_details)
+                    except:
+                        service_details = {}
+                
+                # Extract invoices from service_details JSONB first
+                if isinstance(service_details, dict):
+                    if service_details.get("invoice_numbers"):
+                        inv_list = service_details["invoice_numbers"]
+                        if isinstance(inv_list, str):
+                            invoices.extend([i.strip() for i in inv_list.split(",")])
+                        elif isinstance(inv_list, list):
+                            invoices.extend(inv_list)
+                    
+                    # Extract cargo items
+                    if service_details.get("cargo_items"):
+                        all_cargo_items.extend(service_details["cargo_items"])
+                    
+                    # Aggregate package quantities
+                    if service_details.get("package_quantity"):
+                        package_quantity += service_details["package_quantity"]
+                    
+                    if service_details.get("package_unit"):
+                        package_unit = service_details["package_unit"]
+                    
+                    # Collect cargo descriptions
+                    if service_details.get("cargo_type"):
+                        cargo_descriptions.add(service_details["cargo_type"])
+                    
+                    # Dimensions
+                    if service_details.get("dimension_length_cm"):
+                        dimensions = {
+                            "length": service_details.get("dimension_length_cm"),
+                            "width": service_details.get("dimension_width_cm"),
+                            "height": service_details.get("dimension_height_cm")
+                        }
+                
+                # FALLBACK: If service_details is empty, read from columns (for old jobs)
+                if not invoices and svc.get("invoice_numbers"):
+                    inv_col = svc["invoice_numbers"]
+                    if isinstance(inv_col, str):
+                        invoices.extend([i.strip() for i in inv_col.split(",") if i.strip()])
+                    elif isinstance(inv_col, list):
+                        invoices.extend(inv_col)
+                
+                # FALLBACK: Get addresses from columns if not in enriched yet
+                if not enriched.get("pickup_address") and svc.get("origin_address"):
+                    enriched["pickup_address"] = svc["origin_address"]
+                if not enriched.get("delivery_address") and svc.get("dest_address"):
+                    enriched["delivery_address"] = svc["dest_address"]
+        
+        enriched["invoice_numbers"] = invoices
+        enriched["cargo_items"] = all_cargo_items
+        enriched["package_quantity"] = package_quantity
+        enriched["package_unit"] = package_unit
+        
+        # If we have cargo items, use their details
+        if all_cargo_items:
+            # Extract invoices from cargo_items  
+            for item in all_cargo_items:
+                if item.get("invoice_no") and item["invoice_no"] not in invoices:
+                    invoices.append(item["invoice_no"])
+            enriched["invoice_numbers"] = invoices  # Update with cargo item invoices
+            
+            cargo_desc = ", ".join(set(item.get("description", "") for item in all_cargo_items if item.get("description")))
+            enriched["cargo_type"] = cargo_desc or list(cargo_descriptions)[0] if cargo_descriptions else ""
+        elif cargo_descriptions:
+            enriched["cargo_type"] = ", ".join(cargo_descriptions)
+        
+        if dimensions:
+            enriched["dimensions"] = dimensions
+        
+        # Important: The frontend checks `msg.entities.cargo_items` OR `msg.enriched_data`.
+        # We should put cargo info in enriched_data.
         
         return JobResponse(
             success=True,
             job_id=job_id,
             job_number=job_data.get("job_number"),
             status="DISPATCHED",
-            message="Đã gán xe thành công!"
+            message="Đã gán xe thành công!",
+            enriched_data=enriched
         )
     except Exception as e:
         logger.error(f"Error assigning vehicle: {e}")
+        logger.error(traceback.format_exc())
         return JobResponse(
             success=False,
             message=f"Lỗi gán xe: {str(e)}"
@@ -314,33 +435,87 @@ async def get_job(job_id: int):
 async def get_job_details(job_id: int):
     """
     Get job with all services for detail modal
+    Returns complete job info with vendor/employee names
     """
     data_service = get_data_service()
     conn = data_service._get_connection()
     cursor = conn.cursor()
     
     try:
-        # Get job info
+        # Get job info with customer details
         cursor.execute("""
-            SELECT j.*, c.short_name as customer_name, c.customer_code
+            SELECT j.*, 
+                   c.short_name as customer_name, 
+                   c.customer_code,
+                   c.company_name as customer_full_name,
+                   j.status_code as status_display
             FROM jobs j
-            JOIN customers c ON j.customer_id = c.customer_id
+            LEFT JOIN customers c ON j.customer_id = c.customer_id
             WHERE j.job_id = %s
         """, (job_id,))
         job = cursor.fetchone()
+
         
         if not job:
             raise HTTPException(404, f"Job {job_id} not found")
         
-        # Get all services for this job
+        # Get all services with vendor/employee details
         cursor.execute("""
-            SELECT * FROM job_services WHERE job_id = %s ORDER BY svc_id
+            SELECT js.*,
+                   v.short_name as vendor_name,
+                   v.company_name as vendor_full_name,
+                   e.full_name as employee_name,
+                   js.service_type_code as service_type_name
+            FROM job_services js
+            LEFT JOIN vendors v ON js.vendor_id = v.vendor_id
+            LEFT JOIN employees e ON js.employee_id = e.employee_id
+            WHERE js.job_id = %s 
+            ORDER BY js.svc_id
         """, (job_id,))
         services = [dict(row) for row in cursor.fetchall()]
         
+        # Parse vendor_text_input for vehicle info
+        import json # Added import for json
+        for svc in services:
+            if svc.get('vendor_text_input'):
+                try:
+                    vehicle_data = svc['vendor_text_input']
+                    if isinstance(vehicle_data, str):
+                        vehicle_data = json.loads(vehicle_data)
+                    
+                    if isinstance(vehicle_data, dict):
+                        svc['license_plate'] = vehicle_data.get('license_plate')
+                        svc['driver_name'] = vehicle_data.get('driver_name')
+                        svc['driver_phone'] = vehicle_data.get('driver_phone')
+                        
+                        # Only show vehicle info as vendor name if NO vendor_id assigned
+                        if not svc.get('vendor_id') and svc.get('license_plate'):
+                             svc['vendor_name'] = f"{svc['license_plate']}"
+                             if svc.get('driver_name'):
+                                 svc['vendor_name'] += f" - {svc['driver_name']}"
+                except Exception as e:
+                    logger.error(f"Error parsing vendor_text_input for svc {svc.get('svc_id')}: {e}")
+
+        
+        # Get job costs if available
+        costs = []
+        try:
+            cursor.execute("""
+                SELECT jc.*,
+                       v.short_name as vendor_name
+                FROM job_costs jc
+                LEFT JOIN vendors v ON jc.vendor_id = v.vendor_id
+                WHERE jc.job_id = %s
+                ORDER BY jc.cost_id
+            """, (job_id,))
+            costs = [dict(row) for row in cursor.fetchall()]
+        except Exception:
+            pass  # job_costs table might not exist yet
+        
         return {
             "job": dict(job),
-            "services": services
+            "services": services,
+            "costs": costs
         }
         
     except HTTPException:
@@ -348,6 +523,10 @@ async def get_job_details(job_id: int):
     except Exception as e:
         logger.error(f"Error fetching job details: {e}")
         raise HTTPException(500, str(e))
+    finally:
+        cursor.close()
+        conn.close()
+
 
 
 @router.get("/pending/list")
@@ -641,11 +820,214 @@ async def get_service_data(service_type: str):
         return {"services": [], "error": f"Unknown service type: {service_type}"}
     
     try:
-        cursor.execute(f"SELECT * FROM {view_name} ORDER BY scheduled_date DESC NULLS LAST LIMIT 50")
+        if service_type == "trucking":
+            # For trucking, use direct query to ensure LEFT JOINs and include vendor_text_input
+            cursor.execute("""
+                SELECT 
+                    js.*,
+                    j.job_no,
+                    c.customer_code,
+                    COALESCE(c.short_name, c.company_name) as customer,
+                    js.vendor_text_input,
+                    v.short_name as vendor_name,
+                    e.full_name as employee_name,
+                    CASE 
+                        WHEN js.vendor_id IS NOT NULL THEN 'VENDOR'
+                        WHEN js.employee_id IS NOT NULL THEN 'EMPLOYEE'
+                        ELSE 'UNASSIGNED'
+                    END as assignment_type,
+                    COALESCE(v.short_name, e.full_name) as assigned_to
+                FROM job_services js
+                JOIN jobs j ON js.job_id = j.job_id
+                LEFT JOIN customers c ON j.customer_id = c.customer_id
+                LEFT JOIN vendors v ON js.vendor_id = v.vendor_id
+                LEFT JOIN employees e ON js.employee_id = e.employee_id
+                WHERE js.service_type_code IN ('TRUCKING_SHORT', 'TRUCKING_LONG')
+                ORDER BY js.scheduled_date DESC NULLS LAST
+                LIMIT 50
+            """)
+        else:
+            # For others, use existing views
+            cursor.execute(f"SELECT * FROM {view_name} ORDER BY scheduled_date DESC NULLS LAST LIMIT 50")
+            
         services = [dict(row) for row in cursor.fetchall()]
+        
+        # Parse vehicle info for trucking services
+        if service_type == "trucking":
+             import json
+             for svc in services:
+                # Check if vendor_text_input exists
+                if svc.get('vendor_text_input'):
+                    try:
+                        vehicle_data = svc['vendor_text_input']
+                        if isinstance(vehicle_data, str):
+                            vehicle_data = json.loads(vehicle_data)
+                        
+                        if isinstance(vehicle_data, dict):
+                            svc['license_plate'] = vehicle_data.get('license_plate')
+                            svc['driver_name'] = vehicle_data.get('driver_name')
+                            
+                            # Update vendor_name/assigned_to if key fields missing 
+                            # (checking both vendor_name and assigned_to to cover view/query differences)
+                            if not svc.get('assigned_to') and svc.get('license_plate'):
+                                info = f"{svc['license_plate']}"
+                                if svc.get('driver_name'):
+                                    info += f" - {svc['driver_name']}"
+                                
+                                svc['assigned_to'] = info
+                                svc['assignment_type'] = 'VENDOR' # Show as vendor assignment
+                                
+                    except Exception as e:
+                        logger.error(f"Error parsing vendor_text_input: {e}")
+        
         return {"services": services}
         
     except Exception as e:
         logger.error(f"Error fetching {service_type} services: {e}")
         return {"services": [], "error": str(e)}
 
+
+# ========================================
+# EXCEL EXPORT ENDPOINT
+# ========================================
+
+@router.get("/export/{service_type}")
+async def export_services_excel(
+    service_type: str,
+    customer_id: Optional[int] = None,
+    vendor_id: Optional[int] = None,
+    from_date: Optional[str] = None,
+    to_date: Optional[str] = None,
+    month: Optional[str] = None  # Format: 2026-01
+):
+    """
+    Export services to Excel with filters
+    Returns Excel file download
+    """
+    from fastapi.responses import FileResponse
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from io import BytesIO
+    import tempfile
+    import os
+    
+    data_service = get_data_service()
+    conn = data_service._get_connection()
+    cursor = conn.cursor()
+    
+    view_mapping = {
+        "trucking": "v_trucking_services",
+        "warehouse": "v_warehouse_services",
+        "customs": "v_customs_services",
+        "packing": "v_packing_services"
+    }
+    
+    view_name = view_mapping.get(service_type)
+    if not view_name:
+        raise HTTPException(400, f"Unknown service type: {service_type}")
+    
+    try:
+        # Build query with filters
+        query = f"SELECT * FROM {view_name} WHERE 1=1"
+        params = []
+        
+        if customer_id:
+            query += " AND customer_id = %s"
+            params.append(customer_id)
+        
+        if vendor_id:
+            query += " AND vendor_id = %s"
+            params.append(vendor_id)
+        
+        if month:
+            # month format: 2026-01
+            query += " AND TO_CHAR(scheduled_date, 'YYYY-MM') = %s"
+            params.append(month)
+        else:
+            if from_date:
+                query += " AND scheduled_date >= %s"
+                params.append(from_date)
+            if to_date:
+                query += " AND scheduled_date <= %s"
+                params.append(to_date)
+        
+        query += " ORDER BY scheduled_date DESC"
+        
+        cursor.execute(query, params)
+        services = cursor.fetchall()
+        
+        if not services:
+            raise HTTPException(404, "Không có dữ liệu để xuất")
+        
+        # Create Excel workbook
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = f"{service_type.capitalize()} Services"
+        
+        # Styles
+        header_font = Font(bold=True, color="FFFFFF")
+        header_fill = PatternFill(start_color="2563EB", end_color="2563EB", fill_type="solid")
+        header_align = Alignment(horizontal="center", vertical="center")
+        thin_border = Border(
+            left=Side(style='thin'),
+            right=Side(style='thin'),
+            top=Side(style='thin'),
+            bottom=Side(style='thin')
+        )
+        
+        # Get column names from first row
+        columns = list(services[0].keys()) if services else []
+        
+        # Write headers
+        for col_idx, col_name in enumerate(columns, 1):
+            cell = ws.cell(row=1, column=col_idx, value=col_name)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = header_align
+            cell.border = thin_border
+        
+        # Write data
+        for row_idx, row in enumerate(services, 2):
+            for col_idx, col_name in enumerate(columns, 1):
+                value = row[col_name]
+                # Convert special types
+                if isinstance(value, (date, datetime)):
+                    value = value.strftime('%Y-%m-%d')
+                elif isinstance(value, time):
+                    value = value.strftime('%H:%M')
+                
+                cell = ws.cell(row=row_idx, column=col_idx, value=value)
+                cell.border = thin_border
+        
+        # Auto-adjust column widths
+        for col_idx, col_name in enumerate(columns, 1):
+            max_length = len(str(col_name))
+            for row in services[:50]:  # Check first 50 rows
+                val = row.get(col_name)
+                if val:
+                    max_length = max(max_length, len(str(val)))
+            ws.column_dimensions[openpyxl.utils.get_column_letter(col_idx)].width = min(max_length + 2, 50)
+        
+        # Save to temp file
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx')
+        wb.save(temp_file.name)
+        temp_file.close()
+        
+        # Generate filename
+        filename = f"{service_type}_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        
+        return FileResponse(
+            path=temp_file.name,
+            filename=filename,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            background=None  # Cleanup handled by FileResponse
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error exporting {service_type} services: {e}")
+        raise HTTPException(500, f"Export error: {str(e)}")
+    finally:
+        cursor.close()
+        conn.close()

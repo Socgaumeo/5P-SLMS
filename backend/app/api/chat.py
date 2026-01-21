@@ -357,6 +357,7 @@ async def extract_excel_content_structured(file: UploadFile) -> str:
     """Extract structured text content from Excel file for logistics booking"""
     import openpyxl
     from io import BytesIO
+    import re
     
     content = await file.read()
     wb = openpyxl.load_workbook(BytesIO(content), data_only=True)
@@ -364,16 +365,87 @@ async def extract_excel_content_structured(file: UploadFile) -> str:
     text_parts = []
     text_parts.append("=== BOOKING REQUEST FROM EXCEL ===")
     
+    # Common Vietnamese keywords for metadata extraction
+    address_keywords = ["địa chỉ", "dia chi", "address", "giao", "giao hàng", "đến", "destination"]
+    contact_keywords = ["người nhận", "nguoi nhan", "liên hệ", "lien he", "contact", "sđt", "điện thoại", "phone", "tel"]
+    
     for sheet_name in wb.sheetnames:
         ws = wb[sheet_name]
         text_parts.append(f"\n--- Sheet: {sheet_name} ---")
         
-        # Get headers from first non-empty row
+        # PHASE 1: Extract metadata from header area (rows 1-13)
+        # This captures address, contact info often placed at top of booking sheets
+        metadata_parts = []
+        
+        # Vietnamese keywords - more specific for delivery vs pickup
+        delivery_keywords = ["địa chỉ nhận", "địa chỉ giao", "giao hàng", "destination", "đến", "delivery", "receiving"]
+        pickup_keywords = ["địa chỉ lấy", "lấy hàng", "nhà máy", "pickup", "origin", "từ"]
+        general_address_keywords = ["địa chỉ", "dia chi", "address"]
+        contact_keywords = ["người nhận", "nguoi nhan", "liên hệ", "lien he", "contact", "sđt", "điện thoại", "phone", "tel"]
+        location_patterns = ["lô", "kcn", "khu công nghiệp", "phường", "quận", "tỉnh", "huyện", "xã", "đường", "số"]
+        
+        for row_idx in range(1, min(14, ws.max_row + 1)):
+            row_cells = list(ws.iter_rows(min_row=row_idx, max_row=row_idx))[0]
+            row_text = " ".join([str(cell.value).strip() if cell.value else "" for cell in row_cells])
+            row_text_lower = row_text.lower()
+            
+            # Skip header rows (rows with 3+ non-empty cells are likely column headers)
+            non_empty_cells = [str(c.value).strip() for c in row_cells if c.value and str(c.value).strip()]
+            if len(non_empty_cells) >= 4:
+                continue  # This is likely a header row, skip metadata extraction
+            
+            # Check for delivery address specifically
+            if any(kw in row_text_lower for kw in delivery_keywords):
+                for cell in row_cells:
+                    val = str(cell.value).strip() if cell.value else ""
+                    # Skip the label cell, get the value cell
+                    # Must be > 10 chars and not a label
+                    if val and len(val) > 10 and not any(kw in val.lower() for kw in ["book xe", "thông tin người"]):
+                        if any(kw in val.lower() for kw in delivery_keywords + general_address_keywords):
+                            continue  # This is the label
+                        # Only add if it looks like an address (has location patterns or company name)
+                        val_lower = val.lower()
+                        if any(kw in val_lower for kw in location_patterns) or "công ty" in val_lower or "xưởng" in val_lower:
+                            metadata_parts.append(f"[DELIVERY_ADDRESS]: {val}")
+            
+            # Check for pickup address (often contains company name like Meiko)
+            elif any(kw in row_text_lower for kw in pickup_keywords):
+                for cell in row_cells:
+                    val = str(cell.value).strip() if cell.value else ""
+                    if val and len(val) > 5 and not any(kw in val.lower() for kw in ["lấy hàng", "pickup"]):
+                        metadata_parts.append(f"[PICKUP_ADDRESS]: {val}")
+            
+            # General address check (with location patterns)
+            elif any(kw in row_text_lower for kw in general_address_keywords) or any(kw in row_text_lower for kw in location_patterns):
+                for cell in row_cells:
+                    val = str(cell.value).strip() if cell.value else ""
+                    # Check if value contains location patterns (actual address)
+                    if val and len(val) > 15 and any(kw in val.lower() for kw in location_patterns):
+                        # Determine if it's delivery based on context
+                        if "nhận" in row_text_lower or "giao" in row_text_lower:
+                            metadata_parts.append(f"[DELIVERY_ADDRESS]: {val}")
+                        else:
+                            metadata_parts.append(f"[ADDRESS]: {val}")
+            
+            # Check for contact-related content
+            if any(kw in row_text_lower for kw in contact_keywords):
+                for cell in row_cells:
+                    val = str(cell.value).strip() if cell.value else ""
+                    if val and (any(kw in val.lower() for kw in contact_keywords) or re.search(r'\d{9,11}', val)):
+                        if not any(kw in val.lower() for kw in ["người book", "book xe"]):
+                            metadata_parts.append(f"[RECEIVER_CONTACT]: {val}")
+        
+        if metadata_parts:
+            text_parts.append("METADATA EXTRACTED:")
+            text_parts.extend(metadata_parts)
+            text_parts.append("")
+        
+        # PHASE 2: Get headers from first row with 3+ values (usually row 14+)
         headers = []
         header_row = None
-        for row_idx, row in enumerate(ws.iter_rows(max_row=10), start=1):
+        for row_idx, row in enumerate(ws.iter_rows(min_row=10, max_row=20), start=10):
             row_values = [str(cell.value).strip() if cell.value else "" for cell in row]
-            non_empty = [v for v in row_values if v]
+            non_empty = [v for v in row_values if v and len(v) > 1]
             if len(non_empty) >= 3:  # Likely header row
                 headers = row_values
                 header_row = row_idx
@@ -392,7 +464,7 @@ async def extract_excel_content_structured(file: UploadFile) -> str:
         
         text_parts.append(f"Headers: {' | '.join(headers)}")
         
-        # Extract data rows with header context
+        # PHASE 3: Extract data rows with header context
         for row in ws.iter_rows(min_row=header_row + 1, max_row=100):
             row_data = []
             for idx, cell in enumerate(row):
