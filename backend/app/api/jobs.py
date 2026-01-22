@@ -528,20 +528,22 @@ async def get_job_details(job_id: int):
         """, (job_id,))
         services = [dict(row) for row in cursor.fetchall()]
         
-        # Parse vendor_text_input for vehicle info
+        # Parse vendor_text_input for vehicle info and service_details for invoice/quantity
         import json # Added import for json
         for svc in services:
+            # Parse vendor_text_input for vehicle info
             if svc.get('vendor_text_input'):
                 try:
                     vehicle_data = svc['vendor_text_input']
                     if isinstance(vehicle_data, str):
                         vehicle_data = json.loads(vehicle_data)
-                    
+
                     if isinstance(vehicle_data, dict):
                         svc['license_plate'] = vehicle_data.get('license_plate')
                         svc['driver_name'] = vehicle_data.get('driver_name')
                         svc['driver_phone'] = vehicle_data.get('driver_phone')
-                        
+                        svc['driver_id_card'] = vehicle_data.get('driver_id_card')
+
                         # Only show vehicle info as vendor name if NO vendor_id assigned
                         if not svc.get('vendor_id') and svc.get('license_plate'):
                              svc['vendor_name'] = f"{svc['license_plate']}"
@@ -549,6 +551,34 @@ async def get_job_details(job_id: int):
                                  svc['vendor_name'] += f" - {svc['driver_name']}"
                 except Exception as e:
                     logger.error(f"Error parsing vendor_text_input for svc {svc.get('svc_id')}: {e}")
+
+            # Parse service_details JSONB for invoice/quantity/cargo info
+            if svc.get('service_details'):
+                try:
+                    details = svc['service_details']
+                    if isinstance(details, str):
+                        details = json.loads(details)
+
+                    if isinstance(details, dict):
+                        # Extract invoice_numbers
+                        inv = details.get('invoice_numbers')
+                        if inv and not svc.get('invoice_numbers'):
+                            if isinstance(inv, list):
+                                svc['invoice_numbers'] = ', '.join(str(i) for i in inv)
+                            else:
+                                svc['invoice_numbers'] = inv
+
+                        # Extract package quantity and unit
+                        if details.get('package_quantity') and not svc.get('package_quantity'):
+                            svc['package_quantity'] = details['package_quantity']
+                        if details.get('package_unit') and not svc.get('package_unit'):
+                            svc['package_unit'] = details['package_unit']
+
+                        # Extract cargo_type
+                        if details.get('cargo_type') and not svc.get('cargo_type'):
+                            svc['cargo_type'] = details['cargo_type']
+                except Exception as e:
+                    logger.error(f"Error parsing service_details for svc {svc.get('svc_id')}: {e}")
 
         
         # Get job costs if available
@@ -956,7 +986,7 @@ async def export_services_excel(
 ):
     """
     Export services to Excel with filters
-    Returns Excel file download
+    Returns Excel file with structured fields (extracted from JSON) for payment reconciliation
     """
     from fastapi.responses import FileResponse
     import openpyxl
@@ -964,82 +994,225 @@ async def export_services_excel(
     from io import BytesIO
     import tempfile
     import os
-    
+
     data_service = get_data_service()
     conn = data_service._get_connection()
     cursor = conn.cursor()
-    
-    view_mapping = {
-        "trucking": "v_trucking_services",
-        "warehouse": "v_warehouse_services",
-        "customs": "v_customs_services",
-        "packing": "v_packing_services"
-    }
-    
-    view_name = view_mapping.get(service_type)
-    if not view_name:
+
+    if service_type not in ["trucking", "warehouse", "customs", "packing"]:
         raise HTTPException(400, f"Unknown service type: {service_type}")
-    
+
     try:
-        # Build query with filters
-        query = f"SELECT * FROM {view_name} WHERE 1=1"
+        # Build comprehensive query with JSON extraction for structured fields
+        if service_type == "trucking":
+            # Trucking export with extracted vehicle/driver info and invoice
+            query = """
+                SELECT
+                    j.job_no,
+                    c.customer_code,
+                    c.short_name as customer_name,
+                    js.scheduled_date as ngay_thuc_hien,
+                    js.scheduled_time as gio_lay_hang,
+                    js.origin_address as diem_di,
+                    js.dest_address as diem_den,
+                    js.cargo_type as loai_hang,
+                    COALESCE(
+                        (js.service_details::jsonb->>'package_quantity')::text,
+                        js.package_quantity::text
+                    ) as so_kien,
+                    COALESCE(
+                        js.service_details::jsonb->>'package_unit',
+                        js.package_unit
+                    ) as don_vi,
+                    js.weight_kg as trong_luong_kg,
+                    COALESCE(
+                        js.service_details::jsonb->>'invoice_numbers',
+                        js.invoice_numbers
+                    ) as invoice,
+                    -- Vehicle info extracted from JSON
+                    js.vendor_text_input::jsonb->>'license_plate' as bien_so_xe,
+                    js.vendor_text_input::jsonb->>'driver_name' as ten_tai_xe,
+                    js.vendor_text_input::jsonb->>'driver_phone' as sdt_tai_xe,
+                    js.vendor_text_input::jsonb->>'driver_id_card' as cccd_tai_xe,
+                    -- Vendor info
+                    v.short_name as nha_van_chuyen,
+                    v.company_name as ten_cong_ty_vc,
+                    js.status_code as trang_thai,
+                    js.created_at as ngay_tao,
+                    js.updated_at as ngay_cap_nhat
+                FROM job_services js
+                JOIN jobs j ON js.job_id = j.job_id
+                JOIN customers c ON j.customer_id = c.customer_id
+                LEFT JOIN vendors v ON js.vendor_id = v.vendor_id
+                WHERE js.service_type_code IN ('TRUCKING_SHORT', 'TRUCKING_LONG')
+            """
+        elif service_type == "warehouse":
+            query = """
+                SELECT
+                    j.job_no,
+                    c.customer_code,
+                    c.short_name as customer_name,
+                    js.scheduled_date,
+                    js.storage_start_date as ngay_bat_dau,
+                    js.storage_end_date as ngay_ket_thuc,
+                    js.cargo_type as loai_hang,
+                    js.package_quantity as so_kien,
+                    js.package_unit as don_vi,
+                    js.weight_kg as trong_luong_kg,
+                    js.dimension_length_cm as dai_cm,
+                    js.dimension_width_cm as rong_cm,
+                    js.dimension_height_cm as cao_cm,
+                    js.special_requirements as yeu_cau_dac_biet,
+                    v.short_name as nha_cung_cap,
+                    js.status_code as trang_thai,
+                    js.created_at as ngay_tao
+                FROM job_services js
+                JOIN jobs j ON js.job_id = j.job_id
+                JOIN customers c ON j.customer_id = c.customer_id
+                LEFT JOIN vendors v ON js.vendor_id = v.vendor_id
+                WHERE js.service_type_code IN ('WHS_STORAGE', 'WHS_HANDLE')
+            """
+        elif service_type == "customs":
+            query = """
+                SELECT
+                    j.job_no,
+                    c.customer_code,
+                    c.short_name as customer_name,
+                    js.scheduled_date,
+                    js.declaration_no as so_to_khai,
+                    js.declaration_datetime as ngay_to_khai,
+                    js.loai_hinh,
+                    js.customs_type as loai_hai_quan,
+                    js.customs_port as cua_khau,
+                    js.buyer_name as nguoi_mua,
+                    js.seller_name as nguoi_ban,
+                    js.hs_code,
+                    js.bl_awb_no as so_van_don,
+                    js.co_no as so_co,
+                    v.short_name as nha_cung_cap,
+                    js.status_code as trang_thai,
+                    js.created_at as ngay_tao
+                FROM job_services js
+                JOIN jobs j ON js.job_id = j.job_id
+                JOIN customers c ON j.customer_id = c.customer_id
+                LEFT JOIN vendors v ON js.vendor_id = v.vendor_id
+                WHERE js.service_type_code IN ('CUS_IMPORT', 'CUS_EXPORT', 'CUS_TRANSIT')
+            """
+        else:  # packing
+            query = """
+                SELECT
+                    j.job_no,
+                    c.customer_code,
+                    c.short_name as customer_name,
+                    js.scheduled_date,
+                    js.packing_type as loai_dong_goi,
+                    js.items_count as so_mat_hang,
+                    js.packages_output as so_kien_xuat,
+                    js.before_length_cm as dai_truoc_cm,
+                    js.before_width_cm as rong_truoc_cm,
+                    js.before_height_cm as cao_truoc_cm,
+                    js.after_length_cm as dai_sau_cm,
+                    js.after_width_cm as rong_sau_cm,
+                    js.after_height_cm as cao_sau_cm,
+                    js.shrink_wrap as co_shrink_wrap,
+                    js.vacuum_pack as co_hut_chan_khong,
+                    js.lashing as co_chong_buoc,
+                    js.fumigation as co_xong_khu_trung,
+                    v.short_name as nha_cung_cap,
+                    js.status_code as trang_thai,
+                    js.created_at as ngay_tao
+                FROM job_services js
+                JOIN jobs j ON js.job_id = j.job_id
+                JOIN customers c ON j.customer_id = c.customer_id
+                LEFT JOIN vendors v ON js.vendor_id = v.vendor_id
+                WHERE js.service_type_code IN ('SVC_PACK', 'SVC_SHRINK_WRAP', 'SVC_VACUUM', 'SVC_LASHING', 'SVC_FUMIGATION')
+            """
+
+        # Add filters
         params = []
-        
+        filter_clause = ""
+
         if customer_id:
-            query += " AND customer_id = %s"
+            filter_clause += " AND j.customer_id = %s"
             params.append(customer_id)
-        
+
         if vendor_id:
-            query += " AND vendor_id = %s"
+            filter_clause += " AND js.vendor_id = %s"
             params.append(vendor_id)
-        
+
         if month:
             # month format: 2026-01
-            query += " AND TO_CHAR(scheduled_date, 'YYYY-MM') = %s"
+            filter_clause += " AND TO_CHAR(js.scheduled_date, 'YYYY-MM') = %s"
             params.append(month)
         else:
             if from_date:
-                query += " AND scheduled_date >= %s"
+                filter_clause += " AND js.scheduled_date >= %s"
                 params.append(from_date)
             if to_date:
-                query += " AND scheduled_date <= %s"
+                filter_clause += " AND js.scheduled_date <= %s"
                 params.append(to_date)
-        
-        query += " ORDER BY scheduled_date DESC"
-        
-        cursor.execute(query, params)
+
+        query += filter_clause + " ORDER BY js.scheduled_date DESC"
+
+        cursor.execute(query, params if params else None)
         services = cursor.fetchall()
-        
+
         if not services:
             raise HTTPException(404, "Không có dữ liệu để xuất")
-        
+
         # Create Excel workbook
         wb = openpyxl.Workbook()
         ws = wb.active
-        ws.title = f"{service_type.capitalize()} Services"
-        
+        ws.title = f"{service_type.capitalize()} Export"
+
         # Styles
         header_font = Font(bold=True, color="FFFFFF")
         header_fill = PatternFill(start_color="2563EB", end_color="2563EB", fill_type="solid")
-        header_align = Alignment(horizontal="center", vertical="center")
+        header_align = Alignment(horizontal="center", vertical="center", wrap_text=True)
         thin_border = Border(
             left=Side(style='thin'),
             right=Side(style='thin'),
             top=Side(style='thin'),
             bottom=Side(style='thin')
         )
-        
+
         # Get column names from first row
         columns = list(services[0].keys()) if services else []
-        
+
+        # Vietnamese header mapping for better readability
+        vn_headers = {
+            'job_no': 'Mã Job',
+            'customer_code': 'Mã KH',
+            'customer_name': 'Tên KH',
+            'ngay_thuc_hien': 'Ngày TH',
+            'gio_lay_hang': 'Giờ lấy',
+            'diem_di': 'Điểm đi',
+            'diem_den': 'Điểm đến',
+            'loai_hang': 'Loại hàng',
+            'so_kien': 'Số kiện',
+            'don_vi': 'Đơn vị',
+            'trong_luong_kg': 'KL (kg)',
+            'invoice': 'Invoice',
+            'bien_so_xe': 'Biển số xe',
+            'ten_tai_xe': 'Tài xế',
+            'sdt_tai_xe': 'SĐT tài xế',
+            'cccd_tai_xe': 'CCCD',
+            'nha_van_chuyen': 'NVC',
+            'ten_cong_ty_vc': 'Công ty VC',
+            'trang_thai': 'Trạng thái',
+            'ngay_tao': 'Ngày tạo',
+            'ngay_cap_nhat': 'Cập nhật'
+        }
+
         # Write headers
         for col_idx, col_name in enumerate(columns, 1):
-            cell = ws.cell(row=1, column=col_idx, value=col_name)
+            header_text = vn_headers.get(col_name, col_name.replace('_', ' ').title())
+            cell = ws.cell(row=1, column=col_idx, value=header_text)
             cell.font = header_font
             cell.fill = header_fill
             cell.alignment = header_align
             cell.border = thin_border
-        
+
         # Write data
         for row_idx, row in enumerate(services, 2):
             for col_idx, col_name in enumerate(columns, 1):
@@ -1049,38 +1222,51 @@ async def export_services_excel(
                     value = value.strftime('%Y-%m-%d')
                 elif isinstance(value, time):
                     value = value.strftime('%H:%M')
-                
+                # Parse JSON array for invoice_numbers
+                elif col_name == 'invoice' and value:
+                    if value.startswith('['):
+                        try:
+                            import json
+                            inv_list = json.loads(value)
+                            value = ', '.join(str(i) for i in inv_list)
+                        except:
+                            pass
+
                 cell = ws.cell(row=row_idx, column=col_idx, value=value)
                 cell.border = thin_border
-        
+
         # Auto-adjust column widths
         for col_idx, col_name in enumerate(columns, 1):
-            max_length = len(str(col_name))
+            max_length = len(vn_headers.get(col_name, col_name))
             for row in services[:50]:  # Check first 50 rows
                 val = row.get(col_name)
                 if val:
-                    max_length = max(max_length, len(str(val)))
+                    max_length = max(max_length, min(len(str(val)), 40))
             ws.column_dimensions[openpyxl.utils.get_column_letter(col_idx)].width = min(max_length + 2, 50)
-        
+
+        # Freeze header row
+        ws.freeze_panes = 'A2'
+
         # Save to temp file
         temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx')
         wb.save(temp_file.name)
         temp_file.close()
-        
+
         # Generate filename
         filename = f"{service_type}_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
-        
+
         return FileResponse(
             path=temp_file.name,
             filename=filename,
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             background=None  # Cleanup handled by FileResponse
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error exporting {service_type} services: {e}")
+        logger.error(traceback.format_exc())
         raise HTTPException(500, f"Export error: {str(e)}")
     finally:
         cursor.close()
