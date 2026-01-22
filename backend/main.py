@@ -9,7 +9,7 @@ from contextlib import asynccontextmanager
 import logging
 
 from app.core.config import settings
-from app.api import chat, jobs, health
+from app.api import chat, jobs, health, excel_import, search
 
 # Logging setup
 logging.basicConfig(level=logging.INFO)
@@ -45,7 +45,9 @@ app.add_middleware(
 # Routers
 app.include_router(health.router, tags=["Health"])
 app.include_router(chat.router, prefix="/api/chat", tags=["Chat"])
+app.include_router(excel_import.router, prefix="/api/excel", tags=["Excel Import"])
 app.include_router(jobs.router, prefix="/api/jobs", tags=["Jobs"])
+app.include_router(search.router, tags=["Search"])
 
 
 @app.get("/")

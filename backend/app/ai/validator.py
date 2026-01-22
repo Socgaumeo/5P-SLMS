@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 SLMS AI Pipeline - Stage 5: Validator
 =====================================
@@ -5,7 +6,7 @@ SLMS AI Pipeline - Stage 5: Validator
 Validate extracted entities and identify missing required fields.
 """
 
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List
 from pydantic import BaseModel
 import logging
 import re
@@ -83,17 +84,17 @@ class Validator:
         
         # Intent-specific validation
         if intent == "create_booking":
-            field_errors, field_warnings, normalized = self._validate_booking(entities, context)
+            field_errors, field_warnings, normalized = self._validate_booking(entities, context or {})
             errors.extend(field_errors)
             warnings.extend(field_warnings)
         
         elif intent == "assign_vehicle":
-            field_errors, field_warnings, normalized = self._validate_vehicle(entities, context)
+            field_errors, field_warnings, normalized = self._validate_vehicle(entities, context or {})
             errors.extend(field_errors)
             warnings.extend(field_warnings)
         
         elif intent == "update_status":
-            field_errors, field_warnings, normalized = self._validate_status(entities, context)
+            field_errors, field_warnings, normalized = self._validate_status(entities, context or {})
             errors.extend(field_errors)
             warnings.extend(field_warnings)
         
@@ -111,7 +112,7 @@ class Validator:
         self, 
         entities: Dict, 
         context: Dict
-    ) -> tuple[List[str], List[str], Dict]:
+    ) -> tuple:
         """Validate booking entities"""
         
         errors = []
@@ -120,15 +121,16 @@ class Validator:
         
         # Validate customer
         if customer := entities.get("customer_code"):
-            customers = context.get("customers", []) if context else []
+            customers = context.get("customers", [])
             if customers:
                 valid_codes = [c.get("customer_code") for c in customers]
                 if customer not in valid_codes:
                     # Try fuzzy match
                     matched = False
                     for c in customers:
-                        if customer.lower() in c.get("short_name", "").lower():
-                            normalized["customer_code"] = c["customer_code"]
+                        short_name = c.get("short_name") or ""
+                        if customer.lower() in short_name.lower():
+                            normalized["customer_code"] = c.get("customer_code") or customer.upper()
                             matched = True
                             break
                     if not matched:
@@ -152,12 +154,12 @@ class Validator:
         
         # Validate time
         if time := entities.get("pickup_time"):
-            if not re.match(r"^\d{2}:\d{2}$", time):
+            if not re.match(r"^\d{2}:\d{2}$", str(time)):
                 errors.append(f"Giờ '{time}' không đúng định dạng (HH:MM)")
         
         # Validate vehicle type
         if vehicle := entities.get("vehicle_type"):
-            valid_types = context.get("vehicle_types", []) if context else []
+            valid_types = context.get("vehicle_types", [])
             if valid_types and vehicle not in valid_types:
                 warnings.append(f"Loại xe '{vehicle}' không có trong danh sách chuẩn")
         
@@ -172,7 +174,7 @@ class Validator:
         self, 
         entities: Dict, 
         context: Dict
-    ) -> tuple[List[str], List[str], Dict]:
+    ) -> tuple:
         """Validate vehicle entities"""
         
         errors = []
@@ -182,24 +184,24 @@ class Validator:
         # Validate license plate
         if plate := entities.get("license_plate"):
             # Vietnam plate format: XXY ZZZZZ (e.g., 29H 76514)
-            if not re.match(r"^\d{2}[A-Z]\s?\d{4,5}$", plate):
+            if not re.match(r"^\d{2}[A-Z]\s?\d{4,5}$", str(plate)):
                 warnings.append(f"Biển số '{plate}' có thể không đúng định dạng")
         
         # Validate phone
         if phone := entities.get("driver_phone"):
-            if not re.match(r"^0\d{9}$", phone):
-                if len(phone) == 9:
-                    normalized["driver_phone"] = "0" + phone
-                elif len(phone) != 10:
+            if not re.match(r"^0\d{9}$", str(phone)):
+                if len(str(phone)) == 9:
+                    normalized["driver_phone"] = "0" + str(phone)
+                elif len(str(phone)) != 10:
                     errors.append(f"Số điện thoại '{phone}' không hợp lệ (cần 10 số)")
         
         # Validate CCCD
         if cccd := entities.get("driver_cccd"):
-            if not re.match(r"^\d{12}$", cccd):
+            if not re.match(r"^\d{12}$", str(cccd)):
                 warnings.append(f"CCCD '{cccd}' không đúng định dạng (cần 12 số)")
         
         # Check if can match with pending job
-        pending_jobs = context.get("pending_jobs", []) if context else []
+        pending_jobs = context.get("pending_jobs", [])
         if pending_jobs and not entities.get("matched_job_no"):
             if len(pending_jobs) > 1:
                 warnings.append(f"Có {len(pending_jobs)} jobs đang chờ xe. Vui lòng chỉ định job cụ thể.")
@@ -210,7 +212,7 @@ class Validator:
         self, 
         entities: Dict, 
         context: Dict
-    ) -> tuple[List[str], List[str], Dict]:
+    ) -> tuple:
         """Validate status entities"""
         
         errors = []
@@ -219,14 +221,14 @@ class Validator:
         
         # Validate job number
         if job_no := entities.get("job_number"):
-            active_jobs = context.get("active_jobs", []) if context else []
+            active_jobs = context.get("active_jobs", [])
             if active_jobs:
                 valid_jobs = [j.get("job_no") for j in active_jobs]
                 if job_no not in valid_jobs:
                     # Try partial match
                     matched = False
                     for j in active_jobs:
-                        if job_no in j.get("job_no", ""):
+                        if str(job_no) in str(j.get("job_no", "")):
                             normalized["job_number"] = j["job_no"]
                             normalized["job_id"] = j.get("job_id")
                             matched = True
@@ -242,61 +244,8 @@ class Validator:
         
         # Validate status
         if status := entities.get("new_status"):
-            valid_statuses = context.get("valid_statuses", []) if context else []
+            valid_statuses = context.get("valid_statuses", [])
             if valid_statuses and status not in valid_statuses:
                 errors.append(f"Trạng thái '{status}' không hợp lệ")
         
         return errors, warnings, normalized
-
-
-# ══════════════════════════════════════════════════════════════════════════════
-# VALIDATION HELPERS
-# ══════════════════════════════════════════════════════════════════════════════
-
-def validate_vietnam_phone(phone: str) -> bool:
-    """Validate Vietnam phone number format"""
-    
-    if not phone:
-        return False
-    
-    # Remove non-digits
-    digits = re.sub(r"\D", "", phone)
-    
-    # Check length
-    if len(digits) not in [9, 10]:
-        return False
-    
-    # Check prefix
-    valid_prefixes = ["03", "05", "07", "08", "09"]
-    if len(digits) == 10:
-        return any(digits.startswith(p) for p in valid_prefixes)
-    elif len(digits) == 9:
-        return any(digits.startswith(p[1]) for p in valid_prefixes)
-    
-    return False
-
-
-def validate_vietnam_plate(plate: str) -> bool:
-    """Validate Vietnam license plate format"""
-    
-    if not plate:
-        return False
-    
-    # Remove separators
-    plate = re.sub(r"[\s\-.]", "", plate).upper()
-    
-    # Format: XXY ZZZZZ (e.g., 29H76514)
-    return bool(re.match(r"^\d{2}[A-Z]\d{4,5}$", plate))
-
-
-def validate_cccd(cccd: str) -> bool:
-    """Validate Vietnam CCCD (Citizen ID) format"""
-    
-    if not cccd:
-        return False
-    
-    # Remove non-digits
-    digits = re.sub(r"\D", "", cccd)
-    
-    # CCCD has 12 digits
-    return len(digits) == 12

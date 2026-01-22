@@ -1,18 +1,19 @@
+# -*- coding: utf-8 -*-
 """
-SLMS AI Pipeline - Stage 3: Context Loader
-==========================================
+SLMS AI Pipeline - Stage 3: Context Loader (FIXED VERSION)
+==========================================================
 
 Load relevant context from database based on intent.
 
-Context includes:
-- Customers list (for CREATE_BOOKING)
-- Pending jobs (for ASSIGN_VEHICLE)
-- Active jobs (for UPDATE_STATUS)
-- Routes, vehicle types, etc.
+FIXES:
+- Fixed UTF-8 encoding issues
+- Better error handling
+- More detailed logging
 """
 
 from typing import Dict, Any, Optional, List
 import logging
+from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +28,7 @@ class ContextLoader:
         Initialize with database session
         
         Args:
-            db_session: Async database session
+            db_session: Async database session (or DatabaseAdapter)
         """
         self.db = db_session
     
@@ -53,6 +54,8 @@ class ContextLoader:
         }
         
         try:
+            logger.info(f"[ContextLoader] Loading context for intent: {intent}")
+            
             if intent == "create_booking":
                 context.update(await self._load_booking_context())
             
@@ -66,13 +69,15 @@ class ContextLoader:
                 context.update(await self._load_query_context())
             
             # Always load common data
-            context.update(await self._load_common_context())
+            context.update(self._load_common_context())
             
-            logger.info(f"Loaded context for intent '{intent}': {list(context.keys())}")
+            logger.info(f"[ContextLoader] Loaded keys: {list(context.keys())}")
             
         except Exception as e:
-            logger.error(f"Failed to load context: {str(e)}")
+            logger.error(f"[ContextLoader] Failed to load context: {str(e)}", exc_info=True)
             context["error"] = str(e)
+            # Ensure we always have common context even on error
+            context.update(self._load_common_context())
         
         return context
     
@@ -88,17 +93,16 @@ class ContextLoader:
                     customer_id,
                     customer_code,
                     short_name,
-                    full_name,
-                    COALESCE(aliases, '[]')::text as aliases
+                    company_name
                 FROM customers 
                 WHERE is_active = true
                 ORDER BY short_name
                 LIMIT 100
             """)
-            context["customers"] = [dict(c) for c in customers]
-            logger.debug(f"Loaded {len(customers)} customers")
+            context["customers"] = [dict(c) for c in customers] if customers else []
+            logger.debug(f"[ContextLoader] Loaded {len(context['customers'])} customers")
         except Exception as e:
-            logger.error(f"Failed to load customers: {e}")
+            logger.error(f"[ContextLoader] Failed to load customers: {e}")
             context["customers"] = []
         
         # Load routes
@@ -107,33 +111,37 @@ class ContextLoader:
                 SELECT 
                     route_id,
                     route_code,
-                    origin_name,
-                    destination_name,
+                    origin,
+                    destination,
                     distance_km
-                FROM routes 
+                FROM master_routes 
                 WHERE is_active = true
                 ORDER BY route_code
                 LIMIT 50
             """)
-            context["routes"] = [dict(r) for r in routes]
+            context["routes"] = [dict(r) for r in routes] if routes else []
         except Exception as e:
-            logger.error(f"Failed to load routes: {e}")
+            logger.error(f"[ContextLoader] Failed to load routes: {e}")
             context["routes"] = []
         
         # Load vehicle types
         try:
             vehicle_types = await self.db.fetch_all("""
-                SELECT DISTINCT vehicle_type, description
+                SELECT type_code, name_vi
                 FROM master_vehicle_types 
                 WHERE is_active = true
-                ORDER BY sort_order
+                ORDER BY type_code
             """)
-            context["vehicle_types"] = [v["vehicle_type"] for v in vehicle_types]
+            context["vehicle_types"] = [v["type_code"] for v in vehicle_types] if vehicle_types else []
         except Exception as e:
-            logger.error(f"Failed to load vehicle types: {e}")
+            logger.error(f"[ContextLoader] Failed to load vehicle types: {e}")
+            context["vehicle_types"] = []
+        
+        # Fallback default vehicle types
+        if not context["vehicle_types"]:
             context["vehicle_types"] = ["1.25T", "2.5T", "5T", "10T", "15T", "20T", "CONT20", "CONT40"]
         
-        # Load vendors (for assignment suggestion)
+        # Load vendors
         try:
             vendors = await self.db.fetch_all("""
                 SELECT 
@@ -145,9 +153,9 @@ class ContextLoader:
                 ORDER BY short_name
                 LIMIT 50
             """)
-            context["vendors"] = [dict(v) for v in vendors]
+            context["vendors"] = [dict(v) for v in vendors] if vendors else []
         except Exception as e:
-            logger.error(f"Failed to load vendors: {e}")
+            logger.error(f"[ContextLoader] Failed to load vendors: {e}")
             context["vendors"] = []
         
         return context
@@ -165,24 +173,24 @@ class ContextLoader:
                     j.job_no,
                     c.short_name as customer,
                     c.customer_code,
-                    j.booking_date,
-                    j.pickup_time,
-                    j.vehicle_type,
-                    j.origin_address,
-                    j.dest_address,
+                    js.scheduled_date as booking_date,
+                    js.scheduled_time as pickup_time,
+                    js.origin_address,
+                    js.dest_address,
                     v.short_name as vendor
                 FROM jobs j
                 JOIN customers c ON j.customer_id = c.customer_id
-                LEFT JOIN vendors v ON j.vendor_id = v.vendor_id
-                WHERE j.status IN ('PENDING', 'CONFIRMED')
-                  AND (j.license_plate IS NULL OR j.license_plate = '')
-                ORDER BY j.booking_date, j.pickup_time
+                LEFT JOIN job_services js ON j.job_id = js.job_id
+                LEFT JOIN vendors v ON js.vendor_id = v.vendor_id
+                WHERE j.status_code IN ('PENDING', 'CONFIRMED')
+                  AND js.vehicle_id IS NULL
+                ORDER BY js.scheduled_date, js.scheduled_time
                 LIMIT 20
             """)
-            context["pending_jobs"] = [dict(j) for j in pending_jobs]
-            logger.debug(f"Loaded {len(pending_jobs)} pending jobs")
+            context["pending_jobs"] = [dict(j) for j in pending_jobs] if pending_jobs else []
+            logger.debug(f"[ContextLoader] Loaded {len(context['pending_jobs'])} pending jobs")
         except Exception as e:
-            logger.error(f"Failed to load pending jobs: {e}")
+            logger.error(f"[ContextLoader] Failed to load pending jobs: {e}")
             context["pending_jobs"] = []
         
         # Load recent drivers (for matching)
@@ -195,12 +203,11 @@ class ContextLoader:
                 FROM jobs
                 WHERE driver_name IS NOT NULL
                   AND created_at > NOW() - INTERVAL '30 days'
-                ORDER BY MAX(created_at) DESC
                 LIMIT 30
             """)
-            context["recent_drivers"] = [dict(d) for d in drivers]
+            context["recent_drivers"] = [dict(d) for d in drivers] if drivers else []
         except Exception as e:
-            logger.error(f"Failed to load drivers: {e}")
+            logger.error(f"[ContextLoader] Failed to load drivers: {e}")
             context["recent_drivers"] = []
         
         return context
@@ -218,21 +225,21 @@ class ContextLoader:
                     j.job_no,
                     c.short_name as customer,
                     c.customer_code,
-                    j.status,
-                    j.booking_date,
-                    j.pickup_time,
-                    j.license_plate,
-                    j.driver_name
+                    j.status_code as status,
+                    js.scheduled_date as booking_date,
+                    js.scheduled_time as pickup_time,
+                    js.vendor_text_input
                 FROM jobs j
                 JOIN customers c ON j.customer_id = c.customer_id
-                WHERE j.status IN ('PENDING', 'CONFIRMED', 'DISPATCHED', 'IN_TRANSIT')
-                ORDER BY j.booking_date DESC, j.pickup_time DESC
+                LEFT JOIN job_services js ON j.job_id = js.job_id
+                WHERE j.status_code IN ('PENDING', 'CONFIRMED', 'DISPATCHED', 'IN_TRANSIT')
+                ORDER BY js.scheduled_date DESC, js.scheduled_time DESC
                 LIMIT 50
             """)
-            context["active_jobs"] = [dict(j) for j in active_jobs]
-            logger.debug(f"Loaded {len(active_jobs)} active jobs")
+            context["active_jobs"] = [dict(j) for j in active_jobs] if active_jobs else []
+            logger.debug(f"[ContextLoader] Loaded {len(context['active_jobs'])} active jobs")
         except Exception as e:
-            logger.error(f"Failed to load active jobs: {e}")
+            logger.error(f"[ContextLoader] Failed to load active jobs: {e}")
             context["active_jobs"] = []
         
         # Load valid status transitions
@@ -260,8 +267,8 @@ class ContextLoader:
                     j.job_id,
                     j.job_no,
                     c.short_name as customer,
-                    j.status,
-                    j.booking_date,
+                    j.status_code as status,
+                    j.etd as booking_date,
                     j.total_cost,
                     j.total_revenue
                 FROM jobs j
@@ -269,31 +276,42 @@ class ContextLoader:
                 ORDER BY j.created_at DESC
                 LIMIT 20
             """)
-            context["recent_jobs"] = [dict(j) for j in recent_jobs]
+            context["recent_jobs"] = [dict(j) for j in recent_jobs] if recent_jobs else []
         except Exception as e:
-            logger.error(f"Failed to load recent jobs: {e}")
+            logger.error(f"[ContextLoader] Failed to load recent jobs: {e}")
             context["recent_jobs"] = []
+        
+        # Load customers for query matching
+        try:
+            customers = await self.db.fetch_all("""
+                SELECT customer_id, customer_code, short_name
+                FROM customers 
+                WHERE is_active = true
+                ORDER BY short_name
+                LIMIT 50
+            """)
+            context["customers"] = [dict(c) for c in customers] if customers else []
+        except Exception as e:
+            logger.error(f"[ContextLoader] Failed to load customers for query: {e}")
+            context["customers"] = []
         
         return context
     
-    async def _load_common_context(self) -> Dict:
-        """Load common context data"""
-        
-        context = {}
-        
-        # Current date info
-        from datetime import datetime, timedelta
+    def _load_common_context(self) -> Dict:
+        """Load common context data (no DB needed)"""
         
         now = datetime.now()
-        context["current_date"] = now.strftime("%Y-%m-%d")
-        context["current_time"] = now.strftime("%H:%M")
-        context["tomorrow"] = (now + timedelta(days=1)).strftime("%Y-%m-%d")
         
-        return context
+        return {
+            "current_date": now.strftime("%Y-%m-%d"),
+            "current_time": now.strftime("%H:%M"),
+            "tomorrow": (now + timedelta(days=1)).strftime("%Y-%m-%d"),
+            "day_after_tomorrow": (now + timedelta(days=2)).strftime("%Y-%m-%d"),
+        }
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# CONTEXT FORMATTERS (for prompts)
+# CONTEXT FORMATTERS (for prompts) - FIXED UTF-8
 # ══════════════════════════════════════════════════════════════════════════════
 
 def format_customers_for_prompt(customers: List[Dict], max_items: int = 20) -> str:
@@ -306,7 +324,11 @@ def format_customers_for_prompt(customers: List[Dict], max_items: int = 20) -> s
     for c in customers[:max_items]:
         code = c.get("customer_code", "")
         name = c.get("short_name", "")
-        lines.append(f"- {code}: {name}")
+        if code:
+            lines.append(f"- {code}: {name}")
+    
+    if not lines:
+        return "Không có dữ liệu khách hàng"
     
     return "\n".join(lines)
 
@@ -320,23 +342,38 @@ def format_jobs_for_prompt(jobs: List[Dict], max_items: int = 10) -> str:
     lines = []
     for j in jobs[:max_items]:
         job_no = j.get("job_no", "")
-        customer = j.get("customer", "")
+        customer = j.get("customer", "") or j.get("customer_code", "")
         date = j.get("booking_date", "")
-        time = j.get("pickup_time", "")
+        time_val = j.get("pickup_time", "")
         vehicle = j.get("vehicle_type", "")
         status = j.get("status", "")
+        
+        # Format date if it's a datetime object
+        if hasattr(date, 'strftime'):
+            date = date.strftime("%d/%m")
+        elif date:
+            date = str(date)[:10]
+        
+        # Format time
+        if hasattr(time_val, 'strftime'):
+            time_val = time_val.strftime("%H:%M")
+        elif time_val:
+            time_val = str(time_val)[:5]
         
         line = f"- {job_no}: {customer}"
         if date:
             line += f" - {date}"
-        if time:
-            line += f" {time}"
+        if time_val:
+            line += f" {time_val}"
         if vehicle:
             line += f" - {vehicle}"
         if status:
             line += f" [{status}]"
         
         lines.append(line)
+    
+    if not lines:
+        return "Không có job nào"
     
     return "\n".join(lines)
 

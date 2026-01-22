@@ -56,8 +56,42 @@ class JobResponse(BaseModel):
     message: Optional[str] = None
     enriched_data: Optional[Dict[str, Any]] = None
 
-
 # Endpoints
+
+@router.get("/by-number/{job_number}")
+async def get_job_by_number(job_number: str):
+    """
+    Get job by job_number (e.g., TRK-2201-0002)
+    """
+    try:
+        data_service = get_data_service()
+        conn = data_service._get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute("""
+                SELECT job_id, job_no, customer_id, status_code
+                FROM jobs 
+                WHERE job_no = %s
+                LIMIT 1
+            """, (job_number,))
+            result = cursor.fetchone()
+            if result:
+                return {
+                    "success": True,
+                    "job_id": result["job_id"],
+                    "id": result["job_id"],
+                    "job_number": result["job_no"],
+                    "customer_id": result["customer_id"],
+                    "status": result["status_code"]
+                }
+            else:
+                return {"success": False, "message": f"Job '{job_number}' not found"}
+        finally:
+            cursor.close()
+            conn.close()
+    except Exception as e:
+        logger.error(f"Error looking up job: {e}")
+        return {"success": False, "message": str(e)}
 
 @router.post("/create", response_model=JobResponse)
 async def create_job(request: JobCreateFromChatRequest):
@@ -101,12 +135,32 @@ async def create_job(request: JobCreateFromChatRequest):
         else:
             invoice_numbers = inv_nums
         
-        # Validate customer_id exists
+        # Resolve customer_id from customer_code if not provided
         customer_id = enriched.get('customer_id')
+        customer_code = entities.get('customer_code') or enriched.get('customer_code')
+        
+        if not customer_id and customer_code:
+            # Look up customer by code
+            conn = data_service._get_connection()
+            cursor = conn.cursor()
+            try:
+                cursor.execute("""
+                    SELECT customer_id FROM customers 
+                    WHERE customer_code = %s AND is_active = true
+                    LIMIT 1
+                """, (customer_code,))
+                result = cursor.fetchone()
+                if result:
+                    customer_id = result['customer_id']
+                    logger.info(f"Resolved customer '{customer_code}' -> ID {customer_id}")
+            finally:
+                cursor.close()
+                conn.close()
+        
         if not customer_id:
             return JobResponse(
                 success=False,
-                message=f"Không tìm thấy khách hàng '{entities.get('customer_code')}' trong DB. Vui lòng chọn khách hàng đúng."
+                message=f"Không tìm thấy khách hàng '{customer_code}' trong DB. Vui lòng chọn khách hàng đúng."
             )
         
         # Build job data with structured cargo fields
