@@ -310,12 +310,22 @@ function JobDetailModal({ job, onClose, onUpdate }) {
 
                     <div className="service-details-grid">
                       {svc.cargo_type && <div><strong>Hàng:</strong> {svc.cargo_type}</div>}
-                      {svc.weight_kg && <div><strong>Khối lượng:</strong> {svc.weight_kg}kg</div>}
-                      {svc.package_quantity && <div><strong>Số kiện:</strong> {svc.package_quantity} {svc.package_unit || 'pcs'}</div>}
+                      {svc.package_quantity && <div><strong>Số kiện:</strong> {svc.package_quantity} {svc.package_unit || 'pallet'}</div>}
                       {svc.origin_address && <div><strong>Điểm đi:</strong> {svc.origin_address}</div>}
                       {svc.dest_address && <div><strong>Điểm đến:</strong> {svc.dest_address}</div>}
                       {svc.scheduled_date && <div><strong>Ngày:</strong> {svc.scheduled_date}</div>}
                       {svc.scheduled_time && <div><strong>Giờ:</strong> {svc.scheduled_time}</div>}
+                      {svc.invoice_numbers && <div><strong>Invoice:</strong> {svc.invoice_numbers}</div>}
+
+                      {/* Vehicle info when assigned */}
+                      {svc.license_plate && (
+                        <div className="vehicle-info-section">
+                          <div><strong>🚗 Biển số:</strong> {svc.license_plate}</div>
+                          {svc.driver_name && <div><strong>👤 Tài xế:</strong> {svc.driver_name}</div>}
+                          {svc.driver_phone && <div><strong>📞 SĐT:</strong> {svc.driver_phone}</div>}
+                          {svc.driver_id_card && <div><strong>🆔 CCCD:</strong> {svc.driver_id_card}</div>}
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}

@@ -185,19 +185,19 @@ class ConversationManager:
                     entities = state.task.entities
                     job_number = execution_result.get("job_number") or entities.get("job_number", "")
                     job_details = execution_result.get("job_details", {})
-                    
+
                     response = f"✅ Đã gán xe cho Job **{job_number}** thành công!"
-                    
-                    # Add vehicle details
+
+                    # Add vehicle details - bolder
                     if entities.get("license_plate"):
-                        response += f"\n• Biển số: {entities['license_plate']}"
+                        response += f"\n• **Biển số:** {entities['license_plate']}"
                     if entities.get("driver_name"):
-                        response += f"\n• Tài xế: {entities['driver_name']}"
+                        response += f"\n• **Tài xế:** {entities['driver_name']}"
                     if entities.get("driver_phone"):
-                        response += f"\n• SĐT: {entities['driver_phone']}"
+                        response += f"\n• **SĐT:** {entities['driver_phone']}"
                     if entities.get("driver_cccd"):
-                        response += f"\n• CCCD: {entities['driver_cccd']}"
-                    
+                        response += f"\n• **CCCD:** {entities['driver_cccd']}"
+
                     # Generate customer confirmation message with job details
                     confirm_msg = self._generate_vehicle_confirm_message(entities, job_number, job_details)
                     response += f"\n\n📋 **Tin nhắn xác nhận gửi khách hàng:**\n```\n{confirm_msg}\n```"
@@ -383,50 +383,54 @@ class ConversationManager:
         """Generate vehicle assignment confirmation message for customer"""
         job_details = job_details or {}
         lines = []
-        lines.append(f"🚚 XÁC NHẬN GÁN XE")
-        lines.append(f"Job: {job_number}")
+        lines.append(f"🚚 **XÁC NHẬN GÁN XE**")
+        lines.append(f"**Job:** {job_number}")
         lines.append("")
-        
+
         # Job info (from job_details)
         if job_details.get("scheduled_date") or job_details.get("pickup_date"):
             date = job_details.get("scheduled_date") or job_details.get("pickup_date")
-            lines.append(f"📅 Ngày: {date}")
-        
+            lines.append(f"📅 **Ngày:** {date}")
+
         if job_details.get("scheduled_time") or job_details.get("pickup_time"):
             time = job_details.get("scheduled_time") or job_details.get("pickup_time")
-            lines.append(f"⏰ Giờ: {time}")
-        
+            lines.append(f"⏰ **Giờ:** {time}")
+
         # Invoices
         if job_details.get("invoice_numbers") or job_details.get("invoices"):
             inv = job_details.get("invoice_numbers") or job_details.get("invoices")
             if isinstance(inv, list):
                 inv = ', '.join(str(i) for i in inv)
-            lines.append(f"📄 Invoice: {inv}")
-        
-        # Quantity/Package info
+            lines.append(f"📄 **Invoice:** {inv}")
+
+        # Quantity/Package info - now below invoice
         pkg_qty = job_details.get("package_quantity") or job_details.get("package_display")
+        pkg_unit = job_details.get("package_unit") or ""
         if pkg_qty:
-            lines.append(f"📦 Số lượng: {pkg_qty}")
-        
+            qty_str = f"{pkg_qty}"
+            if pkg_unit:
+                qty_str = f"{pkg_qty} {pkg_unit}"
+            lines.append(f"📦 **Số lượng:** {qty_str}")
+
         lines.append("")
-        
-        # Vehicle info
+
+        # Vehicle info - bolder
         if entities.get("license_plate"):
-            lines.append(f"🚗 Biển số: {entities['license_plate']}")
-        
+            lines.append(f"🚗 **Biển số:** {entities['license_plate']}")
+
         if entities.get("driver_name"):
-            lines.append(f"👤 Tài xế: {entities['driver_name']}")
-        
+            lines.append(f"👤 **Tài xế:** {entities['driver_name']}")
+
         if entities.get("driver_phone"):
-            lines.append(f"📞 SĐT: {entities['driver_phone']}")
-        
+            lines.append(f"📞 **SĐT:** {entities['driver_phone']}")
+
         if entities.get("driver_cccd") or entities.get("driver_id_card"):
             cccd = entities.get("driver_cccd") or entities.get("driver_id_card")
-            lines.append(f"🆔 CCCD: {cccd}")
-        
+            lines.append(f"🆔 **CCCD:** {cccd}")
+
         lines.append("")
         lines.append("✅ Xe đã được gán. Vui lòng xác nhận!")
-        
+
         return "\n".join(lines)
     
     async def _handle_correction(

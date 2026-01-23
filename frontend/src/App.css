@@ -1684,6 +1684,23 @@ body {
   color: var(--text-secondary);
 }
 
+/* Vehicle info section when assigned */
+.vehicle-info-section {
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+  border-radius: 8px;
+  border-left: 3px solid var(--success);
+}
+
+.vehicle-info-section div {
+  margin-bottom: 4px;
+}
+
+.vehicle-info-section div:last-child {
+  margin-bottom: 0;
+}
+
 .service-assignment {
   display: flex;
   align-items: center;
