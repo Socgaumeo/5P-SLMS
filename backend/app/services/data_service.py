@@ -1,40 +1,42 @@
 """
-Data Service - Database lookups and enrichment
+Data Service - Database lookups and enrichment using Supabase SDK
 """
 
 import logging
-from typing import Optional, Dict, Any
-from datetime import date
+from typing import Optional, Dict, Any, List
+from datetime import date, time
 import json
 import traceback
-import psycopg2
-from psycopg2.extras import RealDictCursor
 
-from app.core.config import settings
+from app.db.supabase_client import get_supabase
+from app.ai.utils.smart_parser import (
+    format_date_iso, format_time_str, parse_number
+)
 
 logger = logging.getLogger(__name__)
 
 
 class DataService:
-    """Service for database operations and data enrichment"""
-    
+    """Service for database operations using Supabase SDK"""
+
     def __init__(self):
-        self.db_url = settings.DATABASE_URL
-    
-    def _get_connection(self):
-        """Get database connection"""
-        return psycopg2.connect(self.db_url, cursor_factory=RealDictCursor)
-    
+        self._client = None
+
+    @property
+    def client(self):
+        """Lazy load Supabase client"""
+        if self._client is None:
+            self._client = get_supabase()
+        return self._client
+
     async def enrich_entities(
         self,
         intent: str,
         entities: Dict[str, Any]
     ) -> Dict[str, Any]:
-        """
-        Enrich extracted entities with database lookups
-        """
+        """Enrich extracted entities with database lookups"""
         enriched = dict(entities)
-        
+
         try:
             if intent == "CREATE_JOB":
                 enriched = await self._enrich_create_job(entities)
@@ -45,783 +47,529 @@ class DataService:
         except Exception as e:
             logger.error(f"Enrichment error: {e}")
             enriched["enrichment_error"] = str(e)
-        
+
         return enriched
-    
+
     async def _enrich_create_job(self, entities: Dict) -> Dict:
         """Enrich CREATE_JOB entities"""
         enriched = dict(entities)
-        
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        
-        try:
-            # Lookup customer
-            customer_code = entities.get("customer_code")
-            enriched["customer_matched"] = False  # Track if customer was found
-            
-            # Search by customer_code first
-            if customer_code:
-                cursor.execute("""
-                    SELECT customer_id, customer_code, company_name, short_name
-                    FROM customers 
-                    WHERE customer_code ILIKE %s OR short_name ILIKE %s OR company_name ILIKE %s
-                    LIMIT 1
-                """, (f"%{customer_code}%", f"%{customer_code}%", f"%{customer_code}%"))
-                customer = cursor.fetchone()
-                if customer:
+        enriched["customer_matched"] = False
+
+        customer_code = entities.get("customer_code")
+
+        # Search by customer_code
+        if customer_code:
+            result = self.client.table('customers').select(
+                'customer_id, customer_code, company_name, short_name'
+            ).or_(
+                f"customer_code.ilike.%{customer_code}%,"
+                f"short_name.ilike.%{customer_code}%,"
+                f"company_name.ilike.%{customer_code}%"
+            ).limit(1).execute()
+
+            if result.data:
+                customer = result.data[0]
+                enriched["customer_id"] = customer["customer_id"]
+                enriched["customer_code"] = customer["customer_code"]
+                enriched["customer_name"] = customer["short_name"] or customer["company_name"]
+                enriched["customer_matched"] = True
+
+        # Fallback: search from pickup_address
+        if not enriched["customer_matched"]:
+            pickup_addr = entities.get("pickup_address", "")
+            delivery_addr = entities.get("delivery_address", "")
+            search_terms = [t.strip() for t in (pickup_addr + " " + delivery_addr).split() if len(t.strip()) > 2]
+
+            for term in search_terms[:5]:  # Limit search terms
+                result = self.client.table('customers').select(
+                    'customer_id, customer_code, company_name, short_name'
+                ).or_(
+                    f"customer_code.ilike.%{term}%,"
+                    f"short_name.ilike.%{term}%,"
+                    f"company_name.ilike.%{term}%"
+                ).limit(1).execute()
+
+                if result.data:
+                    customer = result.data[0]
                     enriched["customer_id"] = customer["customer_id"]
                     enriched["customer_code"] = customer["customer_code"]
                     enriched["customer_name"] = customer["short_name"] or customer["company_name"]
                     enriched["customer_matched"] = True
-            
-            # Fallback: search customer from pickup_address if not matched
-            if not enriched["customer_matched"]:
-                pickup_addr = entities.get("pickup_address", "")
-                delivery_addr = entities.get("delivery_address", "")
-                search_terms = [t.strip() for t in (pickup_addr + " " + delivery_addr).split() if len(t.strip()) > 2]
-                
-                for term in search_terms:
-                    cursor.execute("""
-                        SELECT customer_id, customer_code, company_name, short_name
-                        FROM customers 
-                        WHERE customer_code ILIKE %s OR short_name ILIKE %s OR company_name ILIKE %s
-                        LIMIT 1
-                    """, (f"%{term}%", f"%{term}%", f"%{term}%"))
-                    customer = cursor.fetchone()
-                    if customer:
-                        enriched["customer_id"] = customer["customer_id"]
-                        enriched["customer_code"] = customer["customer_code"]
-                        enriched["customer_name"] = customer["short_name"] or customer["company_name"]
-                        enriched["customer_matched"] = True
-                        enriched["customer_from_address"] = term  # Note that we matched from address
-                        break
-            
-            # If still not matched, show available customers
-            if not enriched["customer_matched"]:
-                cursor.execute("""
-                    SELECT customer_id, customer_code, short_name 
-                    FROM customers 
-                    WHERE is_active = TRUE
-                    ORDER BY short_name
-                    LIMIT 20
-                """)
-                available = cursor.fetchall()
-                enriched["available_customers"] = [
-                    {"id": c["customer_id"], "code": c["customer_code"], "name": c["short_name"]}
-                    for c in available
-                ]
-                enriched["customer_warning"] = f"Không tìm thấy khách hàng '{customer_code or 'N/A'}' trong DB. Vui lòng chọn khách hàng đúng."
-            
-            # Lookup route based on addresses
-            pickup = entities.get("pickup_address", "")
-            delivery = entities.get("delivery_address", "")
-            if pickup or delivery:
-                cursor.execute("""
-                    SELECT route_id, origin, destination, route_code
-                    FROM master_routes 
-                    WHERE origin ILIKE %s OR destination ILIKE %s
-                    LIMIT 1
-                """, (f"%{pickup}%", f"%{delivery}%"))
-                route = cursor.fetchone()
-                if route:
-                    enriched["route_id"] = route["route_id"]
-                    enriched["route_name"] = f"{route['origin']} → {route['destination']}"
-                    enriched["route_code"] = route.get("route_code")
-            
-            # Lookup pricing
-            customer_id = enriched.get("customer_id")
-            route_id = enriched.get("route_id")
-            vehicle_type = entities.get("vehicle_type")
-            
-            if customer_id and route_id and vehicle_type:
-                # Customer rate (revenue)
-                cursor.execute("""
-                    SELECT price FROM customer_rates 
-                    WHERE customer_id = %s AND route_id = %s AND vehicle_type = %s
-                    AND is_active = TRUE
-                    ORDER BY effective_date DESC LIMIT 1
-                """, (customer_id, route_id, vehicle_type))
-                customer_rate = cursor.fetchone()
-                
-                # Get suggested vendor and cost
-                cursor.execute("""
-                    SELECT v.vendor_id, v.company_name, v.short_name, vr.price as cost
-                    FROM vendor_rates vr
-                    JOIN vendors v ON vr.vendor_id = v.vendor_id
-                    WHERE vr.route_id = %s AND vr.vehicle_type = %s
-                    AND vr.is_active = TRUE
-                    ORDER BY vr.price ASC LIMIT 1
-                """, (route_id, vehicle_type))
-                vendor_rate = cursor.fetchone()
-                
-                pricing = {}
-                if customer_rate:
-                    pricing["revenue"] = float(customer_rate["price"])
-                if vendor_rate:
-                    pricing["cost"] = float(vendor_rate["cost"])
-                    enriched["vendor_id"] = vendor_rate["vendor_id"]
-                    enriched["vendor_name"] = vendor_rate["short_name"] or vendor_rate["company_name"]
-                
-                if "revenue" in pricing and "cost" in pricing:
-                    pricing["profit"] = pricing["revenue"] - pricing["cost"]
-                    pricing["margin"] = (pricing["profit"] / pricing["cost"] * 100) if pricing["cost"] else 0
-                
-                enriched["pricing"] = pricing
-            
-        finally:
-            cursor.close()
-            conn.close()
-        
+                    enriched["customer_from_address"] = term
+                    break
+
+        # If still not matched, show available customers
+        if not enriched["customer_matched"]:
+            result = self.client.table('customers').select(
+                'customer_id, customer_code, short_name'
+            ).eq('is_active', True).order('short_name').limit(20).execute()
+
+            enriched["available_customers"] = [
+                {"id": c["customer_id"], "code": c["customer_code"], "name": c["short_name"]}
+                for c in result.data
+            ]
+            enriched["customer_warning"] = f"Khong tim thay khach hang '{customer_code or 'N/A'}' trong DB."
+
+        # Lookup route
+        pickup = entities.get("pickup_address", "")
+        delivery = entities.get("delivery_address", "")
+        if pickup or delivery:
+            result = self.client.table('master_routes').select(
+                'route_id, origin, destination, route_code'
+            ).or_(
+                f"origin.ilike.%{pickup}%,destination.ilike.%{delivery}%"
+            ).limit(1).execute()
+
+            if result.data:
+                route = result.data[0]
+                enriched["route_id"] = route["route_id"]
+                enriched["route_name"] = f"{route['origin']} -> {route['destination']}"
+                enriched["route_code"] = route.get("route_code")
+
+        # Lookup pricing
+        customer_id = enriched.get("customer_id")
+        route_id = enriched.get("route_id")
+        vehicle_type = entities.get("vehicle_type")
+
+        if customer_id and route_id and vehicle_type:
+            # Customer rate (revenue)
+            cr_result = self.client.table('customer_rates').select('price').eq(
+                'customer_id', customer_id
+            ).eq('route_id', route_id).eq('vehicle_type', vehicle_type).eq(
+                'is_active', True
+            ).order('effective_date', desc=True).limit(1).execute()
+
+            # Vendor rate (cost)
+            vr_result = self.client.table('vendor_rates').select(
+                'price, vendor_id, vendors(company_name, short_name)'
+            ).eq('route_id', route_id).eq('vehicle_type', vehicle_type).eq(
+                'is_active', True
+            ).order('price').limit(1).execute()
+
+            pricing = {}
+            if cr_result.data:
+                pricing["revenue"] = float(cr_result.data[0]["price"])
+            if vr_result.data:
+                vr = vr_result.data[0]
+                pricing["cost"] = float(vr["price"])
+                enriched["vendor_id"] = vr["vendor_id"]
+                if vr.get("vendors"):
+                    enriched["vendor_name"] = vr["vendors"].get("short_name") or vr["vendors"].get("company_name")
+
+            if "revenue" in pricing and "cost" in pricing:
+                pricing["profit"] = pricing["revenue"] - pricing["cost"]
+                pricing["margin"] = (pricing["profit"] / pricing["cost"] * 100) if pricing["cost"] else 0
+
+            enriched["pricing"] = pricing
+
         return enriched
-    
+
     async def _enrich_update_job(self, entities: Dict) -> Dict:
-        """Enrich UPDATE_JOB entities - auto lookup job info from DB"""
+        """Enrich UPDATE_JOB entities"""
         enriched = dict(entities)
-        
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        
-        try:
-            job_id = None
-            job_data = None
-            
-            # Find job by job_number first
-            job_number = entities.get("job_number")
-            invoice_ref = entities.get("invoice_ref")
-            bl_awb_ref = entities.get("bl_awb_ref")
-            
-            if job_number:
-                cursor.execute("""
-                    SELECT j.*, c.customer_code, c.short_name as customer_name
-                    FROM jobs j
-                    JOIN customers c ON j.customer_id = c.customer_id
-                    WHERE j.job_no ILIKE %s
-                    LIMIT 1
-                """, (f"%{job_number}%",))
-                job_data = cursor.fetchone()
-            
-            if not job_data and invoice_ref:
-                cursor.execute("""
-                    SELECT j.*, c.customer_code, c.short_name as customer_name, 
-                           js.invoice_numbers
-                    FROM jobs j
-                    JOIN customers c ON j.customer_id = c.customer_id
-                    JOIN job_services js ON js.job_id = j.job_id
-                    WHERE js.invoice_numbers ILIKE %s
-                    LIMIT 1
-                """, (f"%{invoice_ref}%",))
-                job_data = cursor.fetchone()
-            
-            if not job_data and bl_awb_ref:
-                cursor.execute("""
-                    SELECT j.*, c.customer_code, c.short_name as customer_name,
-                           js.bl_awb_no
-                    FROM jobs j
-                    JOIN customers c ON j.customer_id = c.customer_id
-                    JOIN job_services js ON js.job_id = j.job_id
-                    WHERE js.bl_awb_no ILIKE %s
-                    LIMIT 1
-                """, (f"%{bl_awb_ref}%",))
-                job_data = cursor.fetchone()
-            
-            if job_data:
-                enriched["job_found"] = True
-                enriched["job_id"] = job_data["job_id"]
-                enriched["job_number"] = job_data["job_no"]
-                enriched["customer_id"] = job_data["customer_id"]
-                enriched["customer_code"] = job_data["customer_code"]
-                enriched["customer_name"] = job_data["customer_name"]
-                enriched["customer_matched"] = True
-                enriched["current_status"] = job_data["status_code"]
-                
-                # Get service info
-                cursor.execute("""
-                    SELECT js.*, mst.name_vi as service_name
-                    FROM job_services js
-                    LEFT JOIN master_service_types mst ON js.service_type_code = mst.service_code
-                    WHERE js.job_id = %s
-                """, (job_data["job_id"],))
-                services = cursor.fetchall()
-                
-                if services:
-                    svc = services[0]
-                    enriched["service_type_code"] = svc["service_type_code"]
-                    enriched["service_name"] = svc["service_name"]
-                    enriched["scheduled_date"] = str(svc["scheduled_date"]) if svc["scheduled_date"] else None
-                    enriched["services_count"] = len(services)
-                
-                logger.info(f"UPDATE_JOB: Found job {job_data['job_no']} for customer {job_data['customer_name']}")
-            else:
-                enriched["job_found"] = False
-                enriched["customer_matched"] = False
-                enriched["job_warning"] = "Không tìm thấy job. Vui lòng nhập job_number, invoice hoặc B/L."
-                logger.warning(f"UPDATE_JOB: Job not found for {job_number or invoice_ref or bl_awb_ref}")
-        
-        finally:
-            conn.close()
-        
+        job_data = None
+
+        job_number = entities.get("job_number")
+        invoice_ref = entities.get("invoice_ref")
+        bl_awb_ref = entities.get("bl_awb_ref")
+
+        # Find job by job_number
+        if job_number:
+            result = self.client.table('jobs').select(
+                '*, customers(customer_code, short_name)'
+            ).ilike('job_no', f'%{job_number}%').limit(1).execute()
+            if result.data:
+                job_data = result.data[0]
+
+        # Find by invoice
+        if not job_data and invoice_ref:
+            result = self.client.table('job_services').select(
+                'job_id, jobs(*, customers(customer_code, short_name))'
+            ).ilike('invoice_numbers', f'%{invoice_ref}%').limit(1).execute()
+            if result.data and result.data[0].get('jobs'):
+                job_data = result.data[0]['jobs']
+
+        # Find by B/L
+        if not job_data and bl_awb_ref:
+            result = self.client.table('job_services').select(
+                'job_id, jobs(*, customers(customer_code, short_name))'
+            ).ilike('bl_awb_no', f'%{bl_awb_ref}%').limit(1).execute()
+            if result.data and result.data[0].get('jobs'):
+                job_data = result.data[0]['jobs']
+
+        if job_data:
+            enriched["job_found"] = True
+            enriched["job_id"] = job_data["job_id"]
+            enriched["job_number"] = job_data["job_no"]
+            enriched["customer_id"] = job_data["customer_id"]
+            enriched["current_status"] = job_data["status_code"]
+            enriched["customer_matched"] = True
+
+            if job_data.get("customers"):
+                enriched["customer_code"] = job_data["customers"]["customer_code"]
+                enriched["customer_name"] = job_data["customers"]["short_name"]
+
+            # Get services
+            svc_result = self.client.table('job_services').select(
+                '*, master_service_types(name_vi)'
+            ).eq('job_id', job_data["job_id"]).execute()
+
+            if svc_result.data:
+                svc = svc_result.data[0]
+                enriched["service_type_code"] = svc["service_type_code"]
+                enriched["service_name"] = svc.get("master_service_types", {}).get("name_vi")
+                enriched["scheduled_date"] = str(svc["scheduled_date"]) if svc.get("scheduled_date") else None
+                enriched["services_count"] = len(svc_result.data)
+        else:
+            enriched["job_found"] = False
+            enriched["customer_matched"] = False
+            enriched["job_warning"] = "Khong tim thay job. Vui long nhap job_number, invoice hoac B/L."
+
         return enriched
-    
+
     async def _enrich_assign_vehicle(self, entities: Dict) -> Dict:
         """Enrich ASSIGN_VEHICLE entities"""
         enriched = dict(entities)
-        
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        
-        try:
-            # First priority: Lookup by job_number if provided
-            job_number = entities.get("job_number")
-            if job_number:
-                cursor.execute("""
-                    SELECT j.job_id, j.job_no, c.customer_code, js.scheduled_date, js.scheduled_time,
-                           js.service_details, js.origin_address, js.dest_address, j.description
-                    FROM jobs j
-                    JOIN customers c ON j.customer_id = c.customer_id  
-                    LEFT JOIN job_services js ON j.job_id = js.job_id
-                    WHERE j.job_no ILIKE %s
-                    LIMIT 1
-                """, (f"%{job_number}%",))
-                
-                matched_job = cursor.fetchone()
-                
-                if matched_job:
-                    enriched["job_id"] = matched_job["job_id"]
-                    enriched["job_number"] = matched_job["job_no"]
-                    enriched["job_customer"] = matched_job["customer_code"]
-                    enriched["job_date"] = str(matched_job["scheduled_date"]) if matched_job.get("scheduled_date") else None
-                    enriched["pickup_address"] = matched_job.get("origin_address")
-                    enriched["delivery_address"] = matched_job.get("dest_address")
-                    
-                    # Parse description for cargo if needed
-                    if matched_job.get("description"):
-                        enriched["cargo_type"] = matched_job["description"].split("-")[0].strip()
-                    
-                    # Parse service_details
-                    if matched_job.get("service_details"):
-                        details = matched_job["service_details"]
+
+        # Lookup by job_number if provided
+        job_number = entities.get("job_number")
+        if job_number:
+            result = self.client.table('jobs').select(
+                'job_id, job_no, customers(customer_code), '
+                'job_services(scheduled_date, scheduled_time, service_details, origin_address, dest_address)'
+            ).ilike('job_no', f'%{job_number}%').limit(1).execute()
+
+            if result.data:
+                job = result.data[0]
+                enriched["job_id"] = job["job_id"]
+                enriched["job_number"] = job["job_no"]
+                if job.get("customers"):
+                    enriched["job_customer"] = job["customers"]["customer_code"]
+                if job.get("job_services") and len(job["job_services"]) > 0:
+                    svc = job["job_services"][0]
+                    enriched["job_date"] = str(svc["scheduled_date"]) if svc.get("scheduled_date") else None
+                    enriched["pickup_address"] = svc.get("origin_address")
+                    enriched["delivery_address"] = svc.get("dest_address")
+
+                    if svc.get("service_details"):
+                        details = svc["service_details"]
                         if isinstance(details, str):
                             details = json.loads(details)
                         if details.get("invoice_numbers"):
                             enriched["invoice_numbers"] = details["invoice_numbers"]
                         if details.get("package_quantity"):
                             enriched["package_quantity"] = details["package_quantity"]
-                        if details.get("package_unit"):
-                            enriched["package_unit"] = details["package_unit"]
-                    
-                    # Found via job_number, skip pending jobs query
-                    cursor.close()
-                    conn.close()
-                    return enriched
-            
-            # Fallback: Find pending jobs that might match (use job_services for trucking)
-            # Fetch FULL details needed for Vendor Message
-            cursor.execute("""
-                SELECT j.job_id, j.job_no, c.customer_code, js.scheduled_date, js.scheduled_time,
-                       js.service_details, js.origin_address, js.dest_address, j.description
-                FROM jobs j
-                JOIN customers c ON j.customer_id = c.customer_id
-                LEFT JOIN job_services js ON j.job_id = js.job_id
-                WHERE j.status_code IN ('PENDING', 'CONFIRMED', 'DRAFT')
-                AND (js.vehicle_id IS NULL OR js.vehicle_id = 0)
-                ORDER BY j.created_at DESC
-                LIMIT 10
-            """)
-            pending_jobs = cursor.fetchall()
-            
-            # Try to match based on hints
-            hint = entities.get("linked_job_hint", "") or entities.get("job_number", "")
-            matched_job = None
-            
-            for job in pending_jobs:
-                # Match by Job Number (First Priority)
-                if hint and job["job_no"] and job["job_no"].upper() in hint.upper():
-                    matched_job = job
-                    break
-                # Match by customer code in hint
-                elif job["customer_code"] and job["customer_code"].lower() in hint.lower():
-                    matched_job = job
-                    break
-            
-            # If no match, suggest most recent
-            if not matched_job and pending_jobs:
-                matched_job = pending_jobs[0]
-            
-            if matched_job:
-                enriched["job_id"] = matched_job["job_id"]
-                enriched["job_number"] = matched_job["job_no"]
-                enriched["job_customer"] = matched_job["customer_code"]
-                enriched["job_date"] = str(matched_job["scheduled_date"]) if matched_job.get("scheduled_date") else None
-                
-                # New fields for Vendor Message
-                enriched["pickup_address"] = matched_job.get("origin_address")
-                enriched["delivery_address"] = matched_job.get("dest_address")
-                
-                # Parse description for cargo info
-                if matched_job.get("description"):
-                     # Basic heuristic: First part of description
-                     enriched["cargo_type"] = matched_job["description"].split("-")[0].strip()
+                return enriched
 
-                # Get invoice/cargo from service_details if available
-                if matched_job.get("service_details"):
-                    details = matched_job["service_details"]
-                    if isinstance(details, str):
-                        details = json.loads(details)
-                    if details.get("invoice_numbers"):
-                        enriched["invoice_numbers"] = details["invoice_numbers"]
-                    if details.get("package_quantity"):
-                        enriched["package_quantity"] = details["package_quantity"]
-                    if details.get("package_unit"):
-                        enriched["package_unit"] = details["package_unit"]
-            
-            # Lookup driver if exists
-            license_plate = entities.get("license_plate", "").replace(" ", "").replace(".", "")
-            if license_plate:
-                cursor.execute("""
-                    SELECT driver_id, full_name, phone, id_card
-                    FROM drivers 
-                    WHERE REPLACE(REPLACE(license_plate, ' ', ''), '.', '') ILIKE %s
-                    LIMIT 1
-                """, (f"%{license_plate}%",))
-                driver = cursor.fetchone()
-                if driver:
-                    enriched["driver_id"] = driver["driver_id"]
-                    enriched["existing_driver"] = True
-            
-        finally:
-            cursor.close()
-            conn.close()
-        
+        # Fallback: Find pending jobs
+        result = self.client.table('jobs').select(
+            'job_id, job_no, customers(customer_code), description, '
+            'job_services(scheduled_date, scheduled_time, service_details, origin_address, dest_address, vehicle_id)'
+        ).in_('status_code', ['PENDING', 'CONFIRMED', 'DRAFT']).order(
+            'created_at', desc=True
+        ).limit(10).execute()
+
+        pending_jobs = result.data or []
+        hint = entities.get("linked_job_hint", "") or ""
+        matched_job = None
+
+        for job in pending_jobs:
+            if hint and job.get("job_no") and job["job_no"].upper() in hint.upper():
+                matched_job = job
+                break
+            if job.get("customers") and job["customers"]["customer_code"].lower() in hint.lower():
+                matched_job = job
+                break
+
+        if not matched_job and pending_jobs:
+            matched_job = pending_jobs[0]
+
+        if matched_job:
+            enriched["job_id"] = matched_job["job_id"]
+            enriched["job_number"] = matched_job["job_no"]
+            if matched_job.get("customers"):
+                enriched["job_customer"] = matched_job["customers"]["customer_code"]
+            if matched_job.get("job_services") and len(matched_job["job_services"]) > 0:
+                svc = matched_job["job_services"][0]
+                enriched["job_date"] = str(svc["scheduled_date"]) if svc.get("scheduled_date") else None
+                enriched["pickup_address"] = svc.get("origin_address")
+                enriched["delivery_address"] = svc.get("dest_address")
+
+        # Lookup driver by license plate
+        license_plate = entities.get("license_plate", "").replace(" ", "").replace(".", "")
+        if license_plate:
+            result = self.client.table('drivers').select(
+                'driver_id, full_name, phone, id_card'
+            ).ilike('license_plate', f'%{license_plate}%').limit(1).execute()
+            if result.data:
+                driver = result.data[0]
+                enriched["driver_id"] = driver["driver_id"]
+                enriched["existing_driver"] = True
+
         return enriched
-    
+
     # Job operations
-    
+
     async def create_job(self, job_data: Dict, user_id: int) -> Dict:
-        """Create new job using actual schema (jobs + job_services) with multi-service support"""
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        
+        """Create new job using Supabase"""
         try:
-            # Determine service type and job prefix
+            # Determine service type and prefix
             service_type = job_data.get("service_type_code", "TRUCKING_SHORT")
-            
-            # Set job prefix based on service type
+
             if service_type.startswith("WHS"):
                 prefix = "WHS"
             elif service_type.startswith("CUS"):
                 prefix = "CUS"
             elif service_type.startswith("SVC"):
-                prefix = "PKG"  # Packing services
+                prefix = "PKG"
             else:
                 prefix = "TRK"
-            
+
             # Generate job number
             today = date.today()
-            cursor.execute("""
-                SELECT COUNT(*) + 1 as next_num FROM jobs 
-                WHERE DATE(created_at) = %s AND job_no LIKE %s
-            """, (today, f"{prefix}%"))
-            result = cursor.fetchone()
-            next_num = result["next_num"] if result else 1
+            count_result = self.client.table('jobs').select(
+                'job_id', count='exact'
+            ).gte('created_at', today.isoformat()).ilike('job_no', f'{prefix}%').execute()
+
+            next_num = (count_result.count or 0) + 1
             job_no = f"{prefix}-{today.strftime('%d%m')}-{next_num:04d}"
-            
-            # Build description from entities
+
+            # Build description
             dims = ""
             if job_data.get("dimension_length_cm"):
                 dims = f"{job_data.get('dimension_length_cm')}x{job_data.get('dimension_width_cm')}x{job_data.get('dimension_height_cm')}cm"
-            
+
             pkg_info = ""
             if job_data.get("package_quantity"):
-                pkg_info = f"{job_data.get('package_quantity')} {job_data.get('package_unit', 'kiện')}"
-            
+                pkg_info = f"{job_data.get('package_quantity')} {job_data.get('package_unit', 'kien')}"
+
             description = f"{job_data.get('cargo_type', '')} - {pkg_info} {dims} - Invoice: {job_data.get('invoice_numbers', '')}"
-            
-            # Insert into jobs table (main job record)
-            cursor.execute("""
-                INSERT INTO jobs (
-                    job_no, customer_id, description, etd, status_code
-                ) VALUES (
-                    %s, %s, %s, %s, 'PENDING'
-                ) RETURNING job_id, job_no
-            """, (
-                job_no,
-                job_data.get("customer_id"),
-                description.strip(),
-                job_data.get("booking_date") or job_data.get("storage_start_date")
-            ))
-            
-            job = cursor.fetchone()
+
+            # Parse booking date using smart parser (handles multiple formats)
+            booking_date_raw = job_data.get("booking_date") or job_data.get("storage_start_date")
+            etd_date = format_date_iso(booking_date_raw) if booking_date_raw else today.isoformat()
+
+            # Insert job
+            job_result = self.client.table('jobs').insert({
+                'job_no': job_no,
+                'customer_id': job_data.get("customer_id"),
+                'description': description.strip(),
+                'etd': etd_date,
+                'status_code': 'PENDING'
+            }).execute()
+
+            job = job_result.data[0]
             job_id = job["job_id"]
-            
+
             logger.info(f"Created job: job_id={job_id}, job_no={job_no}")
-            
-            # Get services from job_data (AI already detected)
+
+            # Get services
             services = job_data.get("services", [])
-            
-            # Fallback: if no services array, use service_type_code
             if not services:
-                if service_type.startswith("WHS"):
-                    services = ["WHS_STORAGE"]
-                    # Also add WHS_HANDLE if in special requirements
-                    special_reqs = job_data.get("special_requirements", "") or ""
-                    if "nâng" in special_reqs.lower() or "bốc" in special_reqs.lower():
-                        services.append("WHS_HANDLE")
-                else:
-                    services = [service_type]
-            
-            logger.info(f"Services to create: {services}")
-            
-            # Handle multi-item cargo - create separate job_service for each item
+                services = [service_type]
+
+            # Handle cargo items
             cargo_items = job_data.get("cargo_items", [])
             packing_items = job_data.get("packing_items", [])
-            
-            logger.info(f"cargo_items from job_data: {cargo_items}")
-            logger.info(f"cargo_items type: {type(cargo_items)}")
-            logger.info(f"packing_items from job_data: {packing_items}")
-            
-            # For trucking/warehouse: use cargo_items
-            # For packing (SVC_*): use packing_items
-            if service_type.startswith("SVC"):
-                items_to_process = packing_items
-            else:
-                items_to_process = cargo_items
-            
-            logger.info(f"Items to process: {len(items_to_process) if items_to_process else 0} items")
-            logger.info(f"items_to_process content: {items_to_process}")
-            
-            # CREATE SERVICES FROM CARGO ITEMS (if any)
-            if items_to_process and len(items_to_process) > 0:
-                logger.info(">>> Creating job_services from cargo_items")
+            items_to_process = packing_items if service_type.startswith("SVC") else cargo_items
 
-                # Create job_service for each cargo/packing item
+            # Create services from items
+            if items_to_process:
                 for item in items_to_process:
-                    # Build service_details JSONB
-                    import json
                     service_details_json = {
-                        "invoice_numbers": [item.get("invoice_no")] if item.get("invoice_no") else (job_data.get("invoice_numbers") or []),
+                        "invoice_numbers": [item.get("invoice_no")] if item.get("invoice_no") else [],
                         "cargo_items": [item] if item else [],
                         "package_quantity": item.get("package_quantity") or 1,
-                        "package_unit": item.get("package_unit") or job_data.get("package_unit") or "kiện",
+                        "package_unit": item.get("package_unit") or job_data.get("package_unit") or "kien",
                         "cargo_type": item.get("description") or job_data.get("cargo_type"),
                     }
-                    service_details_str = json.dumps(service_details_json)
-                    cursor.execute("""
-                        INSERT INTO job_services (
-                            job_id, service_type_code, scheduled_date, scheduled_time,
-                            origin_address, dest_address, vendor_id, status_code,
-                            cargo_type, package_quantity, package_unit, weight_kg,
-                            dimension_length_cm, dimension_width_cm, dimension_height_cm,
-                            invoice_numbers, special_requirements,
-                            storage_start_date, storage_end_date,
-                            declaration_no, declaration_datetime, loai_hinh, customs_type,
-                            customs_port, buyer_name, seller_name, hs_code, bl_awb_no, co_no,
-                            packing_type, items_count, packages_output,
-                            before_length_cm, before_width_cm, before_height_cm,
-                            after_length_cm, after_width_cm, after_height_cm,
-                            shrink_wrap, vacuum_pack, lashing, fumigation,
-                            service_details
-                        ) VALUES (
-                            %s, %s, %s, %s, %s, %s, %s, 'PENDING',
-                            %s, %s, %s, %s,
-                            %s, %s, %s,
-                            %s, %s,
-                            %s, %s,
-                            %s, %s, %s, %s,
-                            %s, %s, %s, %s, %s, %s,
-                            %s, %s, %s,
-                            %s, %s, %s,
-                            %s, %s, %s,
-                            %s, %s, %s, %s,
-                            %s
-                    ) RETURNING svc_id
-                    """, (
-                        job_id,
-                        service_type,
-                        job_data.get("booking_date") or job_data.get("storage_start_date"),
-                        job_data.get("pickup_time"),
-                        job_data.get("pickup_address"),
-                        job_data.get("delivery_address"),
-                        job_data.get("vendor_id"),
-                        # Item-specific cargo info
-                        item.get("description") or job_data.get("cargo_type"),
-                        item.get("package_quantity") or 1,  # package count for this item
-                        item.get("package_unit") or job_data.get("package_unit") or "kiện",
-                        item.get("weight_kg"),
-                        # Dimensions - support both cargo_items (length_cm) and packing_items (before_length_cm)
-                        item.get("length_cm") or item.get("before_length_cm") or job_data.get("dimension_length_cm"),
-                        item.get("width_cm") or item.get("before_width_cm") or job_data.get("dimension_width_cm"),
-                        item.get("height_cm") or item.get("before_height_cm") or job_data.get("dimension_height_cm"),
-                        # Invoice - item-specific or job-level
-                        item.get("invoice_no") or job_data.get("invoice_numbers"),
-                        job_data.get("special_requirements"),
-                        job_data.get("storage_start_date"),
-                        job_data.get("storage_end_date"),
-                        job_data.get("declaration_no"),
-                        job_data.get("declaration_datetime"),
-                        job_data.get("loai_hinh"),
-                        job_data.get("customs_type"),
-                        job_data.get("customs_port"),
-                        job_data.get("buyer_name"),
-                        job_data.get("seller_name"),
-                        job_data.get("hs_code"),
-                        job_data.get("bl_awb_no"),
-                        job_data.get("co_no"),
-                        # Packing item-specific
-                        job_data.get("packing_type") or "WOODEN_BOX",
-                        1,  # items_count per record
-                        1,  # packages_output per record
-                        item.get("before_length_cm"),
-                        item.get("before_width_cm"),
-                        item.get("before_height_cm"),
-                        item.get("after_length_cm"),
-                        item.get("after_width_cm"),
-                        item.get("after_height_cm"),
-                        item.get("shrink_wrap") or False,
-                        item.get("vacuum_pack") or False,
-                        item.get("lashing") or False,
-                        item.get("fumigation") or False,
-                        service_details_str  # Add service_details JSON
-                    ))
-                    
-                    svc = cursor.fetchone()
-                    logger.info(f"Created packing item service: svc_id={svc['svc_id']}, item_no={item.get('item_no')}")
-                
-                # Skip normal service creation loop
+
+                    # Use smart parser for flexible date/time handling
+                    scheduled_date_str = format_date_iso(job_data.get("booking_date")) or today.isoformat()
+                    scheduled_time_str = format_time_str(job_data.get("pickup_time"))
+
+                    self.client.table('job_services').insert({
+                        'job_id': job_id,
+                        'service_type_code': service_type,
+                        'scheduled_date': scheduled_date_str,
+                        'scheduled_time': scheduled_time_str,
+                        'origin_address': job_data.get("pickup_address"),
+                        'dest_address': job_data.get("delivery_address"),
+                        'vendor_id': job_data.get("vendor_id"),
+                        'status_code': 'PENDING',
+                        'cargo_type': item.get("description") or job_data.get("cargo_type"),
+                        'package_quantity': item.get("package_quantity") or 1,
+                        'package_unit': item.get("package_unit") or job_data.get("package_unit") or "kien",
+                        'weight_kg': item.get("weight_kg"),
+                        'dimension_length_cm': item.get("length_cm") or job_data.get("dimension_length_cm"),
+                        'dimension_width_cm': item.get("width_cm") or job_data.get("dimension_width_cm"),
+                        'dimension_height_cm': item.get("height_cm") or job_data.get("dimension_height_cm"),
+                        'invoice_numbers': item.get("invoice_no") or job_data.get("invoice_numbers"),
+                        'special_requirements': job_data.get("special_requirements"),
+                        'service_details': service_details_json
+                    }).execute()
                 services = []
-                logger.info(f"Created {len(packing_items)} packing item services")
-            
-            # Insert each service (for non-packing or single-item packing)
+
+            # Create services (single-item mode)
             for svc_type in services:
-                # Build service_details JSONB for this service
-                import json
                 invoice_nums = job_data.get("invoice_numbers") or []
                 if isinstance(invoice_nums, str):
                     invoice_nums = [i.strip() for i in invoice_nums.split(",") if i.strip()]
-                
+
                 service_details_json = {
                     "invoice_numbers": invoice_nums,
-                    "cargo_items": [],  # No items in single-service mode
+                    "cargo_items": [],
                     "package_quantity": job_data.get("package_quantity") or 0,
-                    "package_unit": job_data.get("package_unit") or "kiện",
+                    "package_unit": job_data.get("package_unit") or "kien",
                     "cargo_type": job_data.get("cargo_type"),
-                    "dimension_length_cm": job_data.get("dimension_length_cm"),
-                    "dimension_width_cm": job_data.get("dimension_width_cm"),
-                    "dimension_height_cm": job_data.get("dimension_height_cm"),
                 }
-                service_details_str = json.dumps(service_details_json)
-                
-                cursor.execute("""
-                    INSERT INTO job_services (
-                        job_id, service_type_code, scheduled_date, scheduled_time,
-                        origin_address, dest_address, vendor_id, status_code,
-                        cargo_type, package_quantity, package_unit, weight_kg,
-                        dimension_length_cm, dimension_width_cm, dimension_height_cm,
-                        invoice_numbers, special_requirements,
-                        storage_start_date, storage_end_date,
-                        -- Customs fields
-                        declaration_no, declaration_datetime, loai_hinh, customs_type,
-                        customs_port, buyer_name, seller_name, hs_code, bl_awb_no, co_no,
-                        -- Packing fields
-                        packing_type, items_count, packages_output,
-                        before_length_cm, before_width_cm, before_height_cm,
-                        after_length_cm, after_width_cm, after_height_cm,
-                        shrink_wrap, vacuum_pack, lashing, fumigation,
-                        service_details
-                    ) VALUES (
-                        %s, %s, %s, %s, %s, %s, %s, 'PENDING',
-                        %s, %s, %s, %s,
-                        %s, %s, %s,
-                        %s, %s,
-                        %s, %s,
-                        %s, %s, %s, %s,
-                        %s, %s, %s, %s, %s, %s,
-                        %s, %s, %s,
-                        %s, %s, %s,
-                        %s, %s, %s,
-                        %s, %s, %s, %s,
-                        %s
-                    ) RETURNING svc_id
-                """, (
-                    job_id,
-                    svc_type,
-                    job_data.get("booking_date") or job_data.get("storage_start_date"),
-                    job_data.get("pickup_time"),
-                    job_data.get("pickup_address"),
-                    job_data.get("delivery_address"),
-                    job_data.get("vendor_id"),
-                    job_data.get("cargo_type"),
-                    job_data.get("package_quantity"),
-                    job_data.get("package_unit"),
-                    job_data.get("weight_kg"),
-                    job_data.get("dimension_length_cm"),
-                    job_data.get("dimension_width_cm"),
-                    job_data.get("dimension_height_cm"),
-                    job_data.get("invoice_numbers"),
-                    job_data.get("special_requirements"),
-                    job_data.get("storage_start_date"),
-                    job_data.get("storage_end_date"),
-                    # Customs
-                    job_data.get("declaration_no"),
-                    job_data.get("declaration_datetime"),
-                    job_data.get("loai_hinh"),
-                    job_data.get("customs_type"),
-                    job_data.get("customs_port"),
-                    job_data.get("buyer_name"),
-                    job_data.get("seller_name"),
-                    job_data.get("hs_code"),
-                    job_data.get("bl_awb_no"),
-                    job_data.get("co_no"),
-                    # Packing
-                    job_data.get("packing_type"),
-                    job_data.get("items_count"),
-                    job_data.get("packages_output"),
-                    job_data.get("before_length_cm"),
-                    job_data.get("before_width_cm"),
-                    job_data.get("before_height_cm"),
-                    job_data.get("after_length_cm"),
-                    job_data.get("after_width_cm"),
-                    job_data.get("after_height_cm"),
-                    job_data.get("shrink_wrap") or False,
-                    job_data.get("vacuum_pack") or False,
-                    job_data.get("lashing") or False,
-                    job_data.get("fumigation") or False,
-                    service_details_str  # Add service_details JSONB
-                ))
-                
-                svc = cursor.fetchone()
-                logger.info(f"Created job_service: svc_id={svc['svc_id']}, type={svc_type}")
-            
-            conn.commit()
-            
+
+                # Use smart parser for flexible date/time handling
+                scheduled_date_str = format_date_iso(job_data.get("booking_date")) or today.isoformat()
+                scheduled_time_str = format_time_str(job_data.get("pickup_time"))
+                storage_start = format_date_iso(job_data.get("storage_start_date"))
+                storage_end = format_date_iso(job_data.get("storage_end_date"))
+
+                self.client.table('job_services').insert({
+                    'job_id': job_id,
+                    'service_type_code': svc_type,
+                    'scheduled_date': scheduled_date_str,
+                    'scheduled_time': scheduled_time_str,
+                    'origin_address': job_data.get("pickup_address"),
+                    'dest_address': job_data.get("delivery_address"),
+                    'vendor_id': job_data.get("vendor_id"),
+                    'status_code': 'PENDING',
+                    'cargo_type': job_data.get("cargo_type"),
+                    'package_quantity': job_data.get("package_quantity"),
+                    'package_unit': job_data.get("package_unit"),
+                    'weight_kg': job_data.get("weight_kg"),
+                    'dimension_length_cm': job_data.get("dimension_length_cm"),
+                    'dimension_width_cm': job_data.get("dimension_width_cm"),
+                    'dimension_height_cm': job_data.get("dimension_height_cm"),
+                    'invoice_numbers': job_data.get("invoice_numbers"),
+                    'special_requirements': job_data.get("special_requirements"),
+                    'storage_start_date': storage_start,
+                    'storage_end_date': storage_end,
+                    'declaration_no': job_data.get("declaration_no"),
+                    'loai_hinh': job_data.get("loai_hinh"),
+                    'customs_type': job_data.get("customs_type"),
+                    'customs_port': job_data.get("customs_port"),
+                    'buyer_name': job_data.get("buyer_name"),
+                    'seller_name': job_data.get("seller_name"),
+                    'hs_code': job_data.get("hs_code"),
+                    'bl_awb_no': job_data.get("bl_awb_no"),
+                    'co_no': job_data.get("co_no"),
+                    'packing_type': job_data.get("packing_type"),
+                    'items_count': job_data.get("items_count"),
+                    'packages_output': job_data.get("packages_output"),
+                    'shrink_wrap': job_data.get("shrink_wrap") or False,
+                    'vacuum_pack': job_data.get("vacuum_pack") or False,
+                    'lashing': job_data.get("lashing") or False,
+                    'fumigation': job_data.get("fumigation") or False,
+                    'service_details': service_details_json
+                }).execute()
+
+                logger.info(f"Created job_service for type={svc_type}")
+
             return {
-                "id": job_id, 
+                "id": job_id,
                 "job_number": job_no,
-                "services_count": len(services),
+                "services_count": len(services) or len(items_to_process),
                 "services": services
             }
-            
+
         except Exception as e:
-            conn.rollback()
             logger.error(f"Error creating job: {e}")
             logger.error(traceback.format_exc())
             raise e
-        finally:
-            cursor.close()
-            conn.close()
-    
+
     async def assign_vehicle(self, job_id: int, vehicle_data: Dict, user_id: int) -> Dict:
         """Assign vehicle to job service"""
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        
         try:
             vendor_id = None
             vendor_name = vehicle_data.get("vendor_name")
             license_plate = vehicle_data.get("license_plate", "").replace(" ", "").replace(".", "")
             driver_phone = vehicle_data.get("driver_phone", "").replace(" ", "").replace("-", "")
-            
-            # Priority 1: Auto-lookup by license plate in vehicles table
+
+            # Auto-lookup by license plate
             if license_plate:
-                cursor.execute("""
-                    SELECT vendor_id FROM vehicles
-                    WHERE REPLACE(REPLACE(plate_number, ' ', ''), '.', '') ILIKE %s
-                    LIMIT 1
-                """, (f"%{license_plate}%",))
-                result = cursor.fetchone()
-                if result and result['vendor_id']:
-                    vendor_id = result['vendor_id']
-                    logger.info(f"Auto-found vendor {vendor_id} by license plate {license_plate}")
-            
-            # Priority 2: Auto-lookup by driver phone in drivers table
+                result = self.client.table('vehicles').select('vendor_id').ilike(
+                    'plate_number', f'%{license_plate}%'
+                ).limit(1).execute()
+                if result.data and result.data[0].get('vendor_id'):
+                    vendor_id = result.data[0]['vendor_id']
+                    logger.info(f"Auto-found vendor {vendor_id} by license plate")
+
+            # Auto-lookup by driver phone
             if driver_phone and not vendor_id:
-                cursor.execute("""
-                    SELECT vendor_id FROM drivers
-                    WHERE REPLACE(REPLACE(phone, ' ', ''), '-', '') ILIKE %s
-                    LIMIT 1
-                """, (f"%{driver_phone}%",))
-                result = cursor.fetchone()
-                if result and result['vendor_id']:
-                    vendor_id = result['vendor_id']
-                    logger.info(f"Auto-found vendor {vendor_id} by driver phone {driver_phone}")
-            
-            # Priority 3: Manual vendor name search if provided and not found yet
+                result = self.client.table('drivers').select('vendor_id').ilike(
+                    'phone', f'%{driver_phone}%'
+                ).limit(1).execute()
+                if result.data and result.data[0].get('vendor_id'):
+                    vendor_id = result.data[0]['vendor_id']
+
+            # Manual vendor name search
             if vendor_name and not vendor_id:
-                cursor.execute("""
-                    SELECT vendor_id FROM vendors 
-                    WHERE short_name ILIKE %s OR company_name ILIKE %s
-                """, (f"%{vendor_name}%", f"%{vendor_name}%"))
-                result = cursor.fetchone()
-                if result:
-                    vendor_id = result['vendor_id']
-                    logger.info(f"Found vendor {vendor_id} by name {vendor_name}")
-            
-            # Update job_services with vehicle info and vendor_id
-            cursor.execute("""
-                UPDATE job_services SET
-                    vendor_text_input = %s,
-                    vendor_id = COALESCE(%s, vendor_id),
-                    status_code = 'DISPATCHED',
-                    updated_at = NOW()
-                WHERE job_id = %s
-                RETURNING svc_id
-            """, (
-                json.dumps({
+                result = self.client.table('vendors').select('vendor_id').or_(
+                    f"short_name.ilike.%{vendor_name}%,company_name.ilike.%{vendor_name}%"
+                ).limit(1).execute()
+                if result.data:
+                    vendor_id = result.data[0]['vendor_id']
+
+            # Update job_services
+            update_data = {
+                'vendor_text_input': json.dumps({
                     "license_plate": vehicle_data.get("license_plate"),
                     "driver_name": vehicle_data.get("driver_name"),
                     "driver_phone": vehicle_data.get("driver_phone"),
                     "driver_id_card": vehicle_data.get("driver_id_card"),
-                    "vendor_name": vendor_name  # Keep the name text even if ID not found
+                    "vendor_name": vendor_name
                 }),
-                vendor_id,
-                job_id
-            ))
-            
+                'status_code': 'DISPATCHED'
+            }
+            if vendor_id:
+                update_data['vendor_id'] = vendor_id
+
+            self.client.table('job_services').update(update_data).eq('job_id', job_id).execute()
+
             # Update job status
-            cursor.execute("""
-                UPDATE jobs SET
-                    status_code = 'DISPATCHED',
-                    updated_at = NOW()
-                WHERE job_id = %s
-                RETURNING job_id, job_no
-            """, (job_id,))
-            
-            job = cursor.fetchone()
-            conn.commit()
-            
+            job_result = self.client.table('jobs').update({
+                'status_code': 'DISPATCHED'
+            }).eq('job_id', job_id).execute()
+
+            job = job_result.data[0]
             return {"id": job["job_id"], "job_number": job["job_no"]}
-            
+
         except Exception as e:
-            conn.rollback()
+            logger.error(f"Error assigning vehicle: {e}")
             raise e
-        finally:
-            cursor.close()
-            conn.close()
-    
+
     async def get_job(self, job_id: int) -> Optional[Dict]:
         """Get job details"""
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        
-        try:
-            cursor.execute("""
-                SELECT j.*, 
-                       c.customer_code, c.short_name as customer_name,
-                       v.company_name as vendor_name, v.short_name as vendor_short_name,
-                       js.scheduled_date, js.scheduled_time, js.origin_address, js.dest_address,
-                       js.service_details, js.vendor_text_input
-                FROM jobs j
-                LEFT JOIN customers c ON j.customer_id = c.customer_id
-                LEFT JOIN job_services js ON j.job_id = js.job_id
-                LEFT JOIN vendors v ON js.vendor_id = v.vendor_id
-                WHERE j.job_id = %s
-            """, (job_id,))
-            
-            return cursor.fetchone()
-            
-        finally:
-            cursor.close()
-            conn.close()
+        result = self.client.table('jobs').select(
+            '*, customers(customer_code, short_name), '
+            'job_services(*, vendors(company_name, short_name))'
+        ).eq('job_id', job_id).limit(1).execute()
+
+        if result.data:
+            job = result.data[0]
+            # Flatten for compatibility
+            if job.get('customers'):
+                job['customer_code'] = job['customers']['customer_code']
+                job['customer_name'] = job['customers']['short_name']
+            if job.get('job_services') and len(job['job_services']) > 0:
+                svc = job['job_services'][0]
+                job['scheduled_date'] = svc.get('scheduled_date')
+                job['scheduled_time'] = svc.get('scheduled_time')
+                job['origin_address'] = svc.get('origin_address')
+                job['dest_address'] = svc.get('dest_address')
+                job['service_details'] = svc.get('service_details')
+                job['vendor_text_input'] = svc.get('vendor_text_input')
+                if svc.get('vendors'):
+                    job['vendor_name'] = svc['vendors'].get('company_name')
+                    job['vendor_short_name'] = svc['vendors'].get('short_name')
+            return job
+        return None
 
 
 # Singleton

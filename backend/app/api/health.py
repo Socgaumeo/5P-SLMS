@@ -18,16 +18,13 @@ async def health_check():
 @router.get("/health/db")
 async def db_health_check():
     """Database connectivity check"""
-    from app.services.data_service import get_data_service
-    
+    from app.db.supabase_client import get_supabase
+
     try:
-        data_service = get_data_service()
-        conn = data_service._get_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT 1")
-        cursor.close()
-        conn.close()
-        return {"status": "healthy", "database": "connected"}
+        client = get_supabase()
+        # Simple query to test connection
+        result = client.table('customers').select('customer_id', count='exact').limit(1).execute()
+        return {"status": "healthy", "database": "connected", "tables_accessible": True}
     except Exception as e:
         logger.error(f"DB health check failed: {e}")
         return {"status": "unhealthy", "database": str(e)}

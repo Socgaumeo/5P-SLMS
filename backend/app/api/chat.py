@@ -10,14 +10,11 @@ import logging
 import traceback
 import uuid
 
-from sqlalchemy.orm import Session
-from app.db.session import get_db
+from app.db.supabase_client import get_supabase
 from app.ai.clients import get_ai_client
 from app.ai.memory import ConversationManager, ProcessResult
 from app.services.data_service import get_data_service
-# Optionally use auth if available, otherwise mock or optional
-# from app.core.auth import get_current_user 
-# from app.models import User
+from app.ai.utils.service_type_detector import detect_from_excel_data, suggest_service_types
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -25,17 +22,14 @@ router = APIRouter()
 # Global manager instance (lazy init)
 _manager: Optional[ConversationManager] = None
 
-def get_conversation_manager(db: Session = Depends(get_db)):
+def get_conversation_manager():
+    """Get or create ConversationManager singleton (no longer needs get_db)"""
     global _manager
     if _manager is None:
         _manager = ConversationManager(
             ai_client=get_ai_client(),
-            db_session=db
+            db_session=None  # Not used - we use Supabase SDK directly
         )
-    # Ensure db session is fresh if manager reuses it, 
-    # but ConversationManager might need fresh session per request if it uses it directly.
-    # For now, let's pass db to method calls or update manager's db.
-    _manager.db = db
     return _manager
 
 # --- Models ---
@@ -187,69 +181,221 @@ async def get_session_info(
 @router.get("/search-customers")
 async def search_customers(q: str = ""):
     """Search customers by keyword"""
-    data_service = get_data_service()
-    # Using existing data service implementation
-    conn = data_service._get_connection()
-    cursor = conn.cursor()
     try:
+        client = get_supabase()
+
         if q:
-            cursor.execute("""
-                SELECT customer_id, customer_code, short_name, company_name
-                FROM customers 
-                WHERE customer_code ILIKE %s OR short_name ILIKE %s OR company_name ILIKE %s
-                ORDER BY short_name LIMIT 50
-            """, (f"%{q}%", f"%{q}%", f"%{q}%"))
+            # Search by code, short_name, or company_name
+            result = client.table('customers').select(
+                'customer_id, customer_code, short_name, company_name'
+            ).or_(
+                f"customer_code.ilike.%{q}%,"
+                f"short_name.ilike.%{q}%,"
+                f"company_name.ilike.%{q}%"
+            ).order('short_name').limit(50).execute()
         else:
-            cursor.execute("""
-                SELECT customer_id, customer_code, short_name, company_name
-                FROM customers WHERE is_active = TRUE ORDER BY short_name LIMIT 50
-            """)
-        customers = cursor.fetchall()
-        return {"customers": [{"id": c["customer_id"], "code": c["customer_code"], "name": c["short_name"] or c["company_name"]} for c in customers]}
-    finally:
-        cursor.close()
-        conn.close()
+            result = client.table('customers').select(
+                'customer_id, customer_code, short_name, company_name'
+            ).eq('is_active', True).order('short_name').limit(50).execute()
+
+        customers = [
+            {"id": c["customer_id"], "code": c["customer_code"], "name": c["short_name"] or c["company_name"]}
+            for c in result.data
+        ]
+        return {"customers": customers}
+    except Exception as e:
+        logger.error(f"Error searching customers: {e}")
+        return {"customers": []}
 
 @router.get("/search-jobs")
 async def search_jobs(q: str = ""):
     """Search pending jobs"""
-    data_service = get_data_service()
-    conn = data_service._get_connection()
-    cursor = conn.cursor()
     try:
-        # Simplified query from original
-        query = """
-            SELECT j.job_id, j.job_no, j.description, j.etd,
-                   c.customer_code, c.short_name as customer_name,
-                   js.scheduled_time, js.service_details
-            FROM jobs j
-            LEFT JOIN customers c ON j.customer_id = c.customer_id
-            LEFT JOIN job_services js ON j.job_id = js.job_id
-            WHERE j.status_code IN ('PENDING', 'CONFIRMED', 'DRAFT')
-        """
-        params = []
+        client = get_supabase()
+
+        # Query jobs with related customer data
+        query = client.table('jobs').select(
+            'job_id, job_no, description, etd, customers(customer_code, short_name)'
+        ).in_('status_code', ['PENDING', 'CONFIRMED', 'DRAFT'])
+
         if q:
-            query += " AND (j.job_no ILIKE %s OR c.customer_code ILIKE %s OR c.short_name ILIKE %s)"
-            params = [f"%{q}%", f"%{q}%", f"%{q}%"]
-        
-        query += " ORDER BY j.created_at DESC LIMIT 20"
-        cursor.execute(query, tuple(params) if params else None)
-        jobs = cursor.fetchall()
-        
-        # Transform results (keep simple for brevity)
-        result = []
-        for job in jobs:
-             result.append({
+            # Filter by job_no - customer filtering done in Python due to nested join
+            query = query.ilike('job_no', f'%{q}%')
+
+        result = query.order('created_at', desc=True).limit(20).execute()
+
+        # Transform results
+        jobs = []
+        for job in result.data:
+            customer = job.get('customers') or {}
+            customer_code = customer.get('customer_code', '')
+
+            # If searching and no match on job_no, check customer fields
+            if q and q.lower() not in (job.get('job_no') or '').lower():
+                if q.lower() not in customer_code.lower() and q.lower() not in (customer.get('short_name') or '').lower():
+                    continue
+
+            jobs.append({
                 "id": job["job_id"],
                 "job_no": job["job_no"],
-                "customer": job["customer_code"],
+                "customer": customer_code,
                 "date": str(job["etd"]) if job.get("etd") else "",
                 "description": job.get("description", "")
             })
-        return {"jobs": result}
-    finally:
-        cursor.close()
-        conn.close()
+
+        return {"jobs": jobs}
+    except Exception as e:
+        logger.error(f"Error searching jobs: {e}")
+        return {"jobs": []}
+
+# --- Excel Result Formatters ---
+
+def _format_booking_result(filename: str, parse_result: dict, detected_service: dict = None) -> str:
+    """Format booking form parse result for AI processing"""
+    content = f"Đã đọc file Excel '{filename}':\n\n"
+
+    # Use detected service type instead of hardcoding
+    if detected_service:
+        svc_type = detected_service.get("service_type", "TRUCKING_SHORT")
+        confidence = detected_service.get("confidence", 0.5)
+        reason = detected_service.get("reason", "")
+        content += f"Loại dịch vụ phát hiện: {svc_type} (độ tin cậy: {confidence:.0%})\n"
+        if reason:
+            content += f"Lý do: {reason}\n"
+        content += f"[SERVICE_TYPE:{svc_type}]\n\n"
+    else:
+        content += "Loại file: Phiếu book xe (Trucking)\n"
+        content += "[SERVICE_TYPE:TRUCKING_SHORT]\n\n"
+
+    # Add metadata
+    meta = parse_result.get('metadata', {})
+
+    if meta.get('customer_code'):
+        content += f"• Khách hàng: {meta['customer_code']}\n"
+    elif meta.get('customer_warning'):
+        content += f"• Cảnh báo: {meta['customer_warning']}\n"
+
+    if meta.get('contact_person'):
+        content += f"• Người book: {meta['contact_person']}\n"
+    if meta.get('pickup_address'):
+        content += f"• Điểm lấy hàng: {meta['pickup_address']}\n"
+    if meta.get('pickup_full_address'):
+        content += f"• Địa chỉ lấy hàng đầy đủ: {meta['pickup_full_address']}\n"
+
+    # Delivery destination
+    if meta.get('delivery_company'):
+        content += f"• Công ty nhận hàng: {meta['delivery_company']}\n"
+
+    # Full delivery addresses with factory names
+    if meta.get('delivery_addresses_map'):
+        content += "• Địa chỉ giao hàng:\n"
+        for factory, addr in meta['delivery_addresses_map'].items():
+            content += f"  - {factory}: {addr}\n"
+    elif meta.get('delivery_full_address'):
+        content += f"• Địa chỉ giao hàng: {meta['delivery_full_address']}\n"
+
+    if meta.get('recipient_info'):
+        content += f"• Thông tin người nhận: {meta['recipient_info']}\n"
+
+    # Add booking details
+    bookings = parse_result.get('bookings', [])
+    if bookings:
+        for i, b in enumerate(bookings, 1):
+            content += f"\n=== Chi tiết booking {i} ===\n"
+            if b.get('booking_date'):
+                content += f"• Ngày booking: {b['booking_date']}\n"
+            if b.get('pickup_date'):
+                content += f"• Ngày lấy hàng: {b['pickup_date']}\n"
+            if b.get('pickup_time'):
+                content += f"• Giờ lấy hàng: {b['pickup_time']}\n"
+            if b.get('invoice_number'):
+                content += f"• Invoice: {b['invoice_number']}\n"
+            if b.get('goods_name'):
+                content += f"• Hàng hóa: {b['goods_name']}\n"
+            # Use package_display for proper unit display
+            if b.get('package_display') or b.get('package_quantity_raw'):
+                qty = b.get('package_display') or b.get('package_quantity_raw')
+                content += f"• Số lượng: {qty}\n"
+            if b.get('weight_kg'):
+                content += f"• Trọng lượng: {b['weight_kg']} kg\n"
+            # Delivery location - specific factory/warehouse
+            if b.get('delivery_location') or b.get('delivery_address'):
+                addr = b.get('delivery_location') or b.get('delivery_address')
+                content += f"• Điểm giao cụ thể: {addr}\n"
+            if b.get('delivery_time'):
+                content += f"• Giờ giao: {b['delivery_time']}\n"
+    else:
+        content += "\n(Không tìm thấy dữ liệu booking trong file)\n"
+
+    return content
+
+
+def _format_quotation_result(filename: str, parse_result: dict, detected_service: dict = None) -> str:
+    """Format quotation/packing service parse result for AI processing"""
+    content = f"Đã đọc file Excel '{filename}':\n\n"
+
+    # Use detected service type - quotation files are typically PACKING
+    if detected_service:
+        svc_type = detected_service.get("service_type", "PACKING")
+        confidence = detected_service.get("confidence", 0.8)
+        reason = detected_service.get("reason", "Quotation file")
+        content += f"Loại dịch vụ phát hiện: {svc_type} (độ tin cậy: {confidence:.0%})\n"
+        if reason:
+            content += f"Lý do: {reason}\n"
+        content += f"[SERVICE_TYPE:{svc_type}]\n\n"
+    else:
+        content += "Loại file: Quotation/Packing Service\n"
+        content += "[SERVICE_TYPE:PACKING]\n\n"
+
+    meta = parse_result.get('metadata', {})
+
+    if meta.get('customer_name'):
+        content += f"• Khách hàng: {meta['customer_name']}\n"
+    if meta.get('date'):
+        content += f"• Ngày: {meta['date']}\n"
+    if meta.get('address'):
+        content += f"• Địa chỉ: {meta['address']}\n"
+
+    # Items
+    items = parse_result.get('items', [])
+    if items:
+        content += f"\n=== Danh sách hàng hóa ({len(items)} items) ===\n"
+        for item in items:
+            content += f"\n--- Item {item.get('stt', '?')} ---\n"
+            if item.get('asset_no'):
+                content += f"• Asset No: {item['asset_no']}\n"
+            if item.get('note') or item.get('name'):
+                content += f"• Tên hàng: {item.get('note') or item.get('name')}\n"
+            if item.get('pallet_count'):
+                content += f"• Số pallet: {item['pallet_count']}\n"
+            if item.get('net_weight_kg'):
+                content += f"• Trọng lượng (NW): {item['net_weight_kg']} kg\n"
+            if item.get('gross_weight_kg'):
+                content += f"• Trọng lượng (GW): {item['gross_weight_kg']} kg\n"
+            if item.get('cbm'):
+                content += f"• CBM: {item['cbm']}\n"
+            # Dimensions before packing
+            if item.get('before_length_m'):
+                content += f"• Kích thước trước đóng gói: {item['before_length_m']}m x {item.get('before_width_m')}m x {item.get('before_height_m')}m\n"
+            # Dimensions after packing
+            if item.get('after_length_m'):
+                content += f"• Kích thước sau đóng gói: {item['after_length_m']}m x {item.get('after_width_m')}m x {item.get('after_height_m')}m\n"
+
+    # Totals
+    totals = parse_result.get('debit', {}).get('totals', {})
+    if totals:
+        content += f"\n=== Tổng cộng ===\n"
+        if totals.get('total_amount'):
+            content += f"• Tổng tiền: {totals['total_amount']:,.0f} VND\n"
+        if totals.get('plt') or totals.get('pallet'):
+            content += f"• Tổng pallet: {totals.get('plt') or totals.get('pallet')}\n"
+        if totals.get('n.w') or totals.get('nw'):
+            content += f"• Tổng NW: {totals.get('n.w') or totals.get('nw')} kg\n"
+        if totals.get('cbm'):
+            content += f"• Tổng CBM: {totals.get('cbm')}\n"
+
+    return content
+
 
 # --- File Processing (Updated to wrap Chat API) ---
 
@@ -266,80 +412,54 @@ async def process_file(
         content = ""
         
         if filename.endswith(('.xlsx', '.xls')):
-            # Use specialized BookingFormParser for better extraction
+            # Import parsers
             from app.ai.excel.booking_form_parser import BookingFormParser, is_booking_form
+            from app.ai.excel.quotation_parser import QuotationParser, is_quotation_file
             import tempfile
             import shutil
             import os
-            
+
             # Save to temp file
             suffix = os.path.splitext(filename)[1]
             with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
                 shutil.copyfileobj(file.file, tmp)
                 tmp_path = tmp.name
-            
+
             try:
-                # Use BookingFormParser for MEIKO/DREAMTECH style forms
-                parser = BookingFormParser()
-                parse_result = parser.parse(tmp_path)
-                
-                # Construct rich message for the AI with ALL extracted data
-                content = f"Đã đọc file Excel '{file.filename}':\n\n"
-                
-                # Add metadata
-                meta = parse_result.get('metadata', {})
-                
-                # Customer is MEIKO (booking party)
-                if meta.get('customer_code'):
-                    content += f"• Khách hàng: {meta['customer_code']}\n"
-                if meta.get('contact_person'):
-                    content += f"• Người book: {meta['contact_person']}\n"
-                if meta.get('pickup_address'):
-                    content += f"• Điểm lấy hàng: {meta['pickup_address']}\n"
-                    
-                # Delivery destination (DREAMTECH factories)
-                if meta.get('delivery_company'):
-                    content += f"• Công ty nhận hàng: {meta['delivery_company']}\n"
-                    
-                # Full delivery addresses with factory names
-                if meta.get('delivery_addresses_map'):
-                    for factory, addr in meta['delivery_addresses_map'].items():
-                        content += f"  - {factory}: {addr}\n"
-                elif meta.get('delivery_addresses'):
-                    content += f"• Địa chỉ giao: {'; '.join(meta['delivery_addresses'])}\n"
-                    
-                if meta.get('recipient_info'):
-                    content += f"• Thông tin người nhận: {meta['recipient_info']}\n"
-                
-                # Add booking details
-                bookings = parse_result.get('bookings', [])
-                if bookings:
-                    for i, b in enumerate(bookings, 1):
-                        content += f"\n=== Chi tiết booking {i} ===\n"
-                        if b.get('booking_date'):
-                            content += f"• Ngày booking: {b['booking_date']}\n"
-                        if b.get('pickup_date'):
-                            content += f"• Ngày lấy hàng: {b['pickup_date']}\n"
-                        if b.get('pickup_time'):
-                            content += f"• Giờ lấy hàng: {b['pickup_time']}\n"
-                        if b.get('invoice_number'):
-                            content += f"• Invoice: {b['invoice_number']}\n"
-                        if b.get('goods_name'):
-                            content += f"• Hàng hóa: {b['goods_name']}\n"
-                        # Use package_display for proper unit display
-                        if b.get('package_display') or b.get('package_quantity_raw'):
-                            qty = b.get('package_display') or b.get('package_quantity_raw')
-                            content += f"• Số lượng: {qty}\n"
-                        if b.get('weight_kg'):
-                            content += f"• Trọng lượng: {b['weight_kg']} kg\n"
-                        if b.get('delivery_notes') or b.get('delivery_address'):
-                            addr = b.get('delivery_address') or b.get('delivery_notes')
-                            content += f"• Điểm giao cụ thể: {addr}\n"
-                        if b.get('delivery_time'):
-                            content += f"• Giờ giao: {b['delivery_time']}\n"
+                # Get sheet names for service type detection
+                import openpyxl
+                wb = openpyxl.load_workbook(tmp_path, read_only=True, data_only=True)
+                sheet_names = wb.sheetnames
+                wb.close()
+
+                # Detect file type and use appropriate parser
+                if is_quotation_file(tmp_path):
+                    # Use QuotationParser for Debit/Estimate style files
+                    parser = QuotationParser(tmp_path)
+                    parse_result = parser.parse(tmp_path)
+                    # Detect service type from content
+                    detected_service = detect_from_excel_data(
+                        parse_result, filename=file.filename, sheet_names=sheet_names
+                    )
+                    content = _format_quotation_result(file.filename, parse_result, detected_service)
+                elif is_booking_form(tmp_path):
+                    # Use BookingFormParser for trucking booking forms
+                    parser = BookingFormParser(tmp_path)
+                    parse_result = parser.parse(tmp_path)
+                    # Detect service type from content
+                    detected_service = detect_from_excel_data(
+                        parse_result, filename=file.filename, sheet_names=sheet_names
+                    )
+                    content = _format_booking_result(file.filename, parse_result, detected_service)
                 else:
-                    content += "\n(Không tìm thấy dữ liệu booking trong file)\n"
-                
+                    # Fallback: try booking form parser
+                    parser = BookingFormParser(tmp_path)
+                    parse_result = parser.parse(tmp_path)
+                    detected_service = detect_from_excel_data(
+                        parse_result, filename=file.filename, sheet_names=sheet_names
+                    )
+                    content = _format_booking_result(file.filename, parse_result, detected_service)
+
             finally:
                 if os.path.exists(tmp_path):
                     os.unlink(tmp_path)

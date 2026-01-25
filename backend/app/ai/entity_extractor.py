@@ -17,6 +17,7 @@ import json
 import re
 from datetime import datetime, timedelta
 
+from app.ai.utils.smart_parser import parse_date as smart_parse_date
 from .prompts.booking_prompts import BOOKING_EXTRACTION_PROMPT
 from .prompts.vehicle_prompts import VEHICLE_EXTRACTION_PROMPT
 from .prompts.status_prompts import STATUS_EXTRACTION_PROMPT
@@ -132,9 +133,12 @@ class EntityExtractor:
         # Normalize entities
         entities = self._parse_booking_response(parsed_response, context)
         
+        # POST-PROCESSING: Extract service type from marker [SERVICE_TYPE:XXX]
+        entities = self._extract_service_type_from_text(entities, text)
+
         # POST-PROCESSING: Fix quantity from raw text if it has mixed units
         entities = self._fix_mixed_quantity_from_text(entities, text)
-        
+
         # POST-PROCESSING: Extract addresses from metadata in raw text
         entities = self._fix_addresses_from_text(entities, text)
         
@@ -425,11 +429,25 @@ class EntityExtractor:
     
     def _parse_booking_response(self, response: Dict, context: Dict) -> Dict:
         """Parse and normalize booking extraction response"""
-        
+
         if not response:
             return {}
-        
+
         entities = {}
+
+        # Service type - important for distinguishing trucking/packing/warehouse
+        service_type = (
+            response.get("service_type") or
+            response.get("loai_dich_vu") or
+            response.get("services")
+        )
+        if service_type:
+            if isinstance(service_type, list):
+                entities["service_type"] = service_type[0] if service_type else None
+                entities["services"] = service_type
+            else:
+                entities["service_type"] = str(service_type).upper()
+                entities["services"] = [str(service_type).upper()]
         
         # Customer - check multiple possible keys
         customer = (
@@ -645,18 +663,19 @@ class EntityExtractor:
     
     def _normalize_date(self, date_input: str, current_date: str = None) -> str:
         """Normalize date to YYYY-MM-DD format"""
-        
+
         if not date_input:
             return ""
-        
+
         date_lower = str(date_input).lower().strip()
-        
-        # Parse current date
-        try:
-            today = datetime.strptime(current_date, "%Y-%m-%d") if current_date else datetime.now()
-        except:
+
+        # Parse current date using smart parser
+        if current_date:
+            parsed_today = smart_parse_date(current_date)
+            today = datetime.combine(parsed_today, datetime.min.time()) if parsed_today else datetime.now()
+        else:
             today = datetime.now()
-        
+
         today = today.replace(hour=0, minute=0, second=0, microsecond=0)
         
         # Handle relative dates (Vietnamese)
@@ -670,33 +689,38 @@ class EntityExtractor:
             if date_lower in keywords:
                 return (today + timedelta(days=delta)).strftime("%Y-%m-%d")
         
-        # Try to parse date formats
+        # Use smart parser for flexible date format handling
+        parsed = smart_parse_date(date_input)
+        if parsed:
+            return parsed.isoformat()
+
+        # Fallback: Try to parse date formats manually
         formats = [
             "%d/%m/%Y", "%d-%m-%Y", "%Y-%m-%d",
             "%d/%m/%y", "%d-%m-%y",
             "%d/%m", "%d-%m",
             "%d"
         ]
-        
+
         for fmt in formats:
             try:
                 dt = datetime.strptime(date_lower, fmt)
-                
+
                 # Handle 2-digit year
                 if dt.year < 100:
                     dt = dt.replace(year=dt.year + 2000)
-                
+
                 # Handle no year (year becomes 1900)
                 if dt.year == 1900:
                     dt = dt.replace(year=today.year)
                     # If date is in the past, assume next year
                     if dt < today:
                         dt = dt.replace(year=today.year + 1)
-                
+
                 return dt.strftime("%Y-%m-%d")
             except ValueError:
                 continue
-        
+
         # Return original if parsing fails
         return date_input
     
@@ -912,6 +936,34 @@ class EntityExtractor:
         
         return None
     
+    def _extract_service_type_from_text(self, entities: Dict, text: str) -> Dict:
+        """
+        Extract service type from [SERVICE_TYPE:XXX] marker in text.
+        This marker is injected by chat.py when processing Excel files.
+        """
+        # Pattern: [SERVICE_TYPE:PACKING] or [SERVICE_TYPE:TRUCKING_SHORT]
+        match = re.search(r'\[SERVICE_TYPE:([A-Z_]+)\]', text, re.IGNORECASE)
+        if match:
+            detected_type = match.group(1).upper()
+
+            # Map legacy codes to valid DB codes (master_service_types.service_code)
+            legacy_mapping = {
+                "PACKING": "SVC_PACK",
+                "CUSTOMS": "CUS_IMPORT",
+                "FUMIGATION": "SVC_FUMI",
+                "VACUUM": "SVC_VACUUM",
+                "LASHING": "SVC_LASHING",
+            }
+            detected_type = legacy_mapping.get(detected_type, detected_type)
+
+            # Only override if not already set or if current value is default
+            if not entities.get('service_type') or entities.get('service_type') == 'TRUCKING_SHORT':
+                entities['service_type'] = detected_type
+                entities['services'] = [detected_type]
+                logger.info(f"[EntityExtractor] Extracted service_type from marker: {detected_type}")
+
+        return entities
+
     def _fix_mixed_quantity_from_text(self, entities: Dict, text: str) -> Dict:
         """
         Post-processing: Extract mixed unit quantities from raw text

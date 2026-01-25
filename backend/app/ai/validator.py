@@ -12,6 +12,8 @@ import logging
 import re
 from datetime import datetime
 
+from app.ai.utils.smart_parser import parse_date
+
 logger = logging.getLogger(__name__)
 
 
@@ -136,21 +138,20 @@ class Validator:
                     if not matched:
                         warnings.append(f"Khách hàng '{customer}' không có trong danh sách")
         
-        # Validate date
-        if date := entities.get("booking_date"):
-            try:
-                parsed_date = datetime.strptime(date, "%Y-%m-%d")
-                today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-                
-                if parsed_date < today:
-                    warnings.append(f"Ngày '{date}' là ngày trong quá khứ")
-                
+        # Validate date (smart parser handles multiple formats)
+        if date_str := entities.get("booking_date"):
+            parsed_date_obj = parse_date(date_str)
+            if parsed_date_obj:
+                today = datetime.now().date()
+
+                if parsed_date_obj < today:
+                    warnings.append(f"Ngày '{date_str}' là ngày trong quá khứ")
+
                 # Check if too far in future
-                if (parsed_date - today).days > 30:
-                    warnings.append(f"Ngày '{date}' hơn 30 ngày trong tương lai")
-                    
-            except ValueError:
-                errors.append(f"Ngày '{date}' không hợp lệ")
+                if (parsed_date_obj - today).days > 30:
+                    warnings.append(f"Ngày '{date_str}' hơn 30 ngày trong tương lai")
+            else:
+                errors.append(f"Ngày '{date_str}' không hợp lệ")
         
         # Validate time
         if time := entities.get("pickup_time"):

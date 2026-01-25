@@ -23,6 +23,7 @@ from app.ai.deepseek_client import DeepSeekClient
 from app.ai.pipeline import create_pipeline, PipelineInput, InputType
 from app.ai.db_adapter import DatabaseAdapter
 from app.services.data_service import get_data_service
+from app.db.supabase_client import get_supabase
 
 logger = logging.getLogger(__name__)
 
@@ -174,67 +175,76 @@ class AIService:
         Enrich extracted entities with database information
         """
         enriched = {}
-        
+
         try:
-            conn = data_service._get_connection()
-            cursor = conn.cursor()
-            
+            client = get_supabase()
+
             # Enrich customer
             if customer_code := entities.get("customer_code"):
-                cursor.execute("""
-                    SELECT customer_id, customer_code, short_name, company_name,
-                           address
-                    FROM customers 
-                    WHERE customer_code = %s OR short_name ILIKE %s
-                    LIMIT 1
-                """, (customer_code, f"%{customer_code}%"))
-                
-                customer = cursor.fetchone()
-                if customer:
-                    enriched["customer"] = dict(customer)
+                result = client.table('customers').select(
+                    'customer_id, customer_code, short_name, company_name, address'
+                ).or_(
+                    f"customer_code.eq.{customer_code},"
+                    f"short_name.ilike.%{customer_code}%"
+                ).limit(1).execute()
+
+                if result.data:
+                    customer = result.data[0]
+                    enriched["customer"] = customer
                     enriched["customer_id"] = customer["customer_id"]
-            
+
             # Enrich job (for status updates)
             if job_number := entities.get("job_number"):
-                cursor.execute("""
-                    SELECT j.job_id, j.job_no, j.status_code as status, j.etd as booking_date,
-                           c.short_name as customer_name, c.customer_code
-                    FROM jobs j
-                    LEFT JOIN customers c ON j.customer_id = c.customer_id
-                    WHERE j.job_no = %s OR j.job_no LIKE %s
-                    LIMIT 1
-                """, (job_number, f"%{job_number}"))
-                
-                job = cursor.fetchone()
-                if job:
-                    enriched["job"] = dict(job)
+                result = client.table('jobs').select(
+                    'job_id, job_no, status_code, etd, customers(short_name, customer_code)'
+                ).or_(
+                    f"job_no.eq.{job_number},"
+                    f"job_no.like.%{job_number}%"
+                ).limit(1).execute()
+
+                if result.data:
+                    job = result.data[0]
+                    customer = job.pop('customers', {}) or {}
+                    enriched["job"] = {
+                        'job_id': job['job_id'],
+                        'job_no': job['job_no'],
+                        'status': job['status_code'],
+                        'booking_date': job['etd'],
+                        'customer_name': customer.get('short_name'),
+                        'customer_code': customer.get('customer_code')
+                    }
                     enriched["job_id"] = job["job_id"]
-            
+
             # For vehicle assignment, get matched job info
             if matched_job_no := entities.get("matched_job_no"):
-                cursor.execute("""
-                    SELECT j.job_id, j.job_no, j.status_code as status, j.etd as booking_date,
-                           c.short_name as customer_name, c.customer_code,
-                           v.short_name as vendor_name
-                    FROM jobs j
-                    LEFT JOIN customers c ON j.customer_id = c.customer_id
-                    LEFT JOIN job_services js ON j.job_id = js.job_id
-                    LEFT JOIN vendors v ON js.vendor_id = v.vendor_id
-                    WHERE j.job_no = %s
-                    LIMIT 1
-                """, (matched_job_no,))
-                
-                job = cursor.fetchone()
-                if job:
-                    enriched["matched_job"] = dict(job)
-            
-            cursor.close()
-            conn.close()
-            
+                result = client.table('jobs').select(
+                    'job_id, job_no, status_code, etd, '
+                    'customers(short_name, customer_code), '
+                    'job_services(vendors(short_name))'
+                ).eq('job_no', matched_job_no).limit(1).execute()
+
+                if result.data:
+                    job = result.data[0]
+                    customer = job.pop('customers', {}) or {}
+                    services = job.pop('job_services', []) or []
+                    vendor_name = None
+                    if services and services[0].get('vendors'):
+                        vendor_name = services[0]['vendors'].get('short_name')
+
+                    enriched["matched_job"] = {
+                        'job_id': job['job_id'],
+                        'job_no': job['job_no'],
+                        'status': job['status_code'],
+                        'booking_date': job['etd'],
+                        'customer_name': customer.get('short_name'),
+                        'customer_code': customer.get('customer_code'),
+                        'vendor_name': vendor_name
+                    }
+
         except Exception as e:
             logger.error(f"[AIService] Enrichment query error: {e}")
             enriched["error"] = str(e)
-        
+
         return enriched
 
 
