@@ -9,16 +9,10 @@ Dự án có các script để import dữ liệu từ các file SQL và Excel l
 
 ## Cấu hình
 
-Đảm bảo file `.env` đã được cấu hình với các thông tin Supabase:
-
-```env
 SUPABASE_URL=https://vpmsytbbsxmtdicnkytv.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-GOOGLE_GEMINI_API_KEY=AIzaSyAVIKiaMnRNOGw9_Vn9bWYJxz4knHYxBrI
-```
-
-## Script 1: Import Customers, Vendors, Drivers
+SUPABASE_SERVICE_ROLE_KEY=
+SUPABASE_ANON_KEY=
+GOOGLE_GEMINI_API_KEY=
 
 ### Chạy import tất cả
 
