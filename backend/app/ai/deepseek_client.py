@@ -8,13 +8,18 @@ logger = logging.getLogger(__name__)
 
 class DeepSeekClient:
     """Client for DeepSeek API (OpenAI-compatible)"""
-    
-    def __init__(self, api_key: str):
+
+    def __init__(self, api_key: str = None):
+        self.api_key = api_key or settings.DEEPSEEK_API_KEY
+        if not self.api_key:
+            raise ValueError("DEEPSEEK_API_KEY is not configured")
+
         self.client = OpenAI(
-            api_key=api_key,
+            api_key=self.api_key,
             base_url="https://api.deepseek.com"
         )
-        self.model = settings.DEEPSEEK_MODEL
+        self.model = settings.DEEPSEEK_MODEL or "deepseek-chat"
+        logger.info(f"[DeepSeekClient] Initialized with model: {self.model}")
         
     async def generate(
         self, 

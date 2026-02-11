@@ -87,6 +87,11 @@ export const useChatSession = () => {
     const sendMessage = async (content, file = null, context = {}) => {
         setIsLoading(true)
 
+        // Debug: Log session info before sending
+        console.log('[CHAT] sendMessage called')
+        console.log('[CHAT] Current sessionId:', sessionId)
+        console.log('[CHAT] Message:', content?.substring(0, 50) + '...')
+
         // Add user message immediately
         const userMsg = {
             id: Date.now().toString(),
@@ -104,15 +109,18 @@ export const useChatSession = () => {
                 if (file.type.startsWith('image/')) {
                     formData.append('image', file)
                     formData.append('context', JSON.stringify({ ...context, session_id: sessionId }))
+                    console.log('[CHAT] Sending image, session_id in context:', sessionId)
                     const res = await fetch(`${API_URL}/api/chat/process-image`, { method: 'POST', body: formData })
                     result = await res.json()
                 } else {
                     formData.append('file', file)
                     formData.append('context', JSON.stringify({ ...context, session_id: sessionId }))
+                    console.log('[CHAT] Sending file, session_id in context:', sessionId)
                     const res = await fetch(`${API_URL}/api/chat/process-file`, { method: 'POST', body: formData })
                     result = await res.json()
                 }
             } else {
+                console.log('[CHAT] Sending text message with session_id:', sessionId)
                 const res = await fetch(`${API_URL}/api/chat/message`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -123,6 +131,7 @@ export const useChatSession = () => {
                     })
                 })
                 result = await res.json()
+                console.log('[CHAT] Response received, server session_id:', result.session_id, 'task_state:', result.task_state)
             }
 
             // Update session ID if new

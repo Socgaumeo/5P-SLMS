@@ -29,7 +29,7 @@ Input: "Ngày mai 22h cần xe 1.25T chở hàng từ DRT1 ra Nội Bài"
 Output:
 ```json
 {{
-    "customer_code": "DRT1",
+    "customer": "DRT1",
     "date": "tomorrow",
     "time": "22:00",
     "vehicle_type": "1.25T",
@@ -43,7 +43,7 @@ Input: "Book xe cho Dreamtech, 2 kiện PCB, giao sân bay ngày 17"
 Output:
 ```json
 {{
-    "customer_code": "DRT1",
+    "customer": "Dreamtech",
     "date": "17",
     "cargo": "PCB",
     "quantity": "2",
@@ -54,11 +54,11 @@ Output:
 ```
 
 **Example 3:**
-Input: "anh ơi mai 10h lấy hàng DRT nhé"
+Input: "anh ơi mai 10h lấy hàng cho LKV Miền Bắc nhé"
 Output:
 ```json
 {{
-    "customer_code": "DRT1",
+    "customer": "LKV Miền Bắc",
     "date": "tomorrow",
     "time": "10:00",
     "confidence": 0.75
@@ -71,7 +71,7 @@ Output:
 ```json
 {{
     "invoices": ["260117DRT-001", "260117DRT-002"],
-    "customer_code": "DRT1",
+    "customer": "DRT",
     "urgent": true,
     "confidence": 0.80
 }}
@@ -87,6 +87,18 @@ Output:
     "vehicle_type": "CONT20",
     "origin": "KCN Quang Minh",
     "destination": "cảng Hải Phòng",
+    "confidence": 0.90
+}}
+```
+
+**Example 7:**
+Input: "Giao hàng cho CÔNG TY TNHH DOOSUNG TECH VIET NAM tại Bắc Ninh, khách DSG"
+Output:
+```json
+{{
+    "customer_code": "DSG",
+    "delivery_company": "CÔNG TY TNHH DOOSUNG TECH VIET NAM",
+    "destination": "Bắc Ninh",
     "confidence": 0.90
 }}
 ```
@@ -126,9 +138,10 @@ QUY TẮC TRÍCH XUẤT
 - "tối" → khoảng 19-22h
 
 **Khách hàng:**
-- Match với danh sách customers
-- Viết tắt: DRT = DRT1 (Dreamtech), SEVT = SEV Tech
-- Nếu không chắc chắn → ghi nhận nguyên văn
+- QUAN TRỌNG: Trả về NGUYÊN VĂN những gì user gõ, KHÔNG tự sửa/mapping
+- Ví dụ: "LKV Mien Bac" → "LKV Mien Bac" (KHÔNG phải "LKVMN")
+- Ví dụ: "Dreamtech" → "Dreamtech" (KHÔNG phải "DRT1")
+- Hệ thống sẽ tự matching với danh sách sau
 
 **Loại xe:**
 - "1.25 tấn", "1t25", "1.25T" → "1.25T"
@@ -154,7 +167,7 @@ OUTPUT (JSON, KHÔNG giải thích thêm)
 ══════════════════════════════════════════════════════════════════════════
 
 Trả về JSON với các trường có thể có:
-- customer_code: Mã khách hàng
+- customer: Tên/mã khách hàng (GIỮ NGUYÊN như user gõ, KHÔNG mapping)
 - date: Ngày (tomorrow, today, hoặc dd/mm)
 - time: Giờ (HH:MM)
 - vehicle_type: Loại xe (1.25T, 2.5T, 5T, CONT20...)
@@ -165,6 +178,7 @@ Trả về JSON với các trường có thể có:
 - invoices: Danh sách invoice numbers
 - origin: Điểm lấy hàng
 - destination: Điểm giao hàng
+- delivery_company: Tên công ty nhận hàng (nếu có)
 - urgent: true nếu gấp
 - notes: Ghi chú đặc biệt
 - confidence: 0.0-1.0

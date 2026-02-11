@@ -33,20 +33,35 @@ class SessionStore(ABC):
         pass
     
     async def get_or_create(
-        self, 
-        session_id: str, 
+        self,
+        session_id: str,
         user_id: Optional[str] = None
     ) -> ConversationState:
         """Lấy session hoặc tạo mới nếu chưa có"""
+        import logging
+        import os
+        logger = logging.getLogger(__name__)
+        pid = os.getpid()
+
         state = await self.get(session_id)
-        
-        if state is None or state.is_expired():
+
+        if state is None:
+            logger.info(f"[SESSION][PID:{pid}] Creating NEW session: {session_id[:8]}... (total={len(self._sessions)})")
             state = ConversationState(
                 session_id=session_id,
                 user_id=user_id
             )
             await self.save(state)
-        
+        elif state.is_expired():
+            logger.info(f"[SESSION][PID:{pid}] Session EXPIRED, creating new: {session_id[:8]}...")
+            state = ConversationState(
+                session_id=session_id,
+                user_id=user_id
+            )
+            await self.save(state)
+        else:
+            logger.info(f"[SESSION][PID:{pid}] Using EXISTING session: {session_id[:8]}..., task.state={state.task.state.value}")
+
         return state
 
 
@@ -54,12 +69,20 @@ class InMemorySessionStore(SessionStore):
     """
     In-memory session store (cho development/testing)
     Production nên dùng Redis
+
+    WARNING: This store does NOT work with multiple workers!
+    Each worker has its own memory, so sessions are not shared.
+    For production, use Redis session store.
     """
-    
+
     def __init__(self, cleanup_interval: int = 300):
+        import os
         self._sessions: Dict[str, ConversationState] = {}
         self._cleanup_interval = cleanup_interval
         self._cleanup_task = None
+        self._worker_id = os.getpid()  # Process ID to identify worker
+        import logging
+        logging.getLogger(__name__).info(f"[SESSION_STORE] InMemorySessionStore created in process {self._worker_id}")
     
     async def start(self):
         """Start cleanup task"""

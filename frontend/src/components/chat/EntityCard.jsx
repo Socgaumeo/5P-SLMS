@@ -3,9 +3,45 @@ import React, { useState } from 'react'
 import './EntityCard.css'
 import SearchDropdown from './SearchDropdown'
 
+// Simplify service codes for display
+const simplifyServiceCode = (code) => {
+    if (!code) return ''
+    const map = {
+        // Road Transport
+        'TRUCKING_DOM': 'VẬN TẢI NỘI ĐỊA',
+        'BORDER_IMP': 'NHẬP KẨU ĐƯỜNG BỘ',
+        // Air Freight
+        'AIR_IMP': 'HÀNG KHÔNG NHẬP',
+        'AIR_EXP': 'HÀNG KHÔNG XUẤT',
+        // Sea Freight
+        'SEA_IMP': 'ĐƯỜNG BIỂN NHẬP',
+        'SEA_EXP': 'ĐƯỜNG BIỂN XUẤT',
+        // Legacy codes (for backward compatibility)
+        'TRUCKING_SHORT': 'VẬN TẢI NỘI ĐỊA',
+        'TRUCKING_LONG': 'VẬN TẢI NỘI ĐỊA',
+        'TRUCKING_CONT': 'VẬN TẢI NỘI ĐỊA',
+        // Packing
+        'SVC_PACK': 'ĐÓNG GÓI',
+        'SVC_FUMI': 'HUN TRÙNG',
+        'SVC_VACUUM': 'HÚT CHÂN KHÔNG',
+        'SVC_SHRINK': 'MÀNG CO',
+        'SVC_LASHING': 'CHẰNG BUỘC',
+        'SVC_LASHING_TRUCK': 'CHẰNG BUỘC',
+        'SVC_LASHING_CONT': 'CHẰNG BUỘC',
+        // Warehouse
+        'WHS_STORAGE': 'LƯU KHO',
+        'WHS_HANDLE': 'BỐC XẾP',
+        // Customs
+        'CUS_IMPORT': 'KHAI QUAN NHẬP',
+        'CUS_EXPORT': 'KHAI QUAN XUẤT',
+    }
+    const upper = code.toUpperCase()
+    return map[upper] || upper
+}
+
 /**
  * EntityCard - Display and edit extracted entities from AI
- * 
+ *
  * Props:
  * - entities: Object containing extracted data
  * - intent: The detected intent (create_booking, assign_vehicle, etc.)
@@ -48,6 +84,7 @@ const EntityCard = ({
         invoices: 'Invoice',
         recipient_name: 'Người nhận',
         recipient_phone: 'SĐT người nhận',
+        delivery_company: 'Công ty nhận hàng',
         notes: 'Ghi chú',
         vendor_id: 'Nhà vận chuyển',
         driver_name: 'Tài xế',
@@ -83,8 +120,15 @@ const EntityCard = ({
         }
     }
 
-    // Format value for display (handle arrays)
-    const formatValue = (value) => {
+    // Format value for display (handle arrays and service types)
+    const formatValue = (key, value) => {
+        // Simplify service types
+        if (key === 'service_type' || key === 'services') {
+            if (Array.isArray(value)) {
+                return value.map(v => simplifyServiceCode(v)).join(', ')
+            }
+            return simplifyServiceCode(String(value))
+        }
         if (Array.isArray(value)) {
             return value.join(', ')
         }
@@ -94,10 +138,14 @@ const EntityCard = ({
     // Get all entity keys (preserve fields even if cleared)
     const allKeys = Object.keys(entities)
 
+    // Skip duplicate fields - services is redundant if service_type exists
+    const skipFields = entities.service_type ? ['services'] : []
+
     // In edit mode, show all fields. In view mode, filter empty values.
     const displayEntities = editMode
-        ? allKeys.map(key => [key, editedEntities[key]])
-        : Object.entries(entities).filter(([_, v]) =>
+        ? allKeys.filter(k => !skipFields.includes(k)).map(key => [key, editedEntities[key]])
+        : Object.entries(entities).filter(([k, v]) =>
+            !skipFields.includes(k) &&
             v !== null && v !== undefined && v !== '' &&
             !(Array.isArray(v) && v.length === 0))
 
@@ -158,7 +206,7 @@ const EntityCard = ({
                                 />
                             )
                         ) : (
-                            <span className="entity-value">{formatValue(value)}</span>
+                            <span className="entity-value">{formatValue(key, value)}</span>
                         )}
                     </div>
                 ))}

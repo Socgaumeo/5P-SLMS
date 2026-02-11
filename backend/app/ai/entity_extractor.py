@@ -18,9 +18,16 @@ import re
 from datetime import datetime, timedelta
 
 from app.ai.utils.smart_parser import parse_date as smart_parse_date
+from app.ai.utils.service_type_detector import normalize_service_code
 from .prompts.booking_prompts import BOOKING_EXTRACTION_PROMPT
 from .prompts.vehicle_prompts import VEHICLE_EXTRACTION_PROMPT
 from .prompts.status_prompts import STATUS_EXTRACTION_PROMPT
+from .prompts.master_data_prompts import (
+    CUSTOMER_EXTRACTION_PROMPT,
+    VENDOR_EXTRACTION_PROMPT,
+    QUOTATION_EXTRACTION_PROMPT
+)
+from .prompts.update_job_prompts import UPDATE_JOB_EXTRACTION_PROMPT
 from .context_loader import (
     format_customers_for_prompt,
     format_jobs_for_prompt,
@@ -77,7 +84,19 @@ class EntityExtractor:
             
             elif intent == "query_info":
                 return await self._extract_query(text, context)
-            
+
+            elif intent == "create_customer":
+                return await self._extract_customer(text, context)
+
+            elif intent == "create_vendor":
+                return await self._extract_vendor(text, context)
+
+            elif intent == "create_quotation":
+                return await self._extract_quotation(text, context)
+
+            elif intent == "update_job":
+                return await self._extract_update_job(text, context)
+
             else:
                 logger.warning(f"[EntityExtractor] Unknown intent: {intent}")
                 return {
@@ -266,12 +285,423 @@ class EntityExtractor:
                 break
         
         logger.info(f"[EntityExtractor] Query extracted: {entities}")
-        
+
         return {
             "entities": entities,
             "confidence": 0.7 if entities else 0.4
         }
-    
+
+    async def _extract_customer(self, text: str, context: Dict) -> Dict[str, Any]:
+        """Extract customer info from text"""
+        prompt = CUSTOMER_EXTRACTION_PROMPT.format(input=text)
+
+        logger.info("[EntityExtractor] Calling AI for customer extraction...")
+        response = await self.ai.generate(
+            prompt=prompt,
+            response_format="json",
+            temperature=0.2
+        )
+
+        parsed_response = self._ensure_dict(response)
+        if not parsed_response:
+            return {"entities": {}, "confidence": 0.3}
+
+        entities = self._parse_customer_response(parsed_response)
+        confidence = self._extract_confidence(parsed_response)
+
+        logger.info(f"[EntityExtractor] Customer extracted: {list(entities.keys())}, confidence: {confidence}")
+        return {"entities": entities, "confidence": confidence}
+
+    async def _extract_vendor(self, text: str, context: Dict) -> Dict[str, Any]:
+        """Extract vendor info from text"""
+        prompt = VENDOR_EXTRACTION_PROMPT.format(input=text)
+
+        logger.info("[EntityExtractor] Calling AI for vendor extraction...")
+        response = await self.ai.generate(
+            prompt=prompt,
+            response_format="json",
+            temperature=0.2
+        )
+
+        parsed_response = self._ensure_dict(response)
+        if not parsed_response:
+            return {"entities": {}, "confidence": 0.3}
+
+        entities = self._parse_vendor_response(parsed_response)
+        confidence = self._extract_confidence(parsed_response)
+
+        logger.info(f"[EntityExtractor] Vendor extracted: {list(entities.keys())}, confidence: {confidence}")
+        return {"entities": entities, "confidence": confidence}
+
+    async def _extract_quotation(self, text: str, context: Dict) -> Dict[str, Any]:
+        """Extract quotation info from text"""
+        prompt = QUOTATION_EXTRACTION_PROMPT.format(input=text)
+
+        logger.info("[EntityExtractor] Calling AI for quotation extraction...")
+        response = await self.ai.generate(
+            prompt=prompt,
+            response_format="json",
+            temperature=0.2
+        )
+
+        parsed_response = self._ensure_dict(response)
+        if not parsed_response:
+            return {"entities": {}, "confidence": 0.3}
+
+        entities = self._parse_quotation_response(parsed_response, context)
+        confidence = self._extract_confidence(parsed_response)
+
+        logger.info(f"[EntityExtractor] Quotation extracted: {list(entities.keys())}, confidence: {confidence}")
+        return {"entities": entities, "confidence": confidence}
+
+    async def _extract_update_job(self, text: str, context: Dict) -> Dict[str, Any]:
+        """Extract update job entities from text"""
+        # Format context for prompt
+        customers_list = format_customers_for_prompt(context.get("customers", []))
+        active_jobs = format_jobs_for_prompt(context.get("jobs", []))
+        current_date = context.get("current_date", datetime.now().strftime("%Y-%m-%d"))
+
+        prompt = UPDATE_JOB_EXTRACTION_PROMPT.format(
+            customers_list=customers_list,
+            active_jobs=active_jobs,
+            current_date=current_date,
+            input=text
+        )
+
+        logger.info("[EntityExtractor] Calling AI for update_job extraction...")
+        response = await self.ai.generate(
+            prompt=prompt,
+            response_format="json",
+            temperature=0.2
+        )
+
+        parsed_response = self._ensure_dict(response)
+        if not parsed_response:
+            return {"entities": {}, "confidence": 0.3}
+
+        entities = self._parse_update_job_response(parsed_response, context)
+        confidence = self._extract_confidence(parsed_response)
+
+        logger.info(f"[EntityExtractor] Update job extracted: {list(entities.keys())}, confidence: {confidence}")
+        return {"entities": entities, "confidence": confidence}
+
+    def _parse_update_job_response(self, response: Dict, context: Dict) -> Dict:
+        """Parse update job extraction response"""
+        if not response:
+            return {}
+
+        entities = {}
+
+        # Job identification
+        if response.get("job_number"):
+            entities["job_number"] = response["job_number"]
+        elif response.get("job_number_partial"):
+            # Try to match partial job number with active jobs
+            partial = response["job_number_partial"]
+            jobs = context.get("jobs", [])
+            for job in jobs:
+                job_no = job.get("job_no", "")
+                if job_no.endswith(partial) or partial in job_no:
+                    entities["job_number"] = job_no
+                    entities["job_id"] = job.get("job_id")
+                    break
+            if not entities.get("job_number"):
+                entities["job_number_partial"] = partial
+
+        # Customer filter (for finding job by customer)
+        if response.get("customer_filter"):
+            entities["customer_filter"] = response["customer_filter"]
+
+        # Action type
+        if response.get("action_type"):
+            entities["action_type"] = response["action_type"]
+
+        # New customer (for change_customer action)
+        if response.get("new_customer_code"):
+            raw_customer = response["new_customer_code"]
+            entities["new_customer_raw"] = raw_customer
+
+            # Try to match with known customers
+            customers = context.get("customers", [])
+            match_result = self._match_customer_with_confidence(raw_customer, customers)
+            if match_result.get("matched_code"):
+                entities["new_customer_code"] = match_result["matched_code"]
+                entities["new_customer_confidence"] = match_result["confidence"]
+                if match_result.get("needs_confirmation"):
+                    entities["new_customer_needs_confirmation"] = True
+                    entities["new_customer_candidates"] = match_result["candidates"]
+
+        # New service (for add_service action)
+        if response.get("new_service_type"):
+            entities["new_service_type"] = normalize_service_code(response["new_service_type"])
+
+        # Addresses
+        if response.get("origin_address"):
+            entities["origin_address"] = response["origin_address"]
+        if response.get("dest_address"):
+            entities["dest_address"] = response["dest_address"]
+
+        # Cargo info
+        if response.get("cargo_type"):
+            entities["cargo_type"] = response["cargo_type"]
+        if response.get("package_quantity"):
+            entities["package_quantity"] = response["package_quantity"]
+        if response.get("package_unit"):
+            entities["package_unit"] = response["package_unit"]
+
+        # Service date
+        if response.get("service_date"):
+            parsed_date = smart_parse_date(response["service_date"])
+            if parsed_date:
+                entities["service_date"] = parsed_date.isoformat()
+
+        # Change reason
+        if response.get("change_reason"):
+            entities["change_reason"] = response["change_reason"]
+
+        # Notes (for add_note action)
+        if response.get("notes"):
+            entities["notes"] = response["notes"]
+
+        # Fee fields (for add_fee action)
+        if response.get("fee_type"):
+            entities["fee_type"] = response["fee_type"]
+        if response.get("fee_amount"):
+            entities["fee_amount"] = self._normalize_price(response["fee_amount"])
+
+        # Cost fields (for add_cost action)
+        if response.get("cost_name"):
+            entities["cost_name"] = response["cost_name"]
+        if response.get("cost_qty"):
+            entities["cost_qty"] = float(response["cost_qty"])
+        if response.get("cost_unit_price"):
+            entities["cost_unit_price"] = self._normalize_price(response["cost_unit_price"])
+        # Backward compatibility: if cost_amount provided without qty/unit_price
+        if response.get("cost_amount") and not response.get("cost_unit_price"):
+            entities["cost_unit_price"] = self._normalize_price(response["cost_amount"])
+            if not entities.get("cost_qty"):
+                entities["cost_qty"] = 1
+        if response.get("cost_unit"):
+            entities["cost_unit"] = response["cost_unit"]
+        if response.get("cost_source"):
+            entities["cost_source"] = response["cost_source"]
+        if response.get("vendor_name"):
+            entities["vendor_name"] = response["vendor_name"]
+
+        # Revenue fields (for add_revenue action)
+        if response.get("revenue_name"):
+            entities["revenue_name"] = response["revenue_name"]
+        if response.get("revenue_qty"):
+            entities["revenue_qty"] = float(response["revenue_qty"])
+        if response.get("revenue_unit_price"):
+            entities["revenue_unit_price"] = self._normalize_price(response["revenue_unit_price"])
+        # Backward compatibility: if revenue_amount provided without qty/unit_price
+        if response.get("revenue_amount") and not response.get("revenue_unit_price"):
+            entities["revenue_unit_price"] = self._normalize_price(response["revenue_amount"])
+            if not entities.get("revenue_qty"):
+                entities["revenue_qty"] = 1
+        if response.get("revenue_unit"):
+            entities["revenue_unit"] = response["revenue_unit"]
+
+        # Multi-cost/revenue arrays (for multi_cost, multi_cost_revenue actions)
+        if response.get("costs") and isinstance(response["costs"], list):
+            parsed_costs = []
+            for cost in response["costs"]:
+                parsed_cost = {
+                    "cost_name": cost.get("cost_name", "Chi phí"),
+                    "cost_qty": float(cost.get("cost_qty", 1)),
+                    "cost_unit_price": self._normalize_price(cost.get("cost_unit_price", 0)),
+                    "cost_unit": cost.get("cost_unit", "ca"),
+                    "vendor_name": cost.get("vendor_name", "")
+                }
+                parsed_costs.append(parsed_cost)
+            entities["costs"] = parsed_costs
+
+        if response.get("revenues") and isinstance(response["revenues"], list):
+            parsed_revenues = []
+            for rev in response["revenues"]:
+                parsed_rev = {
+                    "revenue_name": rev.get("revenue_name", "Doanh thu"),
+                    "revenue_qty": float(rev.get("revenue_qty", 1)),
+                    "revenue_unit_price": self._normalize_price(rev.get("revenue_unit_price", 0)),
+                    "revenue_unit": rev.get("revenue_unit", "chuyến")
+                }
+                parsed_revenues.append(parsed_rev)
+            entities["revenues"] = parsed_revenues
+
+        # Route and vehicle for định mức lookup
+        if response.get("route"):
+            entities["route"] = response["route"]
+        if response.get("vehicle_type") and not entities.get("vehicle_type"):
+            entities["vehicle_type"] = self._normalize_vehicle_type(response["vehicle_type"])
+
+        return entities
+
+    def _parse_customer_response(self, response: Dict) -> Dict:
+        """Parse customer extraction response"""
+        if not response:
+            return {}
+
+        entities = {}
+        field_mappings = {
+            'customer_code': ['customer_code', 'code', 'ma_kh'],
+            'company_name': ['company_name', 'ten_cong_ty', 'name'],
+            'short_name': ['short_name', 'ten_ngan'],
+            'tax_code': ['tax_code', 'mst', 'ma_so_thue'],
+            'address': ['address', 'dia_chi'],
+            'contact_phone': ['contact_phone', 'phone', 'sdt'],
+            'contact_email': ['contact_email', 'email'],
+            'contact_person': ['contact_person', 'nguoi_lien_he'],
+        }
+
+        for target_key, source_keys in field_mappings.items():
+            for src in source_keys:
+                if response.get(src):
+                    entities[target_key] = str(response[src]).strip()
+                    break
+
+        # Auto-generate customer_code if missing
+        if not entities.get('customer_code') and entities.get('company_name'):
+            entities['customer_code'] = self._generate_code(entities['company_name'])
+
+        return entities
+
+    def _parse_vendor_response(self, response: Dict) -> Dict:
+        """Parse vendor extraction response"""
+        if not response:
+            return {}
+
+        entities = {}
+        field_mappings = {
+            'vendor_code': ['vendor_code', 'code', 'ma_ncc'],
+            'vendor_name': ['vendor_name', 'ten_cong_ty', 'name', 'company_name'],
+            'short_name': ['short_name', 'ten_ngan'],
+            'tax_code': ['tax_code', 'mst', 'ma_so_thue'],
+            'address': ['address', 'dia_chi'],
+            'phone': ['phone', 'sdt', 'contact_phone'],
+            'email': ['email', 'contact_email'],
+        }
+
+        for target_key, source_keys in field_mappings.items():
+            for src in source_keys:
+                if response.get(src):
+                    entities[target_key] = str(response[src]).strip()
+                    break
+
+        # Auto-generate vendor_code if missing
+        if not entities.get('vendor_code') and entities.get('vendor_name'):
+            entities['vendor_code'] = self._generate_code(entities['vendor_name'])
+
+        return entities
+
+    def _parse_quotation_response(self, response: Dict, context: Dict) -> Dict:
+        """Parse quotation extraction response"""
+        if not response:
+            return {}
+
+        entities = {}
+
+        # Quote type (buying/selling)
+        quote_type = response.get('quote_type', 'buying').lower()
+        entities['quote_type'] = quote_type
+
+        # Vendor/Customer name
+        if quote_type == 'buying':
+            vendor = response.get('vendor_name') or response.get('vendor')
+            if vendor:
+                entities['vendor_name'] = str(vendor)
+        else:
+            customer = response.get('customer_name') or response.get('customer')
+            if customer:
+                entities['customer_name'] = str(customer)
+
+        # Route info
+        if response.get('origin_province'):
+            entities['origin_province'] = self._normalize_province(response['origin_province'])
+        if response.get('destination_province'):
+            entities['destination_province'] = self._normalize_province(response['destination_province'])
+        if response.get('sub_route'):
+            entities['sub_route'] = str(response['sub_route'])
+
+        # Vehicle and pricing
+        if response.get('vehicle_type'):
+            entities['vehicle_type'] = self._normalize_vehicle_type(str(response['vehicle_type']))
+        if response.get('price'):
+            entities['price'] = self._normalize_price(response['price'])
+        if response.get('currency'):
+            entities['currency'] = str(response['currency']).upper()
+        else:
+            entities['currency'] = 'VND'
+        if response.get('unit'):
+            entities['unit'] = str(response['unit']).upper()
+        else:
+            entities['unit'] = 'TRIP'
+
+        # Service and rate type
+        if response.get('service_type'):
+            entities['service_type'] = str(response['service_type']).upper()
+        else:
+            entities['service_type'] = 'TRUCKING'
+        if response.get('rate_type'):
+            entities['rate_type'] = str(response['rate_type']).upper()
+        else:
+            entities['rate_type'] = 'STANDARD'
+
+        # Notes
+        if response.get('notes'):
+            entities['notes'] = str(response['notes'])
+
+        return entities
+
+    def _generate_code(self, name: str) -> str:
+        """Generate a short code from company name"""
+        import re
+        # Remove common prefixes
+        name = re.sub(r'(công ty|cty|tnhh|cổ phần|cp|logistics|vận tải)', '', name.lower())
+        # Get first letters of words
+        words = name.strip().split()
+        if len(words) >= 2:
+            code = ''.join(w[0].upper() for w in words[:3] if w)
+        else:
+            code = name[:6].upper().replace(' ', '')
+        return code.upper()
+
+    def _normalize_province(self, province: str) -> str:
+        """Normalize province name"""
+        mappings = {
+            'hn': 'Hà Nội', 'hanoi': 'Hà Nội', 'ha noi': 'Hà Nội',
+            'bn': 'Bắc Ninh', 'bacninh': 'Bắc Ninh', 'bac ninh': 'Bắc Ninh',
+            'hcm': 'Hồ Chí Minh', 'saigon': 'Hồ Chí Minh', 'sg': 'Hồ Chí Minh',
+            'hp': 'Hải Phòng', 'haiphong': 'Hải Phòng',
+            'dn': 'Đà Nẵng', 'danang': 'Đà Nẵng', 'da nang': 'Đà Nẵng',
+            'bd': 'Bình Dương', 'binhduong': 'Bình Dương', 'binh duong': 'Bình Dương',
+            'dna': 'Đồng Nai', 'dongnai': 'Đồng Nai', 'dong nai': 'Đồng Nai',
+            'brvt': 'Bà Rịa Vũng Tàu', 'vungtau': 'Bà Rịa Vũng Tàu',
+            'tn': 'Thái Nguyên', 'thainguyen': 'Thái Nguyên',
+            'vp': 'Vĩnh Phúc', 'vinhphuc': 'Vĩnh Phúc',
+            'hd': 'Hải Dương', 'haiduong': 'Hải Dương',
+            'hy': 'Hưng Yên', 'hungyen': 'Hưng Yên',
+        }
+        return mappings.get(province.lower().strip(), province)
+
+    def _normalize_price(self, price) -> float:
+        """Normalize price value"""
+        if isinstance(price, (int, float)):
+            return float(price)
+        if isinstance(price, str):
+            # Remove formatting
+            price = price.lower().replace(',', '').replace('.', '').strip()
+            # Handle k/K suffix (800k = 800000)
+            if 'k' in price:
+                price = price.replace('k', '')
+                return float(price) * 1000
+            # Handle triệu/tr suffix
+            if 'tr' in price or 'triệu' in price:
+                price = re.sub(r'(tr|triệu)', '', price)
+                return float(price) * 1000000
+            return float(price)
+        return 0.0
+
     # ══════════════════════════════════════════════════════════════════════════
     # JSON PARSING - CRITICAL FIX
     # ══════════════════════════════════════════════════════════════════════════
@@ -443,20 +873,31 @@ class EntityExtractor:
         )
         if service_type:
             if isinstance(service_type, list):
-                entities["service_type"] = service_type[0] if service_type else None
-                entities["services"] = service_type
+                # Normalize each service code
+                normalized = [normalize_service_code(s) for s in service_type if s]
+                entities["service_type"] = normalized[0] if normalized else None
+                entities["services"] = normalized
             else:
-                entities["service_type"] = str(service_type).upper()
-                entities["services"] = [str(service_type).upper()]
+                normalized = normalize_service_code(str(service_type))
+                entities["service_type"] = normalized
+                entities["services"] = [normalized]
         
-        # Customer - check multiple possible keys
+        # Customer - check multiple possible keys with confidence scoring
         customer = (
-            response.get("customer_code") or 
+            response.get("customer_code") or
             response.get("customer") or
             response.get("khach_hang")
         )
         if customer:
-            entities["customer_code"] = self._match_customer(str(customer), context.get("customers", []))
+            customer_match = self._match_customer_with_confidence(
+                str(customer),
+                context.get("customers", [])
+            )
+            entities["customer_code"] = customer_match["code"]
+            entities["customer_confidence"] = customer_match["confidence"]
+            entities["customer_candidates"] = customer_match["candidates"]
+            entities["customer_needs_confirmation"] = customer_match["needs_confirmation"]
+            entities["customer_raw_input"] = str(customer)  # Keep original input
         
         # Date - check multiple possible keys
         date = (
@@ -520,7 +961,12 @@ class EntityExtractor:
         dest = response.get("destination") or response.get("delivery_address") or response.get("dia_chi_giao")
         if dest:
             entities["dest_address"] = str(dest)
-        
+
+        # Delivery company name (important for avoiding confusion)
+        delivery_company = response.get("delivery_company") or response.get("cong_ty_nhan") or response.get("recipient_company")
+        if delivery_company:
+            entities["delivery_company"] = str(delivery_company)
+
         # Urgent flag
         if response.get("urgent"):
             entities["is_urgent"] = True
@@ -633,33 +1079,191 @@ class EntityExtractor:
     # ══════════════════════════════════════════════════════════════════════════
     
     def _match_customer(self, input_customer: str, customers: List[Dict]) -> str:
-        """Match input customer to customer list"""
-        
+        """Match input customer to customer list (legacy wrapper)"""
+        result = self._match_customer_with_confidence(input_customer, customers)
+        return result.get("code") or str(input_customer).upper()
+
+    def _match_customer_with_confidence(
+        self,
+        input_customer: str,
+        customers: List[Dict]
+    ) -> Dict[str, Any]:
+        """
+        Match input customer to customer list with confidence scoring.
+
+        Returns:
+            Dict with:
+            - code: matched customer_code or input as-is
+            - confidence: 0.0-1.0
+            - candidates: list of top 3 matches with scores
+            - needs_confirmation: bool
+        """
         if not input_customer:
+            return {"code": None, "confidence": 0.0, "candidates": [], "needs_confirmation": False}
+
+        input_lower = self._normalize_vietnamese(str(input_customer).lower().strip())
+        input_raw_lower = str(input_customer).lower().strip()
+        candidates = []
+
+        for c in customers:
+            code = (c.get("customer_code") or "").lower()
+            short_name = (c.get("short_name") or "").lower()
+            company_name = (c.get("company_name") or "").lower()
+
+            # Normalize Vietnamese for accent-insensitive matching
+            code_norm = self._normalize_vietnamese(code)
+            short_norm = self._normalize_vietnamese(short_name)
+            company_norm = self._normalize_vietnamese(company_name)
+
+            # Calculate scores for different match types
+            score = 0.0
+            match_type = "none"
+
+            # Exact match - highest confidence
+            if input_lower == code_norm or input_lower == short_norm:
+                score = 1.0
+                match_type = "exact"
+            elif input_raw_lower == code or input_raw_lower == short_name:
+                score = 1.0
+                match_type = "exact"
+            # Prefix match - high confidence
+            elif code_norm.startswith(input_lower) or short_norm.startswith(input_lower):
+                score = 0.9
+                match_type = "prefix"
+            # Reverse prefix (input starts with customer code)
+            elif input_lower.startswith(code_norm) and len(code_norm) >= 3:
+                score = 0.85
+                match_type = "reverse_prefix"
+            elif input_lower.startswith(short_norm) and len(short_norm) >= 3:
+                score = 0.85
+                match_type = "reverse_prefix"
+            # Contains match - medium confidence
+            elif len(input_lower) >= 3 and (input_lower in short_norm or input_lower in company_norm):
+                score = 0.7
+                match_type = "contains"
+            elif short_norm and len(short_norm) >= 3 and short_norm in input_lower:
+                score = 0.65
+                match_type = "reverse_contains"
+            elif code_norm and len(code_norm) >= 3 and code_norm in input_lower:
+                score = 0.65
+                match_type = "reverse_contains"
+            # Fuzzy match - low confidence
+            else:
+                fuzzy = self._fuzzy_score(input_lower, short_norm)
+                if fuzzy > 0.4:
+                    score = fuzzy * 0.6  # Scale down fuzzy scores
+                    match_type = "fuzzy"
+
+            if score > 0.3:
+                candidates.append({
+                    "code": c.get("customer_code"),
+                    "name": c.get("short_name") or c.get("company_name"),
+                    "score": round(score, 2),
+                    "match_type": match_type
+                })
+
+        # Sort by score descending
+        candidates.sort(key=lambda x: x["score"], reverse=True)
+        top_candidates = candidates[:3]
+
+        if not candidates:
+            return {
+                "code": str(input_customer).upper(),
+                "confidence": 0.0,
+                "candidates": [],
+                "needs_confirmation": True
+            }
+
+        best = candidates[0]
+
+        # High confidence threshold
+        HIGH_CONFIDENCE = 0.85
+
+        # Check for ambiguity - if top 2 are too close in score
+        is_ambiguous = (
+            len(candidates) >= 2 and
+            candidates[0]["score"] - candidates[1]["score"] < 0.15
+        )
+
+        logger.info(f"[CustomerMatch] Input: '{input_customer}' -> Best: {best['code']} ({best['score']:.0%}), ambiguous={is_ambiguous}")
+
+        return {
+            "code": best["code"],
+            "confidence": best["score"],
+            "candidates": top_candidates,
+            "needs_confirmation": best["score"] < HIGH_CONFIDENCE or is_ambiguous
+        }
+
+    def _normalize_vietnamese(self, text: str) -> str:
+        """Remove Vietnamese accents for matching"""
+        import unicodedata
+        if not text:
             return ""
-        
-        input_lower = str(input_customer).lower().strip()
-        
-        # Exact match first
-        for c in customers:
-            code = (c.get("customer_code") or "").lower()
-            name = (c.get("short_name") or "").lower()
-            
-            if input_lower == code or input_lower == name:
-                return c.get("customer_code") or input_customer.upper()
-        
-        # Partial match
-        for c in customers:
-            code = (c.get("customer_code") or "").lower()
-            name = (c.get("short_name") or "").lower()
-            
-            if code and input_lower in code or name and input_lower in name:
-                return c.get("customer_code") or input_customer.upper()
-            if code and code in input_lower or name and name in input_lower:
-                return c.get("customer_code") or input_customer.upper()
-        
-        # Return as-is (uppercase)
-        return str(input_customer).upper()
+        # NFD normalization separates base chars from accents
+        text = unicodedata.normalize('NFD', text)
+        # Remove combining diacritical marks
+        text = ''.join(c for c in text if unicodedata.category(c) != 'Mn')
+        return text.lower().strip()
+
+    def _fuzzy_score(self, input_str: str, target: str) -> float:
+        """
+        Improved fuzzy matching score with multiple strategies.
+        Handles cases like "lkv mien bac" matching "lkvmn".
+        """
+        if not input_str or not target:
+            return 0.0
+
+        scores = []
+
+        # Strategy 1: Prefix matching (first N chars)
+        # "lkv mien bac" starts with same chars as "lkvmn"
+        min_len = min(len(input_str), len(target))
+        prefix_match = 0
+        for i in range(min_len):
+            if input_str[i] == target[i]:
+                prefix_match += 1
+            else:
+                break
+        if prefix_match >= 3:  # At least 3 char prefix match
+            scores.append(prefix_match / max(len(input_str), len(target)))
+
+        # Strategy 2: Token-based matching
+        # Split input into words and check if any word is prefix of target
+        input_tokens = input_str.replace('-', ' ').split()
+        for token in input_tokens:
+            if len(token) >= 2:
+                if target.startswith(token):
+                    scores.append(len(token) / len(target))
+                elif token in target:
+                    scores.append(len(token) / max(len(token), len(target)) * 0.8)
+
+        # Strategy 3: Subsequence matching (bi-directional)
+        def subsequence_score(a: str, b: str) -> float:
+            matches = 0
+            b_idx = 0
+            for char in a:
+                while b_idx < len(b):
+                    if b[b_idx] == char:
+                        matches += 1
+                        b_idx += 1
+                        break
+                    b_idx += 1
+            return matches / max(len(a), len(b))
+
+        scores.append(subsequence_score(input_str, target))
+        scores.append(subsequence_score(target, input_str))
+
+        # Strategy 4: Remove spaces and compare
+        input_compact = input_str.replace(' ', '')
+        target_compact = target.replace(' ', '')
+        if input_compact and target_compact:
+            # Check if one starts with the other
+            if input_compact.startswith(target_compact):
+                scores.append(len(target_compact) / len(input_compact))
+            elif target_compact.startswith(input_compact):
+                scores.append(len(input_compact) / len(target_compact))
+
+        return max(scores) if scores else 0.0
     
     def _normalize_date(self, date_input: str, current_date: str = None) -> str:
         """Normalize date to YYYY-MM-DD format"""
@@ -861,11 +1465,11 @@ class EntityExtractor:
             "đã giao xong": "COMPLETED",
             "giao xong": "COMPLETED",
             
-            # Delivered
-            "đã giao": "DELIVERED",
-            "da giao": "DELIVERED",
-            "delivered": "DELIVERED",
-            "giao rồi": "DELIVERED",
+            # Delivered → use COMPLETED
+            "đã giao": "COMPLETED",
+            "da giao": "COMPLETED",
+            "delivered": "COMPLETED",
+            "giao rồi": "COMPLETED",
             
             # Cancelled
             "hủy": "CANCELLED",
@@ -941,26 +1545,18 @@ class EntityExtractor:
         Extract service type from [SERVICE_TYPE:XXX] marker in text.
         This marker is injected by chat.py when processing Excel files.
         """
-        # Pattern: [SERVICE_TYPE:PACKING] or [SERVICE_TYPE:TRUCKING_SHORT]
+        # Pattern: [SERVICE_TYPE:PACKING] or [SERVICE_TYPE:SVC_PACK]
         match = re.search(r'\[SERVICE_TYPE:([A-Z_]+)\]', text, re.IGNORECASE)
         if match:
-            detected_type = match.group(1).upper()
-
-            # Map legacy codes to valid DB codes (master_service_types.service_code)
-            legacy_mapping = {
-                "PACKING": "SVC_PACK",
-                "CUSTOMS": "CUS_IMPORT",
-                "FUMIGATION": "SVC_FUMI",
-                "VACUUM": "SVC_VACUUM",
-                "LASHING": "SVC_LASHING",
-            }
-            detected_type = legacy_mapping.get(detected_type, detected_type)
+            raw_type = match.group(1).upper()
+            # Normalize to valid DB service_code
+            normalized_code = normalize_service_code(raw_type)
 
             # Only override if not already set or if current value is default
             if not entities.get('service_type') or entities.get('service_type') == 'TRUCKING_SHORT':
-                entities['service_type'] = detected_type
-                entities['services'] = [detected_type]
-                logger.info(f"[EntityExtractor] Extracted service_type from marker: {detected_type}")
+                entities['service_type'] = normalized_code
+                entities['services'] = [normalized_code]
+                logger.info(f"[EntityExtractor] Extracted service_type: {raw_type} → {normalized_code}")
 
         return entities
 
@@ -969,11 +1565,30 @@ class EntityExtractor:
         Post-processing: Extract mixed unit quantities from raw text
         Example: "1 pallet 3thùng" -> package_quantity: 4, package_quantity_raw: "1 pallet 3 thùng"
         """
+        # First, try to extract directly from "• Số lượng:" pattern (from formatted booking text)
+        qty_pattern = r'[•\-]\s*(?:Số lượng|So luong|Quantity)[:\s]+([^\n]+)'
+        qty_match = re.search(qty_pattern, text, re.IGNORECASE)
+        if qty_match and not entities.get("package_quantity"):
+            raw_qty = qty_match.group(1).strip()
+            # Extract numbers and units from the raw quantity string
+            # Include both Vietnamese and English unit names
+            unit_pattern = r'(\d+)\s*(pallet|pallets|thùng|kiện|khay|túi|hộp|carton|cartons|box|boxes|ctn|ctns|bag|bags)?'
+            unit_matches = re.findall(unit_pattern, raw_qty.lower())
+            if unit_matches:
+                total = sum(int(m[0]) for m in unit_matches if m[0])
+                entities["package_quantity"] = total
+                entities["package_quantity_raw"] = raw_qty
+                entities["package_display"] = raw_qty
+                logger.info(f"[EntityExtractor] Extracted quantity from 'Số lượng:' pattern: {raw_qty} -> {total}")
+                return entities
+
         # Pattern to find mixed units like "1 pallet 3thùng" or "2 pallet và 5 kiện"
-        mixed_pattern = r'(\d+)\s*(pallet|thùng|kiện|khay|túi)(?:\s*(?:và|,)?\s*(\d+)\s*(pallet|thùng|kiện|khay|túi))?'
-        
+        # Include both Vietnamese and English unit names
+        unit_names = r'pallet|pallets|thùng|kiện|khay|túi|hộp|carton|cartons|box|boxes|ctn|ctns|bag|bags'
+        mixed_pattern = rf'(\d+)\s*({unit_names})(?:\s*(?:và|,)?\s*(\d+)\s*({unit_names}))?'
+
         matches = re.findall(mixed_pattern, text.lower(), re.IGNORECASE)
-        
+
         if matches:
             for match in matches:
                 num1, unit1, num2, unit2 = match
@@ -981,20 +1596,26 @@ class EntityExtractor:
                     qty1 = int(num1)
                     qty2 = int(num2)
                     total = qty1 + qty2
-                    
+
                     # Update entities with correct values
                     entities["package_quantity"] = total
-                    entities["package_quantity_raw"] = f"{num1} {unit1} {num2} {unit2}"
-                    
+                    entities["package_quantity_raw"] = f"{num1} {unit1}, {num2} {unit2}"
+
                     # Use the first unit as primary (larger packaging first usually)
-                    if unit1 in ['pallet', 'khay']:
+                    if unit1 in ['pallet', 'pallets', 'khay']:
                         entities["package_unit"] = unit2 if unit2 else unit1
                     else:
                         entities["package_unit"] = unit1
-                    
+
                     logger.info(f"[EntityExtractor] Fixed mixed quantity: {entities['package_quantity_raw']} -> {total}")
                     break
-        
+                elif num1:  # Single unit found
+                    if not entities.get("package_quantity"):
+                        entities["package_quantity"] = int(num1)
+                        if unit1:
+                            entities["package_unit"] = unit1
+                            entities["package_quantity_raw"] = f"{num1} {unit1}"
+
         return entities
     
     def _fix_addresses_from_text(self, entities: Dict, text: str) -> Dict:

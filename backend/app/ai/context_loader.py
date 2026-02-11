@@ -245,10 +245,9 @@ class ContextLoader:
         # Load valid status transitions
         context["valid_statuses"] = [
             "PENDING",
-            "CONFIRMED", 
+            "CONFIRMED",
             "DISPATCHED",
             "IN_TRANSIT",
-            "DELIVERED",
             "COMPLETED",
             "CANCELLED"
         ]
@@ -281,11 +280,11 @@ class ContextLoader:
             logger.error(f"[ContextLoader] Failed to load recent jobs: {e}")
             context["recent_jobs"] = []
         
-        # Load customers for query matching
+        # Load customers for query matching (include company_name for AI matching)
         try:
             customers = await self.db.fetch_all("""
-                SELECT customer_id, customer_code, short_name
-                FROM customers 
+                SELECT customer_id, customer_code, short_name, company_name
+                FROM customers
                 WHERE is_active = true
                 ORDER BY short_name
                 LIMIT 50

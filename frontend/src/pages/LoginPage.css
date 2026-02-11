@@ -1,0 +1,337 @@
+/* Login Page - Glassmorphism Design with Background */
+
+.login-page {
+  min-height: 100vh;
+  width: 100vw;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow-y: auto;
+  /* Background image - logistics multi-modal transport */
+  background-image: url('https://images.unsplash.com/photo-1578575437130-527eed3abbec?auto=format&fit=crop&w=2000&q=80');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+/* Dark blue overlay - 40% opacity */
+.login-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.85) 0%, rgba(30, 41, 59, 0.75) 100%);
+  z-index: 1;
+}
+
+/* Main content container */
+.login-content {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 40px;
+  padding: 40px 20px;
+  width: 100%;
+  max-width: 480px;
+}
+
+/* Glassmorphism card */
+.login-card {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: 24px;
+  box-shadow:
+    0 25px 50px -12px rgba(0, 0, 0, 0.25),
+    0 0 0 1px rgba(255, 255, 255, 0.1);
+  padding: 48px 40px;
+}
+
+/* Logo and branding section */
+.login-branding {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.login-logo {
+  width: 280px;
+  max-width: 100%;
+  height: auto;
+  margin-bottom: 24px;
+}
+
+/* Form section */
+.login-form-section {
+  margin-bottom: 24px;
+}
+
+.login-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #1E293B;
+  margin: 0 0 8px 0;
+  text-align: center;
+}
+
+.login-subtitle {
+  font-size: 0.95rem;
+  color: #64748B;
+  margin: 0 0 24px 0;
+  text-align: center;
+}
+
+/* Form styles */
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-group label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.form-group input {
+  padding: 14px 16px;
+  border: 2px solid #E2E8F0;
+  border-radius: 12px;
+  font-size: 1rem;
+  color: #1E293B;
+  background: #F8FAFC;
+  transition: all 0.2s ease;
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: #2563EB;
+  background: white;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
+}
+
+.form-group input::placeholder {
+  color: #94A3B8;
+}
+
+/* Error message */
+.error-message {
+  padding: 12px 16px;
+  background: #FEF2F2;
+  border: 1px solid #FECACA;
+  border-radius: 10px;
+  color: #DC2626;
+  font-size: 0.875rem;
+  text-align: center;
+}
+
+/* Login button - Orange accent (10% rule) */
+.login-button {
+  padding: 16px 24px;
+  background: linear-gradient(135deg, #F97316 0%, #EA580C 100%);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 52px;
+  box-shadow: 0 4px 14px rgba(249, 115, 22, 0.4);
+}
+
+.login-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(249, 115, 22, 0.5);
+}
+
+.login-button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.login-button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* Loading spinner */
+.loading-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Footer */
+.login-footer {
+  text-align: center;
+  padding-top: 16px;
+  border-top: 1px solid #E2E8F0;
+}
+
+.login-footer p {
+  font-size: 0.8rem;
+  color: #94A3B8;
+  margin: 0;
+}
+
+/* Partner logos section - Fixed at bottom */
+.partner-section {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  padding: 16px 0;
+  z-index: 10;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.1);
+}
+
+.partner-title {
+  font-size: 0.75rem;
+  color: #64748B;
+  margin: 0 0 12px 0;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  text-align: center;
+  font-weight: 600;
+}
+
+.partner-logos-wrapper {
+  overflow: hidden;
+  width: 100%;
+  position: relative;
+}
+
+.partner-logos-wrapper::before,
+.partner-logos-wrapper::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 100px;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.partner-logos-wrapper::before {
+  left: 0;
+  background: linear-gradient(90deg, rgba(255,255,255,1) 0%, rgba(255,255,255,0) 100%);
+}
+
+.partner-logos-wrapper::after {
+  right: 0;
+  background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,1) 100%);
+}
+
+.partner-logos {
+  display: flex;
+  align-items: center;
+  gap: 48px;
+  animation: scroll-logos 30s linear infinite;
+  width: max-content;
+}
+
+@keyframes scroll-logos {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.partner-logo {
+  flex-shrink: 0;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 20px;
+  background: white;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  transition: all 0.3s ease;
+}
+
+.partner-logo:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.partner-logo img {
+  height: 40px;
+  width: auto;
+  max-width: 140px;
+  object-fit: contain;
+}
+
+/* Responsive design */
+@media (max-width: 600px) {
+  .login-content {
+    padding: 20px 16px;
+    gap: 32px;
+  }
+
+  .login-card {
+    padding: 32px 24px;
+    border-radius: 20px;
+  }
+
+  .login-logo {
+    width: 220px;
+  }
+
+  .login-title {
+    font-size: 1.5rem;
+  }
+
+  .partner-logos {
+    gap: 12px 16px;
+  }
+
+  .partner-logo {
+    font-size: 0.65rem;
+    padding: 6px 12px;
+  }
+}
+
+/* Tablet */
+@media (min-width: 601px) and (max-width: 900px) {
+  .login-content {
+    max-width: 420px;
+  }
+}
+
+/* Desktop large screens */
+@media (min-width: 1200px) {
+  .login-content {
+    max-width: 500px;
+  }
+
+  .login-card {
+    padding: 56px 48px;
+  }
+}

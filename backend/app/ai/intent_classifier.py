@@ -25,13 +25,17 @@ class IntentClassifier:
     """
     Classify user intent using AI with few-shot examples
     """
-    
+
     # Valid intents
     VALID_INTENTS = [
         "create_booking",
-        "assign_vehicle", 
+        "assign_vehicle",
         "update_status",
+        "update_job",  # Modify job data (customer, addresses, services)
         "query_info",
+        "create_customer",
+        "create_vendor",
+        "create_quotation",
         "general_chat",
         "unknown"
     ]
@@ -156,7 +160,7 @@ class IntentClassifier:
         """
         Map non-standard intent names to valid intents
         """
-        
+
         mappings = {
             # CREATE_BOOKING variations
             "booking": "create_booking",
@@ -165,33 +169,69 @@ class IntentClassifier:
             "book": "create_booking",
             "tao_booking": "create_booking",
             "dat_xe": "create_booking",
-            
+
             # ASSIGN_VEHICLE variations
             "vehicle": "assign_vehicle",
             "assign": "assign_vehicle",
             "dieu_xe": "assign_vehicle",
             "thong_tin_xe": "assign_vehicle",
             "driver": "assign_vehicle",
-            
+
             # UPDATE_STATUS variations
             "update": "update_status",
             "status": "update_status",
             "complete": "update_status",
             "hoan_thanh": "update_status",
             "cap_nhat": "update_status",
-            
+
+            # UPDATE_JOB variations (modify job data)
+            "update_job": "update_job",
+            "modify_job": "update_job",
+            "edit_job": "update_job",
+            "change_customer": "update_job",
+            "doi_khach": "update_job",
+            "sua_job": "update_job",
+            "sua_don": "update_job",
+            "thay_doi_kh": "update_job",
+            "them_dich_vu": "update_job",
+            "add_service": "update_job",
+
             # QUERY_INFO variations
             "query": "query_info",
             "info": "query_info",
             "question": "query_info",
             "hoi": "query_info",
-            
+
+            # CREATE_CUSTOMER variations
+            "customer": "create_customer",
+            "new_customer": "create_customer",
+            "tao_khach_hang": "create_customer",
+            "them_kh": "create_customer",
+            "add_customer": "create_customer",
+
+            # CREATE_VENDOR variations
+            "vendor": "create_vendor",
+            "new_vendor": "create_vendor",
+            "tao_ncc": "create_vendor",
+            "them_ncc": "create_vendor",
+            "add_vendor": "create_vendor",
+            "nha_cung_cap": "create_vendor",
+
+            # CREATE_QUOTATION variations
+            "quotation": "create_quotation",
+            "quote": "create_quotation",
+            "bao_gia": "create_quotation",
+            "gia_cuoc": "create_quotation",
+            "price": "create_quotation",
+            "pricing": "create_quotation",
+            "rate": "create_quotation",
+
             # GENERAL_CHAT variations
             "chat": "general_chat",
             "greeting": "general_chat",
             "chao": "general_chat",
         }
-        
+
         return mappings.get(intent, "unknown")
 
 
@@ -203,7 +243,7 @@ class QuickClassifier:
     """
     Fast rule-based classifier as fallback or pre-filter
     """
-    
+
     # Keywords for each intent
     BOOKING_KEYWORDS = [
         "book", "đặt xe", "cần xe", "ngày mai", "hôm nay",
@@ -211,53 +251,86 @@ class QuickClassifier:
         "lấy hàng", "giao hàng", "chở hàng",
         "invoice", "kiện", "pallet"
     ]
-    
+
     VEHICLE_KEYWORDS = [
         "bks", "biển số", "lái xe", "tài xế", "driver",
         "cccd", "căn cước", "sđt", "điện thoại",
         "29h", "30h", "51h", "60h"  # Common plate prefixes
     ]
-    
+
     STATUS_KEYWORDS = [
         "xong", "done", "hoàn thành", "đã giao",
         "hủy", "cancel", "completed", "delivered"
     ]
-    
+
     QUERY_KEYWORDS = [
         "?", "bao nhiêu", "ở đâu", "status", "trạng thái",
-        "job nào", "đơn nào", "giá"
+        "job nào", "đơn nào"
     ]
-    
+
+    CUSTOMER_KEYWORDS = [
+        "tạo khách hàng", "thêm kh", "khách hàng mới", "add customer",
+        "đăng ký kinh doanh", "mst", "mã số thuế", "công ty mới",
+        "customer_code", "company_name", "tax_code"
+    ]
+
+    VENDOR_KEYWORDS = [
+        "tạo ncc", "thêm ncc", "vendor mới", "nhà cung cấp",
+        "nhà vận chuyển", "đối tác vận tải", "add vendor",
+        "vendor_code", "vendor_name"
+    ]
+
+    QUOTATION_KEYWORDS = [
+        "báo giá", "quotation", "giá cước", "bảng giá",
+        "giá mua", "giá bán", "tuyến đường", "price",
+        "vnd/chuyến", "vnd/trip", "giá tuyến"
+    ]
+
+    UPDATE_JOB_KEYWORDS = [
+        "đổi khách", "thay đổi khách hàng", "sửa job", "sửa đơn",
+        "chuyển khách", "thêm dịch vụ", "add service", "edit job",
+        "modify job", "change customer", "đổi kh", "thay kh",
+        "sửa địa chỉ", "đổi địa chỉ", "thêm chuyến"
+    ]
+
     @classmethod
     def classify(cls, text: str) -> tuple[str, float]:
         """
         Quick rule-based classification
-        
+
         Returns:
             tuple of (intent, confidence)
         """
         text_lower = text.lower()
-        
+
         # Count keyword matches
         booking_score = sum(1 for k in cls.BOOKING_KEYWORDS if k in text_lower)
         vehicle_score = sum(1 for k in cls.VEHICLE_KEYWORDS if k in text_lower)
         status_score = sum(1 for k in cls.STATUS_KEYWORDS if k in text_lower)
         query_score = sum(1 for k in cls.QUERY_KEYWORDS if k in text_lower)
-        
+        customer_score = sum(1 for k in cls.CUSTOMER_KEYWORDS if k in text_lower)
+        vendor_score = sum(1 for k in cls.VENDOR_KEYWORDS if k in text_lower)
+        quotation_score = sum(1 for k in cls.QUOTATION_KEYWORDS if k in text_lower)
+        update_job_score = sum(1 for k in cls.UPDATE_JOB_KEYWORDS if k in text_lower)
+
         scores = {
             "create_booking": booking_score,
             "assign_vehicle": vehicle_score,
             "update_status": status_score,
+            "update_job": update_job_score,
             "query_info": query_score,
+            "create_customer": customer_score,
+            "create_vendor": vendor_score,
+            "create_quotation": quotation_score,
         }
-        
+
         max_intent = max(scores, key=scores.get)
         max_score = scores[max_intent]
-        
+
         if max_score == 0:
             return "general_chat", 0.3
-        
+
         # Convert score to confidence (rough estimate)
         confidence = min(0.4 + (max_score * 0.15), 0.8)
-        
+
         return max_intent, confidence

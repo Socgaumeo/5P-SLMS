@@ -371,7 +371,8 @@ class BookingFormParser:
             booking['package_quantity_raw'] = qty_str
             
             # Parse and preserve unit breakdown
-            unit_pattern = r'(\d+)\s*(pallet|thùng|kiện|khay|túi|hộp)?'
+            # Include both Vietnamese and English unit names
+            unit_pattern = r'(\d+)\s*(pallet|pallets|thùng|kiện|khay|túi|hộp|carton|cartons|box|boxes|ctn|ctns|bag|bags)?'
             matches = re.findall(unit_pattern, qty_str.lower())
             
             # Build detailed breakdown

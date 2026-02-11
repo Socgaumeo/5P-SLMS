@@ -12,10 +12,45 @@ import json
 
 from app.services.data_service import get_data_service
 from app.ai.utils.smart_parser import parse_date, parse_time
+from app.ai.utils.service_type_detector import normalize_service_code
 from app.services.message_service import get_message_service
 from app.db.supabase_client import get_supabase
+from app.api.dependencies import get_current_user_optional
+import re
 
 logger = logging.getLogger(__name__)
+
+
+def parse_package_quantity(value) -> tuple:
+    """
+    Parse package_quantity from various formats.
+
+    Examples:
+    - 5 -> (5, None)
+    - "9 cartons, 1 pallet" -> (10, "9 cartons, 1 pallet")
+    - "2 kiện" -> (2, "kiện")
+    - "15" -> (15, None)
+
+    Returns: (quantity: int, description: str or None)
+    """
+    if value is None:
+        return (None, None)
+
+    if isinstance(value, int):
+        return (value, None)
+
+    if isinstance(value, str):
+        # Try to extract all numbers and sum them
+        numbers = re.findall(r'\d+', value)
+        if numbers:
+            total = sum(int(n) for n in numbers)
+            # Return original string as description if it has text
+            if re.search(r'[a-zA-Zàáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ]', value, re.IGNORECASE):
+                return (total, value)
+            return (total, None)
+        return (None, value)
+
+    return (None, None)
 router = APIRouter()
 
 
@@ -89,12 +124,16 @@ async def get_job_by_number(job_number: str):
         return {"success": False, "message": str(e)}
 
 @router.post("/create", response_model=JobResponse)
-async def create_job(request: JobCreateFromChatRequest):
+async def create_job(request: JobCreateFromChatRequest, req: Request):
     """
     Create new job from Chat UI with AI-extracted entities
     """
     try:
         data_service = get_data_service()
+
+        # Get current user if authenticated
+        current_user = await get_current_user_optional(req)
+        user_id = current_user['user_id'] if current_user else 1
         
         entities = request.entities
         enriched = request.enriched_data or {}
@@ -155,11 +194,15 @@ async def create_job(request: JobCreateFromChatRequest):
             
             # Service type - check services array first, then service_type
             'services': entities.get('services') or [],  # Array of services from AI
-            'service_type_code': (entities.get('services') or [None])[0] or entities.get('service_type') or enriched.get('service_type') or 'TRUCKING_SHORT',
+            'service_type_code': normalize_service_code(
+                (entities.get('services') or [None])[0] or entities.get('service_type') or enriched.get('service_type')
+            ),
             
             # Structured cargo data (single item)
             'cargo_type': entities.get('cargo_type') or enriched.get('cargo_type'),
-            'package_quantity': entities.get('package_quantity'),
+            # Parse package_quantity - handle both int and string formats like "9 cartons, 1 pallet"
+            'package_quantity': parse_package_quantity(entities.get('package_quantity'))[0],
+            'package_description': parse_package_quantity(entities.get('package_quantity'))[1],  # Keep original text
             'package_unit': entities.get('package_unit'),
             'weight_kg': entities.get('weight_kg'),
             'dimension_length_cm': entities.get('dimension_length_cm'),
@@ -222,8 +265,8 @@ async def create_job(request: JobCreateFromChatRequest):
         
         logger.info(f"Job data to create: {job_data}")
         
-        # Create job in database
-        job = await data_service.create_job(job_data, user_id=1)
+        # Create job in database (pass user_id for created_by tracking)
+        job = await data_service.create_job(job_data, user_id=user_id)
         
         logger.info(f"Job created: {job}")
         
@@ -419,6 +462,289 @@ async def complete_job(job_id: int, delivery_time: Optional[datetime] = None):
     )
 
 
+# ========================================
+# EXCEL EXPORT BY CUSTOMER/VENDOR
+# NOTE: This route MUST be defined BEFORE /{job_id} to avoid path matching conflict
+# ========================================
+@router.get("/exports/entity")
+async def export_jobs_by_entity_v2(
+    entity_type: str,  # customer or vendor
+    entity_id: int,
+    from_date: Optional[str] = None,
+    to_date: Optional[str] = None,
+    month: Optional[str] = None
+):
+    """
+    Export all jobs for a customer or vendor to Excel.
+    Creates 2-sheet workbook:
+    - Sheet 1: Job Summary (1 row per job with totals)
+    - Sheet 2: Cost Details (1 row per service/cost with vendor breakdown)
+    """
+    from fastapi.responses import FileResponse
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.utils import get_column_letter
+    import tempfile
+    import calendar
+
+    if entity_type not in ["customer", "vendor"]:
+        raise HTTPException(400, "entity_type phải là customer hoặc vendor")
+
+    try:
+        client = get_supabase()
+
+        # Build date filter
+        date_start = from_date
+        date_end = to_date
+        if month:
+            year, mon = month.split('-')
+            date_start = f"{year}-{mon}-01"
+            last_day = calendar.monthrange(int(year), int(mon))[1]
+            date_end = f"{year}-{mon}-{last_day}"
+
+        # Get entity info
+        if entity_type == "customer":
+            entity_result = client.table('customers').select(
+                'customer_id, customer_code, short_name, company_name'
+            ).eq('customer_id', entity_id).limit(1).execute()
+        else:
+            entity_result = client.table('vendors').select(
+                'vendor_id, vendor_code, short_name, company_name'
+            ).eq('vendor_id', entity_id).limit(1).execute()
+
+        if not entity_result.data:
+            raise HTTPException(404, f"Không tìm thấy {entity_type}")
+
+        entity = entity_result.data[0]
+        entity_code = entity.get('customer_code') or entity.get('vendor_code')
+
+        # Get jobs for this entity
+        if entity_type == "customer":
+            query = client.table('jobs').select(
+                '*, customers(customer_code, short_name)'
+            ).eq('customer_id', entity_id)
+            if date_start:
+                query = query.gte('etd', date_start)
+            if date_end:
+                query = query.lte('etd', date_end)
+        else:
+            # For vendor: get jobs where they provided services
+            svc_query = client.table('job_services').select('job_id').eq('vendor_id', entity_id)
+            svc_result = svc_query.execute()
+            job_ids = list(set([r['job_id'] for r in svc_result.data]))
+
+            if not job_ids:
+                raise HTTPException(404, "Không có dữ liệu để xuất")
+
+            query = client.table('jobs').select(
+                '*, customers(customer_code, short_name)'
+            ).in_('job_id', job_ids)
+
+        jobs_result = query.order('created_at', desc=True).execute()
+        jobs = jobs_result.data
+
+        if not jobs:
+            raise HTTPException(404, "Không có dữ liệu để xuất")
+
+        job_ids = [j['job_id'] for j in jobs]
+
+        # Get all services for these jobs
+        svc_query = client.table('job_services').select(
+            '*, vendors(vendor_code, short_name)'
+        ).in_('job_id', job_ids)
+        if entity_type == "vendor":
+            svc_query = svc_query.eq('vendor_id', entity_id)
+        services = svc_query.order('scheduled_date').execute().data
+
+        # Create Excel workbook
+        wb = openpyxl.Workbook()
+        header_font = Font(bold=True, color="FFFFFF")
+        header_fill = PatternFill(start_color="2563EB", end_color="2563EB", fill_type="solid")
+        total_fill = PatternFill(start_color="DBEAFE", end_color="DBEAFE", fill_type="solid")
+        thin_border = Border(
+            left=Side(style='thin'), right=Side(style='thin'),
+            top=Side(style='thin'), bottom=Side(style='thin')
+        )
+
+        # SHEET 1: Job Summary
+        ws1 = wb.active
+        ws1.title = "Tổng hợp Job"
+        headers = ['STT', 'Mã Job', 'Ngày', 'Trạng thái', 'Mã KH', 'Tên KH', 'Doanh thu', 'Chi phí', 'Lợi nhuận']
+
+        for col, h in enumerate(headers, 1):
+            cell = ws1.cell(row=1, column=col, value=h)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.border = thin_border
+
+        total_rev, total_cost = 0, 0
+        for idx, job in enumerate(jobs, 1):
+            customer = job.get('customers') or {}
+            # Calculate totals from service_details
+            job_svcs = [s for s in services if s['job_id'] == job['job_id']]
+            rev, cost = 0, 0
+            for svc in job_svcs:
+                details = svc.get('service_details') or {}
+                if isinstance(details, str):
+                    try:
+                        details = json.loads(details)
+                    except Exception:
+                        details = {}
+                rev += float(details.get('total_revenue') or details.get('selling_price') or 0)
+                cost += float(details.get('total_cost') or details.get('buying_price') or 0)
+
+            total_rev += rev
+            total_cost += cost
+
+            row_data = [
+                idx, job.get('job_no'),
+                str(job.get('etd') or job.get('created_at', '')[:10]),
+                job.get('status_code'),
+                customer.get('customer_code'), customer.get('short_name'),
+                rev, cost, rev - cost
+            ]
+            for col, val in enumerate(row_data, 1):
+                cell = ws1.cell(row=idx + 1, column=col, value=val)
+                cell.border = thin_border
+                if col in [7, 8, 9]:
+                    cell.number_format = '#,##0'
+
+        # Totals row
+        total_row = len(jobs) + 2
+        ws1.cell(row=total_row, column=1, value="TỔNG CỘNG").font = Font(bold=True)
+        ws1.cell(row=total_row, column=7, value=total_rev).number_format = '#,##0'
+        ws1.cell(row=total_row, column=8, value=total_cost).number_format = '#,##0'
+        ws1.cell(row=total_row, column=9, value=total_rev - total_cost).number_format = '#,##0'
+        for col in range(1, 10):
+            ws1.cell(row=total_row, column=col).fill = total_fill
+            ws1.cell(row=total_row, column=col).border = thin_border
+
+        for col in range(1, 10):
+            ws1.column_dimensions[get_column_letter(col)].width = 15
+        ws1.freeze_panes = 'A2'
+
+        # SHEET 2: Cost Details with full service info
+        ws2 = wb.create_sheet("Chi tiết dịch vụ")
+        headers2 = [
+            'STT', 'Mã Job', 'Ngày', 'Loại DV', 'NCC',
+            'INV', 'Loại hàng', 'SL', 'ĐVT',
+            'Biển số', 'Tài xế', 'SĐT tài xế', 'CCCD',
+            'Giá mua', 'Giá bán', 'Lợi nhuận'
+        ]
+
+        for col, h in enumerate(headers2, 1):
+            cell = ws2.cell(row=1, column=col, value=h)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.border = thin_border
+
+        job_map = {j['job_id']: j for j in jobs}
+        row_idx = 2
+        detail_buy, detail_sell = 0, 0
+
+        for svc in services:
+            job = job_map.get(svc['job_id'], {})
+            vendor = svc.get('vendors') or {}
+            details = svc.get('service_details') or {}
+            if isinstance(details, str):
+                try:
+                    details = json.loads(details)
+                except Exception:
+                    details = {}
+
+            # Parse vendor_text_input - can be string, list, or dict
+            vti_raw = svc.get('vendor_text_input')
+            vti_list = []
+            if isinstance(vti_raw, str):
+                try:
+                    parsed = json.loads(vti_raw)
+                    if isinstance(parsed, list):
+                        vti_list = parsed
+                    elif isinstance(parsed, dict):
+                        vti_list = [parsed]
+                except Exception:
+                    pass
+            elif isinstance(vti_raw, list):
+                vti_list = vti_raw
+            elif isinstance(vti_raw, dict):
+                vti_list = [vti_raw]
+
+            # Extract service details
+            inv_numbers = details.get('invoice_numbers') or []
+            inv_str = ', '.join(inv_numbers) if isinstance(inv_numbers, list) else str(inv_numbers or '')
+            cargo_type = details.get('cargo_type') or ''
+            pkg_qty = details.get('package_quantity') or ''
+            pkg_unit = details.get('package_unit') or ''
+
+            # Extract vehicle/driver info - join multiple if exists
+            license_plates = [v.get('license_plate', '') for v in vti_list if v.get('license_plate')]
+            driver_names = [v.get('driver_name', '') for v in vti_list if v.get('driver_name')]
+            driver_phones = [v.get('driver_phone', '') for v in vti_list if v.get('driver_phone')]
+            driver_ids = [v.get('driver_id_card', '') for v in vti_list if v.get('driver_id_card')]
+
+            buy = float(details.get('total_cost') or details.get('buying_price') or 0)
+            sell = float(details.get('total_revenue') or details.get('selling_price') or 0)
+            detail_buy += buy
+            detail_sell += sell
+
+            row_data = [
+                row_idx - 1,
+                job.get('job_no'),
+                str(svc.get('scheduled_date') or ''),
+                svc.get('service_type_code'),
+                vendor.get('vendor_code') or vendor.get('short_name') or '',
+                inv_str,
+                cargo_type,
+                pkg_qty,
+                pkg_unit,
+                ', '.join(license_plates),
+                ', '.join(driver_names),
+                ', '.join(driver_phones),
+                ', '.join(driver_ids),
+                buy, sell, sell - buy
+            ]
+            for col, val in enumerate(row_data, 1):
+                cell = ws2.cell(row=row_idx, column=col, value=val)
+                cell.border = thin_border
+                if col in [14, 15, 16]:  # Price columns
+                    cell.number_format = '#,##0'
+            row_idx += 1
+
+        # Detail totals
+        ws2.cell(row=row_idx, column=1, value="TỔNG CỘNG").font = Font(bold=True)
+        ws2.cell(row=row_idx, column=14, value=detail_buy).number_format = '#,##0'
+        ws2.cell(row=row_idx, column=15, value=detail_sell).number_format = '#,##0'
+        ws2.cell(row=row_idx, column=16, value=detail_sell - detail_buy).number_format = '#,##0'
+        for col in range(1, 17):
+            ws2.cell(row=row_idx, column=col).fill = total_fill
+            ws2.cell(row=row_idx, column=col).border = thin_border
+
+        # Set column widths
+        col_widths = [5, 14, 12, 14, 12, 20, 12, 6, 8, 12, 16, 14, 16, 12, 12, 12]
+        for col, width in enumerate(col_widths, 1):
+            ws2.column_dimensions[get_column_letter(col)].width = width
+        ws2.freeze_panes = 'A2'
+
+        # Save to temp file
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx')
+        wb.save(temp_file.name)
+        temp_file.close()
+
+        filename = f"{entity_type}_{entity_code}_export.xlsx"
+        return FileResponse(
+            path=temp_file.name,
+            filename=filename,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Export error: {e}")
+        logger.error(traceback.format_exc())
+        raise HTTPException(500, f"Lỗi xuất Excel: {str(e)}")
+
+
 # NOTE: This route MUST be defined BEFORE /{job_id} to avoid path matching conflict
 @router.get("/recent")
 async def get_recent_jobs(limit: int = 10):
@@ -427,16 +753,26 @@ async def get_recent_jobs(limit: int = 10):
     """
     try:
         client = get_supabase()
-        # Use RPC for complex join query or fetch separately
-        # Fetch jobs with customer info
+        # Fetch jobs with customer info (created_by join added when column exists)
         result = client.table('jobs').select(
-            'job_id, job_no, status_code, etd, created_at, customer_id, '
+            'job_id, job_no, status_code, etd, created_at, customer_id, created_by, '
             'customers(customer_code, short_name)'
         ).order('created_at', desc=True).limit(limit).execute()
+
+        # Get user info for created_by if any jobs have it
+        creator_ids = [r.get('created_by') for r in result.data if r.get('created_by')]
+        creator_map = {}
+        if creator_ids:
+            users_result = client.table('users').select(
+                'user_id, user_code, full_name'
+            ).in_('user_id', list(set(creator_ids))).execute()
+            for u in users_result.data:
+                creator_map[u['user_id']] = {'user_code': u['user_code'], 'full_name': u['full_name']}
 
         jobs = []
         for row in result.data:
             customer = row.get('customers') or {}
+            creator = creator_map.get(row.get('created_by'), {})
             jobs.append({
                 'job_id': row['job_id'],
                 'job_no': row['job_no'],
@@ -444,7 +780,10 @@ async def get_recent_jobs(limit: int = 10):
                 'etd': row['etd'],
                 'created_at': row['created_at'],
                 'customer_code': customer.get('customer_code'),
-                'customer_name': customer.get('short_name')
+                'customer_name': customer.get('short_name'),
+                'created_by': row.get('created_by'),
+                'creator_code': creator.get('user_code'),
+                'creator_name': creator.get('full_name'),
             })
 
         # Get service types for each job
@@ -539,12 +878,7 @@ async def get_job_details(job_id: int):
                         svc['driver_name'] = vehicle_data.get('driver_name')
                         svc['driver_phone'] = vehicle_data.get('driver_phone')
                         svc['driver_id_card'] = vehicle_data.get('driver_id_card')
-
-                        # Only show vehicle info as vendor name if NO vendor_id assigned
-                        if not svc.get('vendor_id') and svc.get('license_plate'):
-                            svc['vendor_name'] = f"{svc['license_plate']}"
-                            if svc.get('driver_name'):
-                                svc['vendor_name'] += f" - {svc['driver_name']}"
+                        # Keep vendor_name and vehicle_info separate for proper display
                 except Exception as e:
                     logger.error(f"Error parsing vendor_text_input for svc {svc.get('svc_id')}: {e}")
 
@@ -573,6 +907,30 @@ async def get_job_details(job_id: int):
                         # Extract cargo_type
                         if details.get('cargo_type') and not svc.get('cargo_type'):
                             svc['cargo_type'] = details['cargo_type']
+
+                        # Extract quotation/pricing fields
+                        if details.get('buying_price') is not None:
+                            svc['buying_price'] = details['buying_price']
+                        if details.get('buying_rate_id') is not None:
+                            svc['buying_rate_id'] = details['buying_rate_id']
+                        if details.get('selling_price') is not None:
+                            svc['selling_price'] = details['selling_price']
+                        if details.get('selling_rate_id') is not None:
+                            svc['selling_rate_id'] = details['selling_rate_id']
+
+                        # Extract extra costs and revenues
+                        if details.get('extra_costs'):
+                            svc['extra_costs'] = details['extra_costs']
+                        if details.get('extra_revenues'):
+                            svc['extra_revenues'] = details['extra_revenues']
+
+                        # Extract calculated profit
+                        if details.get('profit') is not None:
+                            svc['profit'] = details['profit']
+                        if details.get('total_cost') is not None:
+                            svc['total_cost'] = details['total_cost']
+                        if details.get('total_revenue') is not None:
+                            svc['total_revenue'] = details['total_revenue']
                 except Exception as e:
                     logger.error(f"Error parsing service_details for svc {svc.get('svc_id')}: {e}")
 
@@ -758,16 +1116,24 @@ async def update_job_info(request: Request):
         if not job_id:
             return {"success": False, "message": "Không tìm thấy job. Vui lòng cung cấp job_number, invoice hoặc B/L."}
 
-        # Update status if provided
+        # Update status if provided - sync both job and services
         new_status = entities.get("new_status")
         if new_status:
-            valid_statuses = ["PENDING", "CONFIRMED", "DISPATCHED", "IN_TRANSIT", "DELIVERED", "COMPLETED", "CANCELLED"]
+            valid_statuses = ["PENDING", "CONFIRMED", "DISPATCHED", "IN_TRANSIT", "ASSIGNED", "COMPLETED", "CANCELLED"]
             if new_status.upper() in valid_statuses:
+                # Update job status
                 client.table('jobs').update({
                     'status_code': new_status.upper(),
                     'updated_at': datetime.now().isoformat()
                 }).eq('job_id', job_id).execute()
-                logger.info(f"Updated job {job_no} status to {new_status}")
+
+                # Also update all job_services status to keep in sync
+                client.table('job_services').update({
+                    'status_code': new_status.upper(),
+                    'updated_at': datetime.now().isoformat()
+                }).eq('job_id', job_id).execute()
+
+                logger.info(f"Updated job {job_no} and services status to {new_status}")
 
         # Update job_services fields
         svc_updates = {}
@@ -840,10 +1206,10 @@ async def get_dashboard_stats():
         ).gte('created_at', f'{today}T00:00:00').execute()
         jobs_today = jobs_result.count or 0
 
-        # Active trucking
+        # Active trucking (includes domestic + border imports)
         trucking_result = client.table('job_services').select(
             'svc_id', count='exact'
-        ).in_('service_type_code', ['TRUCKING_SHORT', 'TRUCKING_LONG']).not_.in_(
+        ).in_('service_type_code', ['TRUCKING_DOM', 'BORDER_IMP']).not_.in_(
             'status_code', ['COMPLETED', 'CANCELLED']
         ).execute()
         trucking_active = trucking_result.count or 0
@@ -891,10 +1257,22 @@ async def get_service_data(service_type: str):
     Get service-specific data from views
     """
     service_type_codes = {
-        "trucking": ['TRUCKING_SHORT', 'TRUCKING_LONG'],
-        "warehouse": ['WHS_STORAGE', 'WHS_HANDLE'],
+        # Logistics - Road Transport
+        "trucking": ['TRUCKING_DOM', 'BORDER_IMP'],
+        "container": ['LIFT_ON', 'LIFT_OFF'],
+        # Air Freight
+        "air": ['AIR_IMP', 'AIR_EXP'],
+        # Sea Freight
+        "sea": ['SEA_IMP', 'SEA_EXP'],
+        # Warehouse
+        "warehouse": ['WHS_STORAGE', 'WHS_VAS'],
+        "handling": ['WHS_HANDLE'],
+        # Customs
         "customs": ['CUS_IMPORT', 'CUS_EXPORT', 'CUS_TRANSIT'],
-        "packing": ['SVC_PACK', 'SVC_SHRINK_WRAP', 'SVC_VACUUM', 'SVC_LASHING', 'SVC_FUMIGATION']
+        "co": ['CUS_CO'],
+        # Value-Added
+        "packing": ['SVC_PACK'],
+        "special": ['SVC_FUMI', 'SVC_VACUUM', 'SVC_SHRINK', 'SVC_LASHING', 'SVC_LASHING_TRUCK', 'SVC_LASHING_CONT', 'SVC_LASHING_FR'],
     }
 
     codes = service_type_codes.get(service_type)
@@ -995,14 +1373,27 @@ async def export_services_excel(
     from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
     import tempfile
 
-    if service_type not in ["trucking", "warehouse", "customs", "packing"]:
+    valid_types = ["trucking", "container", "warehouse", "handling", "customs", "co", "packing", "special", "air", "sea"]
+    if service_type not in valid_types:
         raise HTTPException(400, f"Unknown service type: {service_type}")
 
     service_type_codes = {
-        "trucking": ['TRUCKING_SHORT', 'TRUCKING_LONG'],
-        "warehouse": ['WHS_STORAGE', 'WHS_HANDLE'],
+        # Logistics - Road Transport
+        "trucking": ['TRUCKING_DOM', 'BORDER_IMP'],
+        "container": ['LIFT_ON', 'LIFT_OFF'],
+        # Air Freight
+        "air": ['AIR_IMP', 'AIR_EXP'],
+        # Sea Freight
+        "sea": ['SEA_IMP', 'SEA_EXP'],
+        # Warehouse
+        "warehouse": ['WHS_STORAGE', 'WHS_VAS'],
+        "handling": ['WHS_HANDLE'],
+        # Customs
         "customs": ['CUS_IMPORT', 'CUS_EXPORT', 'CUS_TRANSIT'],
-        "packing": ['SVC_PACK', 'SVC_SHRINK_WRAP', 'SVC_VACUUM', 'SVC_LASHING', 'SVC_FUMIGATION']
+        "co": ['CUS_CO'],
+        # Value-Added
+        "packing": ['SVC_PACK'],
+        "special": ['SVC_FUMI', 'SVC_VACUUM', 'SVC_SHRINK', 'SVC_LASHING', 'SVC_LASHING_TRUCK', 'SVC_LASHING_CONT', 'SVC_LASHING_FR'],
     }
 
     try:
@@ -1264,3 +1655,499 @@ async def export_services_excel(
         logger.error(f"Error exporting {service_type} services: {e}")
         logger.error(traceback.format_exc())
         raise HTTPException(500, f"Export error: {str(e)}")
+
+
+# ========================================
+# Job Status Management
+# ========================================
+
+class StatusUpdateRequest(BaseModel):
+    status_code: str
+
+
+@router.put("/{job_id}/status")
+async def update_job_status(job_id: int, request: StatusUpdateRequest):
+    """
+    Update job status and sync all services.
+    """
+    try:
+        client = get_supabase()
+
+        # Get current job
+        job_result = client.table('jobs').select(
+            'job_id, job_no, status_code'
+        ).eq('job_id', job_id).limit(1).execute()
+
+        if not job_result.data:
+            raise HTTPException(404, f"Job {job_id} not found")
+
+        job = job_result.data[0]
+        new_status = request.status_code.upper()
+
+        # Valid statuses
+        valid_statuses = ['PENDING', 'CONFIRMED', 'DISPATCHED', 'IN_TRANSIT', 'ASSIGNED', 'COMPLETED', 'CANCELLED']
+        if new_status not in valid_statuses:
+            return {"success": False, "message": f"Trạng thái '{new_status}' không hợp lệ"}
+
+        # Update job status
+        client.table('jobs').update({
+            'status_code': new_status,
+            'updated_at': datetime.now().isoformat()
+        }).eq('job_id', job_id).execute()
+
+        # Sync services status
+        client.table('job_services').update({
+            'status_code': new_status,
+            'updated_at': datetime.now().isoformat()
+        }).eq('job_id', job_id).execute()
+
+        logger.info(f"Job {job['job_no']} status updated: {job['status_code']} -> {new_status}")
+
+        return {
+            "success": True,
+            "job_id": job_id,
+            "status_code": new_status,
+            "message": f"Đã cập nhật trạng thái thành {new_status}"
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating status: {e}")
+        return {"success": False, "message": str(e)}
+
+
+@router.delete("/{job_id}/cancel")
+async def cancel_job(job_id: int):
+    """
+    Cancel a job and all its services.
+    """
+    try:
+        client = get_supabase()
+
+        # Get current job
+        job_result = client.table('jobs').select(
+            'job_id, job_no, status_code'
+        ).eq('job_id', job_id).limit(1).execute()
+
+        if not job_result.data:
+            raise HTTPException(404, f"Job {job_id} not found")
+
+        job = job_result.data[0]
+
+        # Prevent cancelling completed jobs
+        if job['status_code'] == 'COMPLETED':
+            return {"success": False, "message": "Không thể hủy job đã hoàn thành"}
+
+        # Update job status to CANCELLED
+        client.table('jobs').update({
+            'status_code': 'CANCELLED',
+            'updated_at': datetime.now().isoformat()
+        }).eq('job_id', job_id).execute()
+
+        # Cancel all services
+        client.table('job_services').update({
+            'status_code': 'CANCELLED',
+            'updated_at': datetime.now().isoformat()
+        }).eq('job_id', job_id).execute()
+
+        logger.info(f"Job {job['job_no']} cancelled")
+
+        return {
+            "success": True,
+            "job_id": job_id,
+            "message": f"Đã hủy job {job['job_no']}"
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error cancelling job: {e}")
+        return {"success": False, "message": str(e)}
+
+
+# ========================================
+# Customer and Service Management
+# ========================================
+
+class CustomerChangeRequest(BaseModel):
+    customer_id: int
+    customer_code: str
+    reason: Optional[str] = None
+
+
+class AddServiceRequest(BaseModel):
+    service_type_code: str
+    scheduled_date: Optional[str] = None
+    scheduled_time: Optional[str] = None
+    origin_address: Optional[str] = None
+    dest_address: Optional[str] = None
+    cargo_type: Optional[str] = None
+    package_quantity: Optional[int] = None
+    package_unit: Optional[str] = None
+    special_requirements: Optional[str] = None
+    service_details: Optional[Dict[str, Any]] = None  # For fee_amount, notes, etc.
+    # Vendor and vehicle fields
+    vendor_id: Optional[int] = None
+    license_plate: Optional[str] = None
+    driver_name: Optional[str] = None
+    driver_phone: Optional[str] = None
+    notes: Optional[str] = None
+
+
+@router.put("/{job_id}/customer")
+async def change_job_customer(job_id: int, request: CustomerChangeRequest):
+    """
+    Change customer for a job.
+    Requires confirmation - logs change for audit.
+    """
+    try:
+        client = get_supabase()
+
+        # Get current job
+        job_result = client.table('jobs').select(
+            'job_id, job_no, customer_id, status_code'
+        ).eq('job_id', job_id).limit(1).execute()
+
+        if not job_result.data:
+            raise HTTPException(404, f"Job {job_id} not found")
+
+        job = job_result.data[0]
+        old_customer_id = job['customer_id']
+
+        # Prevent change if job is completed/cancelled
+        if job['status_code'] in ['COMPLETED', 'CANCELLED']:
+            return {
+                "success": False,
+                "message": f"Không thể đổi KH cho job đã {job['status_code']}"
+            }
+
+        # Update job
+        client.table('jobs').update({
+            'customer_id': request.customer_id,
+            'updated_at': datetime.now().isoformat()
+        }).eq('job_id', job_id).execute()
+
+        # Log change for audit
+        logger.info(
+            f"Job {job['job_no']} customer changed: "
+            f"{old_customer_id} -> {request.customer_id} "
+            f"(reason: {request.reason or 'not specified'})"
+        )
+
+        return {
+            "success": True,
+            "job_id": job_id,
+            "message": "Đã đổi khách hàng thành công"
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error changing customer: {e}")
+        return {"success": False, "message": str(e)}
+
+
+@router.post("/{job_id}/services")
+async def add_job_service(job_id: int, request: AddServiceRequest):
+    """
+    Add new service to existing job.
+    """
+    try:
+        client = get_supabase()
+
+        # Verify job exists
+        job_result = client.table('jobs').select(
+            'job_id, job_no, status_code'
+        ).eq('job_id', job_id).limit(1).execute()
+
+        if not job_result.data:
+            raise HTTPException(404, f"Job {job_id} not found")
+
+        job = job_result.data[0]
+
+        # Prevent adding to completed/cancelled jobs
+        if job['status_code'] in ['COMPLETED', 'CANCELLED']:
+            return {
+                "success": False,
+                "message": f"Không thể thêm dịch vụ cho job đã {job['status_code']}"
+            }
+
+        # Parse dates
+        scheduled_date = None
+        if request.scheduled_date:
+            try:
+                scheduled_date = parse_date(request.scheduled_date)
+            except:
+                scheduled_date = request.scheduled_date
+
+        scheduled_time = None
+        if request.scheduled_time:
+            try:
+                scheduled_time = parse_time(request.scheduled_time)
+            except:
+                scheduled_time = request.scheduled_time
+
+        # Insert new service
+        service_data = {
+            'job_id': job_id,
+            'service_type_code': normalize_service_code(request.service_type_code),
+            'origin_address': request.origin_address,
+            'dest_address': request.dest_address,
+            'cargo_type': request.cargo_type,
+            'package_quantity': request.package_quantity,
+            'package_unit': request.package_unit,
+            'special_requirements': request.special_requirements,
+            'status_code': 'PENDING'
+        }
+
+        # Add vendor if provided
+        if request.vendor_id:
+            service_data['vendor_id'] = request.vendor_id
+
+        # Add vehicle/driver info as JSON in vendor_text_input
+        if request.license_plate or request.driver_name or request.driver_phone:
+            vehicle_info = {
+                'license_plate': request.license_plate,
+                'driver_name': request.driver_name,
+                'driver_phone': request.driver_phone
+            }
+            service_data['vendor_text_input'] = json.dumps(vehicle_info)
+
+        # Add notes to special_requirements if provided
+        if request.notes:
+            if service_data.get('special_requirements'):
+                service_data['special_requirements'] += f"\n{request.notes}"
+            else:
+                service_data['special_requirements'] = request.notes
+
+        # Add service_details for fee services
+        if request.service_details:
+            service_data['service_details'] = request.service_details
+
+        if scheduled_date:
+            service_data['scheduled_date'] = scheduled_date.isoformat() if hasattr(scheduled_date, 'isoformat') else str(scheduled_date)
+        if scheduled_time:
+            service_data['scheduled_time'] = str(scheduled_time)
+
+        service_result = client.table('job_services').insert(service_data).execute()
+
+        if not service_result.data:
+            return {"success": False, "message": "Không thể thêm dịch vụ"}
+
+        new_service = service_result.data[0]
+
+        logger.info(f"Added service {new_service['svc_id']} to job {job['job_no']}")
+
+        return {
+            "success": True,
+            "svc_id": new_service['svc_id'],
+            "message": f"Đã thêm dịch vụ {request.service_type_code}"
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error adding service: {e}")
+        return {"success": False, "message": str(e)}
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# QUOTATION ENDPOINTS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@router.get("/quotations/search")
+async def search_quotations(
+    type: str = "buying",
+    service_type: Optional[str] = None,
+    origin: Optional[str] = None,
+    destination: Optional[str] = None,
+    customer_id: Optional[int] = None,
+    vendor_id: Optional[int] = None
+):
+    """
+    Search for matching quotations based on service parameters.
+    type=buying returns vendor_rates, type=selling returns customer_rates.
+    """
+    try:
+        client = get_supabase()
+
+        if type == "buying":
+            # Search vendor_rates
+            query = client.table('vendor_rates').select(
+                '*, vendors(short_name, company_name)'
+            ).eq('is_active', True)
+
+            if service_type:
+                query = query.eq('service_type', service_type)
+            if vendor_id:
+                query = query.eq('vendor_id', vendor_id)
+
+            result = query.order('price').limit(20).execute()
+
+            rates = []
+            for r in result.data:
+                vendor = r.pop('vendors', {}) or {}
+                rates.append({
+                    'rate_id': r.get('rate_id'),
+                    'vendor_id': r.get('vendor_id'),
+                    'vendor_name': vendor.get('short_name') or vendor.get('company_name'),
+                    'price': r.get('price'),
+                    'vehicle_type': r.get('vehicle_type'),
+                    'origin': r.get('origin_province'),
+                    'destination': r.get('destination_province'),
+                    'unit': r.get('unit', 'TRIP')
+                })
+
+        else:
+            # Search customer_rates
+            query = client.table('customer_rates').select(
+                '*, customers(short_name, customer_code)'
+            ).eq('is_active', True)
+
+            if customer_id:
+                query = query.eq('customer_id', customer_id)
+            if service_type:
+                query = query.eq('service_type', service_type)
+
+            result = query.order('price', desc=True).limit(20).execute()
+
+            rates = []
+            for r in result.data:
+                customer = r.pop('customers', {}) or {}
+                rates.append({
+                    'rate_id': r.get('rate_id'),
+                    'customer_id': r.get('customer_id'),
+                    'customer_name': customer.get('short_name') or customer.get('customer_code'),
+                    'price': r.get('price'),
+                    'vehicle_type': r.get('vehicle_type'),
+                    'origin': r.get('origin_province'),
+                    'destination': r.get('destination_province'),
+                    'unit': r.get('unit', 'TRIP')
+                })
+
+        return {"rates": rates}
+
+    except Exception as e:
+        logger.error(f"Error searching quotations: {e}")
+        return {"rates": [], "error": str(e)}
+
+
+class ServiceQuotationRequest(BaseModel):
+    buying_rate_id: Optional[int] = None
+    buying_price: Optional[float] = None
+    selling_rate_id: Optional[int] = None
+    selling_price: Optional[float] = None
+    extra_costs: Optional[list] = None  # [{name: str, amount: float}, ...]
+    extra_revenues: Optional[list] = None  # [{name: str, amount: float}, ...]
+
+
+@router.put("/services/{svc_id}/quotations")
+async def update_service_quotations(svc_id: int, request: ServiceQuotationRequest):
+    """
+    Update buying/selling quotations for a service.
+    Stores in service_details JSONB and calculates profit.
+    """
+    try:
+        client = get_supabase()
+
+        # Verify service exists
+        svc_result = client.table('job_services').select(
+            'svc_id, job_id, service_details'
+        ).eq('svc_id', svc_id).limit(1).execute()
+
+        if not svc_result.data:
+            raise HTTPException(404, f"Service {svc_id} not found")
+
+        svc = svc_result.data[0]
+        current_details = svc.get('service_details') or {}
+        if isinstance(current_details, str):
+            current_details = json.loads(current_details)
+
+        # Merge quotation data
+        current_details['buying_rate_id'] = request.buying_rate_id
+        current_details['buying_price'] = request.buying_price
+        current_details['selling_rate_id'] = request.selling_rate_id
+        current_details['selling_price'] = request.selling_price
+        current_details['extra_costs'] = request.extra_costs or []
+        current_details['extra_revenues'] = request.extra_revenues or []
+
+        # Calculate total costs and revenues (including extras)
+        total_cost = (request.buying_price or 0) + sum(
+            c.get('amount', 0) for c in (request.extra_costs or [])
+        )
+        total_revenue = (request.selling_price or 0) + sum(
+            r.get('amount', 0) for r in (request.extra_revenues or [])
+        )
+
+        # Calculate profit
+        if total_revenue > 0 or total_cost > 0:
+            current_details['total_cost'] = total_cost
+            current_details['total_revenue'] = total_revenue
+            current_details['profit'] = total_revenue - total_cost
+            current_details['margin_pct'] = (
+                (total_revenue - total_cost) / total_cost * 100
+                if total_cost > 0 else 0
+            )
+        else:
+            current_details['profit'] = None
+            current_details['margin_pct'] = None
+
+        # Update service
+        client.table('job_services').update({
+            'service_details': current_details,
+            'updated_at': datetime.now().isoformat()
+        }).eq('svc_id', svc_id).execute()
+
+        logger.info(f"Updated quotations for service {svc_id}: buying={request.buying_price}, selling={request.selling_price}")
+
+        return {
+            "success": True,
+            "svc_id": svc_id,
+            "profit": current_details.get('profit'),
+            "margin_pct": current_details.get('margin_pct')
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating quotations: {e}")
+        return {"success": False, "message": str(e)}
+
+
+class ServiceNotesRequest(BaseModel):
+    notes: str
+
+
+@router.put("/services/{svc_id}/notes")
+async def update_service_notes(svc_id: int, request: ServiceNotesRequest):
+    """
+    Update notes/special_requirements for a service.
+    Used by AI chat to add notes to jobs.
+    """
+    try:
+        client = get_supabase()
+
+        # Verify service exists
+        svc_result = client.table('job_services').select(
+            'svc_id, job_id, special_requirements'
+        ).eq('svc_id', svc_id).limit(1).execute()
+
+        if not svc_result.data:
+            raise HTTPException(404, f"Service {svc_id} not found")
+
+        # Update notes
+        client.table('job_services').update({
+            'special_requirements': request.notes,
+            'updated_at': datetime.now().isoformat()
+        }).eq('svc_id', svc_id).execute()
+
+        logger.info(f"Updated notes for service {svc_id}")
+
+        return {"success": True, "svc_id": svc_id}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating service notes: {e}")
+        return {"success": False, "message": str(e)}

@@ -34,11 +34,15 @@ class AIClient:
             from app.ai.deepseek_client import DeepSeekClient
             self._client = DeepSeekClient()
             logger.info("Initialized DeepSeek AI client")
+        elif self.provider.lower() == "anthropic":
+            from app.ai.anthropic_client import AnthropicClient
+            self._client = AnthropicClient()
+            logger.info("Initialized Anthropic Claude AI client")
         else:
-            # Default to Gemini
-            from app.ai.gemini_client import GeminiClient
-            self._client = GeminiClient()
-            logger.warning(f"Unknown provider '{self.provider}', defaulting to Gemini")
+            # Default to DeepSeek
+            from app.ai.deepseek_client import DeepSeekClient
+            self._client = DeepSeekClient()
+            logger.warning(f"Unknown provider '{self.provider}', defaulting to DeepSeek")
     
     async def generate(
         self, 

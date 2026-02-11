@@ -299,12 +299,15 @@ class DataService:
         license_plate = entities.get("license_plate", "").replace(" ", "").replace(".", "")
         if license_plate:
             result = self.client.table('drivers').select(
-                'driver_id, full_name, phone, id_card'
+                'driver_id, full_name, phone, id_card, vehicle_type'
             ).ilike('license_plate', f'%{license_plate}%').limit(1).execute()
             if result.data:
                 driver = result.data[0]
                 enriched["driver_id"] = driver["driver_id"]
                 enriched["existing_driver"] = True
+                # Add vehicle_type (tonnage) if available
+                if driver.get("vehicle_type"):
+                    enriched["vehicle_type"] = driver["vehicle_type"]
 
         return enriched
 
@@ -516,15 +519,50 @@ class DataService:
                 if result.data:
                     vendor_id = result.data[0]['vendor_id']
 
-            # Update job_services
+            # Get existing vehicle data to support multiple vehicles
+            existing_result = self.client.table('job_services').select(
+                'vendor_text_input'
+            ).eq('job_id', job_id).limit(1).execute()
+
+            existing_vehicles = []
+            if existing_result.data:
+                existing_text = existing_result.data[0].get('vendor_text_input')
+                if existing_text:
+                    try:
+                        parsed = json.loads(existing_text)
+                        # Check if it's already an array or a single object
+                        if isinstance(parsed, list):
+                            existing_vehicles = parsed
+                        elif isinstance(parsed, dict) and parsed.get('license_plate'):
+                            existing_vehicles = [parsed]
+                    except (json.JSONDecodeError, TypeError):
+                        pass
+
+            # Add new vehicle (avoid duplicates by license plate)
+            new_vehicle = {
+                "license_plate": vehicle_data.get("license_plate"),
+                "vehicle_type": vehicle_data.get("vehicle_type"),
+                "driver_name": vehicle_data.get("driver_name"),
+                "driver_phone": vehicle_data.get("driver_phone"),
+                "driver_id_card": vehicle_data.get("driver_id_card"),
+                "vendor_name": vendor_name
+            }
+
+            # Check for duplicate license plate
+            new_plate = (new_vehicle.get("license_plate") or "").replace(".", "").replace("-", "")
+            is_duplicate = False
+            for v in existing_vehicles:
+                existing_plate = (v.get("license_plate") or "").replace(".", "").replace("-", "")
+                if existing_plate and existing_plate == new_plate:
+                    is_duplicate = True
+                    break
+
+            if not is_duplicate and new_vehicle.get("license_plate"):
+                existing_vehicles.append(new_vehicle)
+
+            # Update job_services with all vehicles
             update_data = {
-                'vendor_text_input': json.dumps({
-                    "license_plate": vehicle_data.get("license_plate"),
-                    "driver_name": vehicle_data.get("driver_name"),
-                    "driver_phone": vehicle_data.get("driver_phone"),
-                    "driver_id_card": vehicle_data.get("driver_id_card"),
-                    "vendor_name": vendor_name
-                }),
+                'vendor_text_input': json.dumps(existing_vehicles if len(existing_vehicles) > 1 else existing_vehicles[0] if existing_vehicles else new_vehicle),
                 'status_code': 'DISPATCHED'
             }
             if vendor_id:

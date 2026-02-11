@@ -23,8 +23,7 @@ CÁC TRẠNG THÁI HỢP LỆ
 - CONFIRMED: Đã xác nhận
 - DISPATCHED: Đã điều xe
 - IN_TRANSIT: Đang vận chuyển
-- DELIVERED: Đã giao hàng
-- COMPLETED: Hoàn thành
+- COMPLETED: Hoàn thành (bao gồm cả "đã giao")
 - CANCELLED: Đã hủy
 
 ══════════════════════════════════════════════════════════════════════════
@@ -88,13 +87,13 @@ Output:
 }}
 ```
 
-**Example 6: Đã giao nhưng chưa hoàn thành**
+**Example 6: Đã giao hàng**
 Input: "đã giao hàng cho SEVT, chờ ký nhận"
 Output:
 ```json
 {{
     "customer": "SEVT",
-    "new_status": "DELIVERED",
+    "new_status": "COMPLETED",
     "notes": "chờ ký nhận",
     "confidence": 0.80
 }}
@@ -118,10 +117,7 @@ MAPPING TỪ KHÓA → TRẠNG THÁI
 **→ COMPLETED:**
 - "xong", "done", "hoàn thành", "completed", "finish"
 - "đã giao xong", "giao thành công"
-
-**→ DELIVERED:**
-- "đã giao", "delivered", "giao rồi"
-- (khác "giao xong" - đã giao nhưng có thể chờ confirm)
+- "đã giao", "delivered", "giao rồi" (tất cả đều → COMPLETED)
 
 **→ IN_TRANSIT:**
 - "đang giao", "đang đi", "on the way"
@@ -154,7 +150,7 @@ Trả về JSON với các trường:
 - job_number: Số job (full hoặc partial)
 - job_numbers: Mảng job numbers (nếu nhiều jobs)
 - customer: Mã khách hàng (nếu mention thay vì job number)
-- new_status: Trạng thái mới (COMPLETED, DELIVERED, IN_TRANSIT, DISPATCHED, CANCELLED)
+- new_status: Trạng thái mới (COMPLETED, IN_TRANSIT, DISPATCHED, CANCELLED)
 - notes: Ghi chú thêm
 - confidence: 0.0-1.0
 

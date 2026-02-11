@@ -52,31 +52,49 @@ class ContinuationDetector:
         self.ai = ai_client
     
     def detect(
-        self, 
-        state: ConversationState, 
+        self,
+        state: ConversationState,
         message: str
     ) -> Tuple[ContinuationType, Optional[str]]:
         """
         Detect continuation type
-        
+
         Args:
             state: Current conversation state
             message: New user message
-        
+
         Returns:
             Tuple of (ContinuationType, detected_intent or None)
         """
+        import logging
+        logger = logging.getLogger(__name__)
+
         message_lower = message.lower().strip()
-        
+
+        # Debug: Log state info
+        is_confirm_msg = self._is_confirmation(message_lower)
+        logger.info(f"[DETECTOR] task.state={state.task.state.value}")
+        logger.info(f"[DETECTOR] task.intent={state.task.intent}")
+        logger.info(f"[DETECTOR] has_entities={bool(state.task.entities)}")
+        logger.info(f"[DETECTOR] is_confirmation_msg={is_confirm_msg}")
+
         # 1. Check cancellation
         if self._is_cancellation(message_lower):
             return ContinuationType.CANCELLATION, None
-        
-        # 2. Check confirmation (when in CONFIRMING or COLLECTING with entities)
-        if state.task.state in [TaskState.CONFIRMING, TaskState.COLLECTING]:
-            if self._is_confirmation(message_lower) and state.task.entities:
+
+        # 2. Check confirmation (ONLY when in CONFIRMING state - ready to execute)
+        # Do NOT return CONFIRMATION for COLLECTING state (e.g., awaiting customer selection)
+        if state.task.state == TaskState.CONFIRMING:
+            if is_confirm_msg and state.task.entities:
+                logger.info(f"[DETECTOR] Returning CONFIRMATION (state=CONFIRMING)")
                 return ContinuationType.CONFIRMATION, state.task.intent
-        
+        elif is_confirm_msg and state.task.state != TaskState.COLLECTING:
+            # Warning: User sent confirmation but session is not in expected state
+            logger.warning(
+                f"[DETECTOR] User sent confirmation '{message_lower}' but task.state is {state.task.state.value}! "
+                f"Session may have been lost. session_id={state.session_id[:8]}..."
+            )
+
         # 3. Check correction
         correction_field = self._is_correction(message_lower, state)
         if correction_field:
@@ -157,21 +175,34 @@ class ContinuationDetector:
         Check if message references past job/booking.
         Be strict to avoid false positives on Excel content.
         """
+        msg_lower = message.lower()
+
+        # First check: if message has UPDATE_JOB signals, it's NOT a reference
+        # These signals indicate user wants to modify a job, not copy/reference it
+        update_job_signals = [
+            "đổi khách", "sửa", "thay đổi", "thêm dịch vụ", "sửa địa chỉ",
+            "ghi chú", "yêu cầu", "chờ hàng", "phí chờ", "phí huỷ", "phí hủy",
+            "phí phát sinh", "hoàn thành", "done", "xong", "hủy", "cancel",
+            "trạng thái", "status", "đổi kh", "them phi", "phi cho"
+        ]
+        for signal in update_job_signals:
+            if signal in msg_lower:
+                return False  # Not a reference, likely UPDATE_JOB
+
         # Only trigger on clear reference patterns with job numbers
         # Pattern: contains job ID format like "JOB-", "TRK-", or "job nào/số job"
         reference_patterns = [
-            r"job\s+\w{2,3}-\d+",  # e.g., "job TRK-001"
             r"giống\s+(?:job|đơn|booking)",  # "giống job..."
             r"như\s+(?:lần|hôm|ngày)\s+trước",  # "như lần trước"
             r"copy\s+(?:job|đơn|booking)",  # "copy job..."
             r"tương tự\s+(?:với|job|đơn|như)",  # "tương tự với..."
             r"(?:theo|dựa theo)\s+(?:job|đơn|mẫu)",  # "theo job..."
         ]
-        
+
         for pattern in reference_patterns:
-            if re.search(pattern, message.lower()):
+            if re.search(pattern, msg_lower):
                 return True
-        
+
         return False
     
     def _detect_intent(self, message: str) -> Optional[str]:

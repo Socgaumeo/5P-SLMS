@@ -17,6 +17,7 @@ supabase>=2.0.0
 # AI
 google-generativeai>=0.8.0
 openai>=1.10.0  # For DeepSeek (OpenAI-compatible API)
+anthropic>=0.40.0  # For Claude (Sonnet 4, Opus 4.5)
 
 # File Processing
 openpyxl>=3.1.0

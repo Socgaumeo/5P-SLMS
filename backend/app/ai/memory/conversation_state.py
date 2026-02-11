@@ -67,7 +67,8 @@ class TaskContext:
     started_at: Optional[datetime] = None
     last_updated: Optional[datetime] = None
     confirmation_data: Optional[Dict] = None  # Data chờ confirm
-    
+    awaiting_field: Optional[str] = None  # Field đang chờ input (e.g., "customer_code")
+
     def reset(self):
         """Reset task context"""
         self.intent = None
@@ -78,6 +79,7 @@ class TaskContext:
         self.started_at = None
         self.last_updated = None
         self.confirmation_data = None
+        self.awaiting_field = None
     
     def start_task(self, intent: str, entities: Dict[str, Any] = None):
         """Bắt đầu task mới"""

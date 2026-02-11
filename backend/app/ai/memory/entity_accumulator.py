@@ -25,23 +25,37 @@ class EntityAccumulator:
     # More lenient - only customer is truly required for initial booking
     REQUIRED_FIELDS = {
         "create_booking": ["customer_code"],  # Only customer is strictly required
-        "update_job": ["job_id"],
+        "update_job": [],  # job_id or job_number - will be validated separately
+        "update_status": [],  # job_id or job_number - will be validated separately
         "check_status": ["job_id"],
         "assign_vehicle": [],  # No strict requirement - we can lookup job_number
         "cancel_job": ["job_id"],
+        # New intents
+        "create_customer": ["company_name"],  # Company name is required
+        "create_vendor": ["vendor_name"],  # Vendor name is required
+        "create_quotation": ["price"],  # Price is required for quotation
     }
-    
+
     # Fields that we encourage but allow missing
     ENCOURAGED_FIELDS = {
         "create_booking": ["booking_date", "pickup_date", "delivery_address", "dest_address"],
         "assign_vehicle": ["license_plate", "driver_name"],
+        "create_customer": ["customer_code", "address", "tax_code"],
+        "create_vendor": ["vendor_code", "phone"],
+        "create_quotation": ["origin_province", "destination_province", "vehicle_type"],
+        "update_job": ["job_number", "action_type"],  # Need job and action type
+        "update_status": ["job_number", "new_status"],
     }
-    
+
     # Optional but useful fields
     OPTIONAL_FIELDS = {
         "create_booking": ["time", "vehicle_type", "origin", "cargo", "quantity", "notes"],
-        "update_job": ["status", "driver", "vehicle", "notes"],
+        "update_job": ["new_customer_code", "new_service_type", "origin_address", "dest_address", "change_reason", "notes", "fee_type", "fee_amount"],
+        "update_status": ["notes"],
         "assign_vehicle": ["driver_name", "driver_phone"],
+        "create_customer": ["short_name", "contact_phone", "contact_email", "contact_person"],
+        "create_vendor": ["short_name", "email", "address", "tax_code"],
+        "create_quotation": ["quote_type", "vendor_name", "customer_name", "sub_route", "currency", "unit", "service_type", "rate_type", "notes"],
     }
     
     # Default values for some fields
@@ -169,6 +183,23 @@ class EntityAccumulator:
             "license_plate": "biển số xe",
             "driver_name": "tên tài xế",
             "driver_phone": "số điện thoại tài xế",
+            # New fields
+            "company_name": "tên công ty",
+            "vendor_name": "tên nhà cung cấp",
+            "tax_code": "mã số thuế",
+            "address": "địa chỉ",
+            "price": "đơn giá",
+            "origin_province": "tỉnh đi",
+            "destination_province": "tỉnh đến",
+            # Update job fields
+            "job_number": "mã job",
+            "action_type": "loại thay đổi (đổi KH, thêm dịch vụ, etc.)",
+            "new_customer_code": "khách hàng mới",
+            "new_service_type": "loại dịch vụ mới",
+            "new_status": "trạng thái mới",
+            # Fee fields
+            "fee_type": "loại phí",
+            "fee_amount": "số tiền phí",
         }
         
         missing_names = [field_names.get(f, f) for f in missing]
@@ -193,17 +224,84 @@ class EntityAccumulator:
             "origin": "Lấy tại",
             "vehicle_type": "Loại xe",
             "cargo": "Hàng hóa",
+            "cargo_type": "Hàng hóa",
             "quantity": "Số lượng",
             "notes": "Ghi chú",
             "job_id": "Job",
+            # Booking fields
+            "booking_date": "Ngày booking",
+            "pickup_date": "Ngày lấy hàng",
+            "pickup_time": "Giờ lấy hàng",
+            "pickup_address": "Điểm lấy hàng",
+            "origin_address": "Điểm lấy hàng",
+            "delivery_address": "Điểm giao hàng",
+            "dest_address": "Điểm giao hàng",
+            "delivery_company": "Công ty nhận hàng",
+            "package_quantity": "Số kiện",
+            "package_quantity_raw": "Số lượng",
+            "package_display": "Số lượng",
+            "package_unit": "Đơn vị",
+            "weight_kg": "Trọng lượng (kg)",
+            "invoices": "Invoice",
+            # Customer fields
+            "company_name": "Tên công ty",
+            "short_name": "Tên ngắn",
+            "tax_code": "MST",
+            "address": "Địa chỉ",
+            "contact_phone": "SĐT",
+            "contact_email": "Email",
+            "contact_person": "Người liên hệ",
+            # Vendor fields
+            "vendor_code": "Mã NCC",
+            "vendor_name": "Tên NCC",
+            "phone": "SĐT",
+            "email": "Email",
+            # Quotation fields
+            "quote_type": "Loại báo giá",
+            "origin_province": "Tỉnh đi",
+            "destination_province": "Tỉnh đến",
+            "sub_route": "Chi tiết tuyến",
+            "price": "Đơn giá",
+            "currency": "Tiền tệ",
+            "unit": "Đơn vị",
+            "service_type": "Loại dịch vụ",
+            "rate_type": "Loại hàng",
+            # Update job fields
+            "job_number": "Mã job",
+            "action_type": "Loại thay đổi",
+            "new_customer_code": "Khách hàng mới",
+            "new_service_type": "Dịch vụ mới",
+            "change_reason": "Lý do thay đổi",
+            "new_status": "Trạng thái mới",
+            # Fee fields
+            "fee_type": "Loại phí",
+            "fee_amount": "Số tiền",
         }
         
+        # Import simplifier for service types
+        from app.ai.utils.service_type_detector import simplify_service_code
+
+        # Skip these internal fields from display
+        skip_fields = {"services", "service_type"}
+
         lines = []
         for key, value in task.entities.items():
-            if value is not None:
+            if value is not None and key not in skip_fields:
                 label = field_labels.get(key, key)
+                # Simplify service type for display
+                if key in ("service_type", "services"):
+                    if isinstance(value, list):
+                        value = ", ".join(simplify_service_code(v) for v in value)
+                    else:
+                        value = simplify_service_code(str(value))
                 lines.append(f"• {label}: {value}")
-        
+
+        # Add simplified service type once at the end if present
+        svc = task.entities.get("service_type")
+        if svc:
+            simple = simplify_service_code(svc)
+            lines.insert(0, f"• Loại dịch vụ: {simple}")
+
         return "\n".join(lines)
     
     def validate_entities(

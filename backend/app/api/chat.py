@@ -11,10 +11,11 @@ import traceback
 import uuid
 
 from app.db.supabase_client import get_supabase
+from app.db.supabase_adapter import get_supabase_adapter
 from app.ai.clients import get_ai_client
 from app.ai.memory import ConversationManager, ProcessResult
 from app.services.data_service import get_data_service
-from app.ai.utils.service_type_detector import detect_from_excel_data, suggest_service_types
+from app.ai.utils.service_type_detector import detect_from_excel_data
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -23,12 +24,12 @@ router = APIRouter()
 _manager: Optional[ConversationManager] = None
 
 def get_conversation_manager():
-    """Get or create ConversationManager singleton (no longer needs get_db)"""
+    """Get or create ConversationManager singleton with Supabase adapter for context loading"""
     global _manager
     if _manager is None:
         _manager = ConversationManager(
             ai_client=get_ai_client(),
-            db_session=None  # Not used - we use Supabase SDK directly
+            db_session=get_supabase_adapter()  # Supabase adapter for ContextLoader
         )
     return _manager
 
@@ -65,18 +66,14 @@ async def send_message(
     """
     # Use provided session_id or generate one
     # If using auth, append user_id. Here we generate simple UUID if missing.
+    is_new_session = not request.session_id
     session_id = request.session_id or str(uuid.uuid4())
-    
-    # Map legacy 'content' to 'message' if needed (ChatRequest has 'message')
-    # If legacy call sends 'content', pydantic might fail if we don't handle it.
-    # But we updated ChatRequest to use 'message'. 
-    # If legacy frontend sends 'content', we might need to handle that. 
-    # Let's assume we update frontend or add alias. 
-    # Actually, legacy ChatRequest had 'content'. We changed it to 'message'.
-    # To be safe, let's expect 'message' primarily.
-    
+
+    logger.info(f"[CHAT] Received message, session_id={session_id}, is_new={is_new_session}")
+    logger.info(f"[CHAT] Message: {request.message[:100]}...")
+
     user_message = request.message
-    
+
     try:
         result = await manager.process(
             session_id=session_id,
@@ -84,7 +81,9 @@ async def send_message(
             user_id="anonymous", # Replace with actual user ID if auth enabled
             context=request.context
         )
-        
+
+        logger.info(f"[CHAT] Response task_state={result.state.task.state.value if result.state else 'N/A'}")
+
         return ChatResponse(
             response=result.response,
             session_id=session_id,
@@ -160,10 +159,10 @@ async def get_session_info(
     Get current session state
     """
     state = await manager.store.get(session_id)
-    
+
     if not state:
         raise HTTPException(status_code=404, detail="Session not found")
-    
+
     return {
         "session_id": session_id,
         "task_state": state.task.state.value,
@@ -174,6 +173,31 @@ async def get_session_info(
         "created_at": state.created_at.isoformat(),
         "last_activity": state.last_activity.isoformat()
     }
+
+
+@router.get("/debug/sessions")
+async def debug_sessions(
+    manager: ConversationManager = Depends(get_conversation_manager)
+):
+    """
+    Debug endpoint to see all active sessions
+    """
+    if hasattr(manager.store, '_sessions'):
+        sessions_info = []
+        for sid, state in manager.store._sessions.items():
+            sessions_info.append({
+                "session_id": sid,
+                "task_state": state.task.state.value,
+                "intent": state.task.intent,
+                "entities_count": len(state.task.entities),
+                "message_count": len(state.messages),
+                "last_activity": state.last_activity.isoformat()
+            })
+        return {
+            "total_sessions": len(sessions_info),
+            "sessions": sessions_info
+        }
+    return {"error": "Session store does not support listing"}
 
 
 # --- Legacy/Helper Endpoints (Kept for compatibility/utility) ---
@@ -251,20 +275,14 @@ async def search_jobs(q: str = ""):
 # --- Excel Result Formatters ---
 
 def _format_booking_result(filename: str, parse_result: dict, detected_service: dict = None) -> str:
-    """Format booking form parse result for AI processing"""
-    content = f"Đã đọc file Excel '{filename}':\n\n"
+    """Format booking form parse result for AI processing - data only, no commentary"""
+    content = ""
 
-    # Use detected service type instead of hardcoding
+    # Service type marker (for AI processing, not displayed to user)
     if detected_service:
         svc_type = detected_service.get("service_type", "TRUCKING_SHORT")
-        confidence = detected_service.get("confidence", 0.5)
-        reason = detected_service.get("reason", "")
-        content += f"Loại dịch vụ phát hiện: {svc_type} (độ tin cậy: {confidence:.0%})\n"
-        if reason:
-            content += f"Lý do: {reason}\n"
         content += f"[SERVICE_TYPE:{svc_type}]\n\n"
     else:
-        content += "Loại file: Phiếu book xe (Trucking)\n"
         content += "[SERVICE_TYPE:TRUCKING_SHORT]\n\n"
 
     # Add metadata
@@ -331,20 +349,14 @@ def _format_booking_result(filename: str, parse_result: dict, detected_service: 
 
 
 def _format_quotation_result(filename: str, parse_result: dict, detected_service: dict = None) -> str:
-    """Format quotation/packing service parse result for AI processing"""
-    content = f"Đã đọc file Excel '{filename}':\n\n"
+    """Format quotation/packing service parse result for AI processing - data only, no commentary"""
+    content = ""
 
-    # Use detected service type - quotation files are typically PACKING
+    # Service type marker (for AI processing, not displayed to user)
     if detected_service:
         svc_type = detected_service.get("service_type", "PACKING")
-        confidence = detected_service.get("confidence", 0.8)
-        reason = detected_service.get("reason", "Quotation file")
-        content += f"Loại dịch vụ phát hiện: {svc_type} (độ tin cậy: {confidence:.0%})\n"
-        if reason:
-            content += f"Lý do: {reason}\n"
         content += f"[SERVICE_TYPE:{svc_type}]\n\n"
     else:
-        content += "Loại file: Quotation/Packing Service\n"
         content += "[SERVICE_TYPE:PACKING]\n\n"
 
     meta = parse_result.get('metadata', {})
@@ -408,6 +420,11 @@ async def process_file(
     try:
         context_dict = json.loads(context)
         filename = file.filename.lower()
+
+        # Debug: Log session info for file upload
+        context_session_id = context_dict.get("session_id")
+        logger.info(f"[FILE] Processing file: {filename}")
+        logger.info(f"[FILE] Context session_id: {context_session_id}")
         
         content = ""
         
