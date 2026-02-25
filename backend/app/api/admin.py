@@ -117,6 +117,8 @@ class RateCreate(BaseModel):
     temperature_range: Optional[str] = None
     conditions: Optional[str] = None
     is_active: bool = True
+    # Service-specific metadata (customs_type, packing_type, etc.)
+    metadata: Optional[dict] = None
 
 
 class RateUpdate(BaseModel):
@@ -127,6 +129,8 @@ class RateUpdate(BaseModel):
     expiry_date: Optional[str] = None
     notes: Optional[str] = None
     is_active: Optional[bool] = None
+    service_type_code: Optional[str] = None
+    metadata: Optional[dict] = None
 
 
 # ============================================================
@@ -536,7 +540,6 @@ def create_selling_rate(data: RateCreate):
         insert_data = {
             'customer_id': data.customer_id,
             'route_id': data.route_id,
-            'service_id': None,  # Legacy field
             'vehicle_type': data.vehicle_type,
             'price': data.price,
             'currency': data.currency,
@@ -545,6 +548,8 @@ def create_selling_rate(data: RateCreate):
             'expiry_date': data.expiry_date,
             'notes': data.notes,
             'is_active': data.is_active,
+            'service_type_code': data.service_type_code,
+            'metadata': data.metadata,
         }
 
         # Remove None values to let DB use defaults
@@ -571,7 +576,7 @@ def update_selling_rate(rate_id: int, data: RateUpdate):
             raise HTTPException(status_code=400, detail="No data to update")
 
         result = client.table('customer_rates').update(update_data).eq(
-            'rate_id', rate_id
+            'id', rate_id
         ).execute()
 
         if not result.data:
@@ -591,11 +596,11 @@ def delete_selling_rate(rate_id: int, hard_delete: bool = Query(False)):
         client = get_supabase()
 
         if hard_delete:
-            result = client.table('customer_rates').delete().eq('rate_id', rate_id).execute()
+            result = client.table('customer_rates').delete().eq('id', rate_id).execute()
         else:
             result = client.table('customer_rates').update({
                 'is_active': False
-            }).eq('rate_id', rate_id).execute()
+            }).eq('id', rate_id).execute()
 
         if not result.data:
             raise HTTPException(status_code=404, detail="Rate not found")
@@ -655,7 +660,6 @@ def create_buying_rate(data: RateCreate):
         insert_data = {
             'vendor_id': data.vendor_id,
             'route_id': data.route_id,
-            'service_id': None,  # Legacy field
             'vehicle_type': data.vehicle_type,
             'price': data.price,
             'currency': data.currency,
@@ -664,6 +668,8 @@ def create_buying_rate(data: RateCreate):
             'expiry_date': data.expiry_date,
             'notes': data.notes,
             'is_active': data.is_active,
+            'service_type_code': data.service_type_code,
+            'metadata': data.metadata,
             # Trucking specific fields
             'origin_province': data.origin_province,
             'destination_province': data.destination_province,

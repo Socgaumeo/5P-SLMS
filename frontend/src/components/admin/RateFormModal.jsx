@@ -93,6 +93,15 @@ export default function RateFormModal({
 
     // Conditions
     conditions: '',
+
+    // Customs specific
+    customs_type: '',
+
+    // Packing specific
+    packing_type: '',
+
+    // Warehouse specific
+    warehouse_service: '',
   })
 
   // Fetch reference data
@@ -170,7 +179,7 @@ export default function RateFormModal({
         service_type_code: formData.service_type_code || null,
       }
 
-      // Add trucking specific fields
+      // Add service-specific fields
       const category = getSelectedServiceCategory()
       if (category === 'TRUCKING') {
         payload.origin_province = formData.origin_province
@@ -182,7 +191,13 @@ export default function RateFormModal({
         }
       } else if (category === 'CONTAINER') {
         payload.vehicle_type = formData.container_type
-        payload.notes = `${formData.cargo_type || 'CONTAINER'} - ${formData.notes || ''}`
+        payload.metadata = { container_type: formData.container_type, cargo_type: formData.cargo_type }
+      } else if (category === 'CUSTOMS') {
+        payload.metadata = { customs_type: formData.customs_type }
+      } else if (category === 'PACKING') {
+        payload.metadata = { packing_type: formData.packing_type }
+      } else if (category === 'WAREHOUSE') {
+        payload.metadata = { warehouse_service: formData.warehouse_service }
       }
 
       // Add vendor/customer
@@ -406,6 +421,65 @@ export default function RateFormModal({
                 >
                   <option value="CONTAINER">Container</option>
                   <option value="CARGO">Kiện hàng (Cargo)</option>
+                </select>
+              </div>
+            </div>
+          )}
+
+          {/* Customs specific fields */}
+          {category === 'CUSTOMS' && (
+            <div className="form-row">
+              <div className="form-group">
+                <label>Loại thủ tục *</label>
+                <select
+                  value={formData.customs_type}
+                  onChange={(e) => setFormData({ ...formData, customs_type: e.target.value })}
+                  required
+                >
+                  <option value="">-- Chọn --</option>
+                  <option value="IMPORT">Nhập khẩu</option>
+                  <option value="EXPORT">Xuất khẩu</option>
+                  <option value="TRANSIT">Quá cảnh</option>
+                  <option value="ONSPOT">Tại chỗ</option>
+                </select>
+              </div>
+            </div>
+          )}
+
+          {/* Packing specific fields */}
+          {category === 'PACKING' && (
+            <div className="form-row">
+              <div className="form-group">
+                <label>Loại đóng gói</label>
+                <select
+                  value={formData.packing_type}
+                  onChange={(e) => setFormData({ ...formData, packing_type: e.target.value })}
+                >
+                  <option value="">-- Chọn --</option>
+                  <option value="WOODEN_CRATE">Đóng thùng gỗ</option>
+                  <option value="SHRINK_WRAP">Quấn màng co</option>
+                  <option value="VACUUM">Hút chân không</option>
+                  <option value="FUMIGATION">Xông trùng</option>
+                  <option value="LASHING">Chằng buộc</option>
+                  <option value="PALLETIZE">Đóng pallet</option>
+                </select>
+              </div>
+            </div>
+          )}
+
+          {/* Warehouse specific fields */}
+          {category === 'WAREHOUSE' && (
+            <div className="form-row">
+              <div className="form-group">
+                <label>Loại dịch vụ kho</label>
+                <select
+                  value={formData.warehouse_service}
+                  onChange={(e) => setFormData({ ...formData, warehouse_service: e.target.value })}
+                >
+                  <option value="">-- Chọn --</option>
+                  <option value="STORAGE">Lưu kho</option>
+                  <option value="HANDLING">Xếp dỡ</option>
+                  <option value="VAS">Dịch vụ gia tăng (VAS)</option>
                 </select>
               </div>
             </div>

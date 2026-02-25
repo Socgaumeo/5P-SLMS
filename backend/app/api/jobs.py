@@ -1979,7 +1979,7 @@ async def search_quotations(
             ).eq('is_active', True)
 
             if service_type:
-                query = query.eq('service_type', service_type)
+                query = query.eq('service_type_code', service_type)
             if vendor_id:
                 query = query.eq('vendor_id', vendor_id)
 
@@ -1989,14 +1989,15 @@ async def search_quotations(
             for r in result.data:
                 vendor = r.pop('vendors', {}) or {}
                 rates.append({
-                    'rate_id': r.get('rate_id'),
+                    'rate_id': r.get('id'),  # PK is 'id' in production DB
                     'vendor_id': r.get('vendor_id'),
                     'vendor_name': vendor.get('short_name') or vendor.get('company_name'),
                     'price': r.get('price'),
                     'vehicle_type': r.get('vehicle_type'),
                     'origin': r.get('origin_province'),
                     'destination': r.get('destination_province'),
-                    'unit': r.get('unit', 'TRIP')
+                    'unit': r.get('unit', 'TRIP'),
+                    'service_type_code': r.get('service_type_code'),
                 })
 
         else:
@@ -2008,7 +2009,7 @@ async def search_quotations(
             if customer_id:
                 query = query.eq('customer_id', customer_id)
             if service_type:
-                query = query.eq('service_type', service_type)
+                query = query.eq('service_type_code', service_type)
 
             result = query.order('price', desc=True).limit(20).execute()
 
@@ -2016,14 +2017,15 @@ async def search_quotations(
             for r in result.data:
                 customer = r.pop('customers', {}) or {}
                 rates.append({
-                    'rate_id': r.get('rate_id'),
+                    'rate_id': r.get('id'),  # PK is 'id' in production DB
                     'customer_id': r.get('customer_id'),
                     'customer_name': customer.get('short_name') or customer.get('customer_code'),
                     'price': r.get('price'),
                     'vehicle_type': r.get('vehicle_type'),
                     'origin': r.get('origin_province'),
                     'destination': r.get('destination_province'),
-                    'unit': r.get('unit', 'TRIP')
+                    'unit': r.get('unit', 'TRIP'),
+                    'service_type_code': r.get('service_type_code'),
                 })
 
         return {"rates": rates}

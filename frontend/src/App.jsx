@@ -552,6 +552,42 @@ function JobDetailModal({ job, onClose, onUpdate }) {
     }
   }
 
+  // Save all quotation changes for all services at once
+  const handleSaveAllChanges = async () => {
+    setSaving(true)
+    try {
+      const svcsWithPricing = services.filter(svc =>
+        svc.buying_price || svc.selling_price ||
+        (svc.extra_costs && svc.extra_costs.length > 0) ||
+        (svc.extra_revenues && svc.extra_revenues.length > 0)
+      )
+      if (svcsWithPricing.length > 0) {
+        const results = await Promise.all(svcsWithPricing.map(svc =>
+          fetch(`${API_URL}/api/jobs/services/${svc.svc_id}/quotations`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              buying_rate_id: svc.buying_rate_id,
+              buying_price: svc.buying_price,
+              selling_rate_id: svc.selling_rate_id,
+              selling_price: svc.selling_price,
+              extra_costs: svc.extra_costs || [],
+              extra_revenues: svc.extra_revenues || []
+            })
+          }).then(r => r.json())
+        ))
+        const failed = results.filter(r => !r.success)
+        if (failed.length > 0) {
+          console.warn('Some quotation saves failed:', failed)
+        }
+      }
+    } catch (e) {
+      console.error('Save all changes error:', e)
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const handleAssign = async (svc_id, vendor_id, employee_id, vehicleInfo = {}) => {
     setSaving(true)
     try {
@@ -1969,7 +2005,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
 
         <div className="modal-footer">
           <button className="btn-secondary" onClick={onClose}>Đóng</button>
-          {editMode && <button className="btn-primary" onClick={() => { setEditMode(false); onUpdate && onUpdate(); }}>✓ Lưu thay đổi</button>}
+          {editMode && <button className="btn-primary" disabled={saving} onClick={async () => { await handleSaveAllChanges(); setEditMode(false); onUpdate && onUpdate(); }}>{saving ? '⏳ Đang lưu...' : '✓ Lưu thay đổi'}</button>}
         </div>
       </div>
     </div>
