@@ -1979,7 +1979,8 @@ async def search_quotations(
             ).eq('is_active', True)
 
             if service_type:
-                query = query.eq('service_type_code', service_type)
+                # Include rates matching this service type OR rates without service_type_code (legacy)
+                query = query.or_(f'service_type_code.eq.{service_type},service_type_code.is.null')
             if vendor_id:
                 query = query.eq('vendor_id', vendor_id)
 
@@ -2009,7 +2010,8 @@ async def search_quotations(
             if customer_id:
                 query = query.eq('customer_id', customer_id)
             if service_type:
-                query = query.eq('service_type_code', service_type)
+                # Include rates matching this service type OR rates without service_type_code (legacy)
+                query = query.or_(f'service_type_code.eq.{service_type},service_type_code.is.null')
 
             result = query.order('price', desc=True).limit(20).execute()
 

@@ -556,33 +556,40 @@ function JobDetailModal({ job, onClose, onUpdate }) {
   const handleSaveAllChanges = async () => {
     setSaving(true)
     try {
+      // Save quotations for services that have any pricing data
       const svcsWithPricing = services.filter(svc =>
         svc.buying_price || svc.selling_price ||
+        svc.buying_rate_id || svc.selling_rate_id ||
         (svc.extra_costs && svc.extra_costs.length > 0) ||
         (svc.extra_revenues && svc.extra_revenues.length > 0)
       )
-      if (svcsWithPricing.length > 0) {
-        const results = await Promise.all(svcsWithPricing.map(svc =>
-          fetch(`${API_URL}/api/jobs/services/${svc.svc_id}/quotations`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              buying_rate_id: svc.buying_rate_id,
-              buying_price: svc.buying_price,
-              selling_rate_id: svc.selling_rate_id,
-              selling_price: svc.selling_price,
-              extra_costs: svc.extra_costs || [],
-              extra_revenues: svc.extra_revenues || []
-            })
-          }).then(r => r.json())
-        ))
-        const failed = results.filter(r => !r.success)
-        if (failed.length > 0) {
-          console.warn('Some quotation saves failed:', failed)
-        }
+      if (svcsWithPricing.length === 0) {
+        alert('Chưa có báo giá nào để lưu. Hãy chọn báo giá từ dropdown hoặc nhập tay.')
+        return
+      }
+      const results = await Promise.all(svcsWithPricing.map(svc =>
+        fetch(`${API_URL}/api/jobs/services/${svc.svc_id}/quotations`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            buying_rate_id: svc.buying_rate_id,
+            buying_price: svc.buying_price,
+            selling_rate_id: svc.selling_rate_id,
+            selling_price: svc.selling_price,
+            extra_costs: svc.extra_costs || [],
+            extra_revenues: svc.extra_revenues || []
+          })
+        }).then(r => r.json())
+      ))
+      const failed = results.filter(r => !r.success)
+      if (failed.length > 0) {
+        alert(`Lưu thất bại ${failed.length}/${results.length} dịch vụ`)
+      } else {
+        alert(`Đã lưu báo giá cho ${results.length} dịch vụ thành công!`)
       }
     } catch (e) {
       console.error('Save all changes error:', e)
+      alert('Lỗi khi lưu: ' + e.message)
     } finally {
       setSaving(false)
     }
