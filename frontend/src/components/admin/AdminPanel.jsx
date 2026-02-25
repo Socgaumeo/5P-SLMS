@@ -10,6 +10,7 @@
 import { useState, useEffect } from 'react'
 import './AdminPanel.css'
 import RateFormModal from './RateFormModal'
+import RateUploadModal from './RateUploadModal'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
@@ -1592,6 +1593,7 @@ function BuyingRatesTab() {
   const [vendorDetail, setVendorDetail] = useState(null)
   const [detailLoading, setDetailLoading] = useState(false)
   const [showAddModal, setShowAddModal] = useState(false)
+  const [showUploadModal, setShowUploadModal] = useState(false)
 
   // Filter states
   const [filters, setFilters] = useState({
@@ -1860,15 +1862,27 @@ function BuyingRatesTab() {
     <div className="admin-tab-content">
       <div className="tab-header">
         <h3>Buying Rates - Báo giá mua vào (theo Nhà cung cấp)</h3>
-        <button className="btn-primary" onClick={() => setShowAddModal(true)}>
-          + Thêm báo giá
-        </button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button className="btn-secondary" onClick={() => setShowUploadModal(true)}>
+            Upload Excel
+          </button>
+          <button className="btn-primary" onClick={() => setShowAddModal(true)}>
+            + Thêm báo giá
+          </button>
+        </div>
       </div>
 
       <RateFormModal
         isOpen={showAddModal}
         onClose={() => setShowAddModal(false)}
         onSave={handleRateSaved}
+        rateType="buying"
+      />
+
+      <RateUploadModal
+        isOpen={showUploadModal}
+        onClose={() => setShowUploadModal(false)}
+        onImported={handleRateSaved}
         rateType="buying"
       />
 
@@ -1936,6 +1950,7 @@ function SellingRatesTab() {
   const [data, setData] = useState([])
   const [loading, setLoading] = useState(true)
   const [showAddModal, setShowAddModal] = useState(false)
+  const [showUploadModal, setShowUploadModal] = useState(false)
 
   const fetchData = async () => {
     setLoading(true)
@@ -1964,15 +1979,27 @@ function SellingRatesTab() {
     <div className="admin-tab-content">
       <div className="tab-header">
         <h3>Selling Rates - Báo giá bán ra (theo Khách hàng)</h3>
-        <button className="btn-primary" onClick={() => setShowAddModal(true)}>
-          + Thêm báo giá
-        </button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button className="btn-secondary" onClick={() => setShowUploadModal(true)}>
+            Upload Excel
+          </button>
+          <button className="btn-primary" onClick={() => setShowAddModal(true)}>
+            + Thêm báo giá
+          </button>
+        </div>
       </div>
 
       <RateFormModal
         isOpen={showAddModal}
         onClose={() => setShowAddModal(false)}
         onSave={handleRateSaved}
+        rateType="selling"
+      />
+
+      <RateUploadModal
+        isOpen={showUploadModal}
+        onClose={() => setShowUploadModal(false)}
+        onImported={handleRateSaved}
         rateType="selling"
       />
 
