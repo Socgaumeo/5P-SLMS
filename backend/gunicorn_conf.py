@@ -1,8 +1,8 @@
 """Gunicorn production config for FastAPI with Uvicorn workers"""
-import multiprocessing
+import os
 
 bind = "0.0.0.0:8000"
-workers = (2 * multiprocessing.cpu_count()) + 1
+workers = int(os.environ.get("WEB_CONCURRENCY", 2))
 worker_class = "uvicorn.workers.UvicornWorker"
 timeout = 120
 keepalive = 5

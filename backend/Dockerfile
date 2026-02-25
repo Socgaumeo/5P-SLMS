@@ -12,6 +12,10 @@ RUN pip install --no-cache-dir -r requirements.txt gunicorn
 
 COPY . .
 
+# Limit thread usage for numpy/pandas OpenBLAS (prevents crash on Railway)
+ENV OPENBLAS_NUM_THREADS=1
+ENV OMP_NUM_THREADS=1
+
 EXPOSE 8000
 
 CMD ["gunicorn", "main:app", "-c", "gunicorn_conf.py"]
