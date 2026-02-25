@@ -514,6 +514,13 @@ class UnifiedProcessor:
                     return {"success": False, "response": "Không gán được xe nào"}
 
                 elif state.intent == "update_status":
+                    # If entities also contain cost/revenue, redirect to update_job handler
+                    has_cost = state.entities.get("cost_unit_price") or state.entities.get("costs")
+                    has_revenue = state.entities.get("revenue_unit_price") or state.entities.get("revenues")
+                    if has_cost or has_revenue:
+                        state.intent = "update_job"
+                        return await self._prepare_action(state)
+
                     response = await client.post(
                         f"{API_BASE_URL}/api/jobs/update",
                         json={"entities": state.entities},
@@ -527,6 +534,110 @@ class UnifiedProcessor:
                                 "response": f"✅ Đã cập nhật trạng thái thành công!"
                             }
                     return {"success": False, "response": "Lỗi cập nhật trạng thái"}
+
+                elif state.intent == "update_job":
+                    # Combined update: status + cost + revenue for same job
+                    job_number = state.entities.get("job_number")
+                    if not job_number:
+                        return {"success": False, "response": "Vui lòng cho biết mã job."}
+
+                    lookup = await client.get(
+                        f"{API_BASE_URL}/api/jobs/by-number/{job_number}",
+                        timeout=10.0
+                    )
+                    if lookup.status_code != 200:
+                        return {"success": False, "response": f"Không tìm thấy job {job_number}"}
+
+                    job_data = lookup.json()
+                    if not job_data.get("success"):
+                        return {"success": False, "response": f"Không tìm thấy job {job_number}"}
+
+                    job_id = job_data.get("job_id")
+                    changes = []
+
+                    # 1. Update status if present
+                    new_status = state.entities.get("new_status")
+                    if new_status:
+                        status_resp = await client.post(
+                            f"{API_BASE_URL}/api/jobs/update",
+                            json={"entities": {
+                                "job_number": job_number,
+                                "new_status": new_status
+                            }},
+                            timeout=30.0
+                        )
+                        if status_resp.status_code == 200 and status_resp.json().get("success"):
+                            changes.append(f"Trạng thái → {new_status}")
+                        else:
+                            logger.warning(f"[UNIFIED] Status update failed: {status_resp.text}")
+
+                    # 2. Add cost/revenue if present
+                    has_cost = state.entities.get("cost_unit_price") or state.entities.get("costs")
+                    has_revenue = state.entities.get("revenue_unit_price") or state.entities.get("revenues")
+                    if has_cost or has_revenue:
+                        details = await client.get(
+                            f"{API_BASE_URL}/api/jobs/{job_id}/details",
+                            timeout=10.0
+                        )
+                        if details.status_code == 200:
+                            job_details = details.json()
+                            services = job_details.get("services", [])
+                            if services:
+                                svc_id = services[0].get("svc_id")
+                                existing = services[0].get("service_details") or {}
+
+                                payload = {
+                                    "extra_costs": existing.get("extra_costs") or [],
+                                    "extra_revenues": existing.get("extra_revenues") or []
+                                }
+
+                                # Add costs (single or multiple)
+                                costs_array = state.entities.get("costs", [])
+                                if not costs_array and state.entities.get("cost_unit_price"):
+                                    costs_array = [state.entities]
+                                for c in costs_array:
+                                    qty = c.get("cost_qty", 1)
+                                    unit_price = c.get("cost_unit_price", 0)
+                                    payload["extra_costs"].append({
+                                        "name": c.get("cost_name", "Chi phí"),
+                                        "qty": qty,
+                                        "unit_price": unit_price,
+                                        "unit": c.get("cost_unit", "chuyến"),
+                                        "amount": qty * unit_price,
+                                        "vendor": c.get("vendor_name", state.entities.get("vendor_name", ""))
+                                    })
+                                    changes.append(f"Chi phí: {qty} × {unit_price:,.0f}")
+
+                                # Add revenues (single or multiple)
+                                revenues_array = state.entities.get("revenues", [])
+                                if not revenues_array and state.entities.get("revenue_unit_price"):
+                                    revenues_array = [state.entities]
+                                for r in revenues_array:
+                                    qty = r.get("revenue_qty", 1)
+                                    unit_price = r.get("revenue_unit_price", 0)
+                                    payload["extra_revenues"].append({
+                                        "name": r.get("revenue_name", "Doanh thu"),
+                                        "qty": qty,
+                                        "unit_price": unit_price,
+                                        "unit": r.get("revenue_unit", "chuyến"),
+                                        "amount": qty * unit_price
+                                    })
+                                    changes.append(f"Doanh thu: {qty} × {unit_price:,.0f}")
+
+                                save = await client.put(
+                                    f"{API_BASE_URL}/api/jobs/services/{svc_id}/quotations",
+                                    json=payload,
+                                    timeout=30.0
+                                )
+                                if save.status_code != 200 or not save.json().get("success"):
+                                    logger.warning(f"[UNIFIED] Save quotation failed: {save.text}")
+
+                    if changes:
+                        resp = f"✅ Đã cập nhật Job {job_number}:\n"
+                        for ch in changes:
+                            resp += f"• {ch}\n"
+                        return {"success": True, "response": resp}
+                    return {"success": False, "response": f"Không có thay đổi nào được thực hiện cho job {job_number}"}
 
                 elif state.intent in ["add_cost", "add_revenue"]:
                     # Get job details first

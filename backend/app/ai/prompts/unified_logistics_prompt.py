@@ -89,7 +89,8 @@ Format: Có thể copy-paste để gửi vendor/khách hàng
 Trả về JSON với cấu trúc:
 ```json
 {
-  "intent": "create_booking|assign_vehicle|update_status|add_cost|add_revenue|add_note|create_customer|create_vendor|general_query|clarification_needed",
+  "intent": "create_booking|assign_vehicle|update_status|update_job|add_cost|add_revenue|add_note|create_customer|create_vendor|general_query|clarification_needed",
+  // update_job: Dùng khi user yêu cầu NHIỀU thay đổi cùng lúc (ví dụ: đổi trạng thái + thêm chi phí + thêm doanh thu)
   "confidence": 0.0-1.0,
   "entities": {
     // Tất cả thông tin đã trích xuất được
