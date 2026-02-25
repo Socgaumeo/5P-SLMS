@@ -1,5 +1,6 @@
 """
 Application Configuration
+All secrets must be set via environment variables or .env file.
 """
 
 from pydantic_settings import BaseSettings
@@ -10,8 +11,8 @@ from pathlib import Path
 
 
 class Settings(BaseSettings):
-    # Database (Supabase PostgreSQL via Connection Pooler)
-    DATABASE_URL: str = "postgresql://postgres.vpmsytbbsxmtdicnkytv:%21%40kHanh0112@aws-1-ap-south-1.pooler.supabase.com:6543/postgres"
+    # Database - MUST be set via env var or .env
+    DATABASE_URL: str = ""
 
     # Supabase Configuration
     SUPABASE_URL: Optional[str] = None
@@ -27,19 +28,18 @@ class Settings(BaseSettings):
     # AI Model Settings
     GEMINI_MODEL: str = "gemini-1.5-flash"
     DEEPSEEK_MODEL: str = "deepseek-chat"
-    ANTHROPIC_MODEL: str = "claude-sonnet-4-20250514"  # claude-sonnet-4, claude-opus-4-5
+    ANTHROPIC_MODEL: str = "claude-sonnet-4-20250514"
 
     # AI Conversation Mode
-    # "classic" = Rule-based detection + separate prompts (old approach)
-    # "unified" = Single AI-driven conversational prompt (new approach)
     AI_CONVERSATION_MODE: str = "unified"
 
     # Application
-    DEBUG: bool = True
-    SECRET_KEY: str = "your-secret-key-here-change-in-production"
+    DEBUG: bool = False
+    SECRET_KEY: str = ""
+    ALLOWED_ORIGINS: str = "http://localhost:5173,http://localhost:5174"
 
     # JWT Authentication
-    JWT_SECRET_KEY: str = "5p-slms-jwt-secret-key-change-in-production-2026"
+    JWT_SECRET_KEY: str = ""
     JWT_ALGORITHM: str = "HS256"
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 480  # 8 hours
 
@@ -50,8 +50,24 @@ class Settings(BaseSettings):
             self.DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_api_key")
         return self
 
+    @model_validator(mode='after')
+    def validate_required_secrets(self):
+        """Ensure critical secrets are set when not in debug mode"""
+        if not self.DEBUG:
+            missing = []
+            if not self.DATABASE_URL:
+                missing.append("DATABASE_URL")
+            if not self.SECRET_KEY:
+                missing.append("SECRET_KEY")
+            if not self.JWT_SECRET_KEY:
+                missing.append("JWT_SECRET_KEY")
+            if missing:
+                raise ValueError(
+                    f"Missing required env vars for production: {', '.join(missing)}"
+                )
+        return self
+
     class Config:
-        # Load .env from parent directory (project root)
         env_file = Path(__file__).parent.parent.parent.parent / ".env"
         env_file_encoding = "utf-8"
         extra = "allow"

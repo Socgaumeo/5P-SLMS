@@ -1460,27 +1460,27 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                               />
                               <input
                                 type="number"
-                                value={cost.qty || 1}
+                                value={cost.qty ?? ''}
                                 min="1"
                                 onChange={e => {
                                   const newCosts = [...(svc.extra_costs || [])]
-                                  const qty = parseFloat(e.target.value) || 1
+                                  const qty = e.target.value === '' ? null : (parseFloat(e.target.value) || 1)
                                   const unitPrice = newCosts[idx].unit_price || newCosts[idx].amount || 0
-                                  newCosts[idx] = { ...newCosts[idx], qty, amount: qty * unitPrice }
+                                  newCosts[idx] = { ...newCosts[idx], qty, amount: (qty || 1) * unitPrice }
                                   setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, extra_costs: newCosts } : s))
                                 }}
-                                placeholder="SL"
-                                title="Số lượng"
+                                placeholder="KL"
+                                title="Khối lượng"
                                 style={{ padding: '4px 4px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '11px', textAlign: 'center' }}
                               />
                               <input
                                 type="number"
-                                value={cost.unit_price || cost.amount || 0}
+                                value={cost.unit_price ?? cost.amount ?? ''}
                                 onChange={e => {
                                   const newCosts = [...(svc.extra_costs || [])]
-                                  const unitPrice = parseFloat(e.target.value) || 0
+                                  const unitPrice = e.target.value === '' ? null : (parseFloat(e.target.value) || 0)
                                   const qty = newCosts[idx].qty || 1
-                                  newCosts[idx] = { ...newCosts[idx], unit_price: unitPrice, amount: qty * unitPrice }
+                                  newCosts[idx] = { ...newCosts[idx], unit_price: unitPrice, amount: qty * (unitPrice || 0) }
                                   setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, extra_costs: newCosts } : s))
                                 }}
                                 placeholder="Đơn giá"
@@ -1503,6 +1503,9 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                 <option value="ngày">ngày</option>
                                 <option value="kg">kg</option>
                                 <option value="cbm">cbm</option>
+                                <option value="kiện">kiện</option>
+                                <option value="tờ khai">tờ khai</option>
+                                <option value="bill">bill</option>
                               </select>
                               <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#EF4444', textAlign: 'right' }}>
                                 {formatPrice(cost.amount || 0)}
@@ -1518,7 +1521,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                           ))}
                           <button
                             onClick={() => {
-                              const newCosts = [...(svc.extra_costs || []), { name: '', vendor: '', qty: 1, unit_price: 0, unit: 'ca', amount: 0 }]
+                              const newCosts = [...(svc.extra_costs || []), { name: '', vendor: '', qty: null, unit_price: null, unit: 'ca', amount: 0 }]
                               setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, extra_costs: newCosts } : s))
                             }}
                             style={{ marginBottom: '10px', padding: '4px 10px', background: 'rgba(239, 68, 68, 0.1)', color: '#EF4444', border: '1px dashed #EF4444', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}

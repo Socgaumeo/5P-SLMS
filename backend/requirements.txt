@@ -21,6 +21,7 @@ anthropic>=0.40.0  # For Claude (Sonnet 4, Opus 4.5)
 
 # File Processing
 openpyxl>=3.1.0
+pandas>=2.2.0
 pypdf>=4.0.0
 python-multipart>=0.0.9
 pillow>=10.2.0

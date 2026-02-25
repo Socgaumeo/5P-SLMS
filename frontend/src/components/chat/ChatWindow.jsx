@@ -81,6 +81,24 @@ const ChatWindow = ({ isOpen, onClose }) => {
         setAttachedFile(file)
     }
 
+    // Handle paste events for files/images from clipboard
+    const handlePaste = (e) => {
+        const items = e.clipboardData?.items
+        if (!items) return
+
+        for (const item of items) {
+            if (item.kind === 'file') {
+                const file = item.getAsFile()
+                if (file) {
+                    e.preventDefault()
+                    handleFileSelect(file)
+                    return
+                }
+            }
+        }
+        // No file found - let normal text paste proceed
+    }
+
     if (!isOpen) return null
 
     return (
@@ -184,7 +202,8 @@ const ChatWindow = ({ isOpen, onClose }) => {
                             e.target.style.height = Math.min(e.target.scrollHeight, 200) + 'px'
                         }}
                         onKeyDown={handleKeyDown}
-                        placeholder="Nhập tin nhắn... (hoặc kéo thả file Excel, PDF, ảnh)"
+                        onPaste={handlePaste}
+                        placeholder="Nhập tin nhắn... (kéo thả hoặc Ctrl+V để dán file/ảnh)"
                         rows={1}
                         style={{ minHeight: '48px' }}
                     />
