@@ -174,7 +174,12 @@ class ConversationManager:
     
     async def _handle_confirmation(self, state: ConversationState) -> ProcessResult:
         """Handle task confirmation - actually execute the action"""
-        if state.task.state != TaskState.CONFIRMING:
+        # Allow confirmation from COLLECTING state if entities exist (user skips optional fields)
+        if state.task.state == TaskState.COLLECTING and state.task.entities:
+            logger.info(f"[CONFIRM] Promoting from COLLECTING to CONFIRMING (user skipped optional fields)")
+            state.task.state = TaskState.CONFIRMING
+            state.task.confirmation_data = state.task.entities
+        elif state.task.state != TaskState.CONFIRMING:
             return ProcessResult(
                 response="Không có gì để xác nhận.",
                 state=state

@@ -24,7 +24,9 @@ class ContinuationDetector:
     # Keywords cho confirmation
     CONFIRM_KEYWORDS = [
         "ok", "được", "confirm", "xác nhận", "đồng ý", "yes",
-        "đúng rồi", "chính xác", "tạo đi", "tạo luôn", "làm đi"
+        "đúng rồi", "chính xác", "tạo đi", "tạo luôn", "làm đi",
+        "luôn", "làm luôn", "gán luôn", "thực hiện", "đi",
+        "ừ", "uh", "vâng", "dạ", "oke", "okie",
     ]
     
     # Keywords cho correction
@@ -88,33 +90,46 @@ class ContinuationDetector:
             if is_confirm_msg and state.task.entities:
                 logger.info(f"[DETECTOR] Returning CONFIRMATION (state=CONFIRMING)")
                 return ContinuationType.CONFIRMATION, state.task.intent
-        elif is_confirm_msg and state.task.state != TaskState.COLLECTING:
-            # Warning: User sent confirmation but session is not in expected state
-            logger.warning(
-                f"[DETECTOR] User sent confirmation '{message_lower}' but task.state is {state.task.state.value}! "
-                f"Session may have been lost. session_id={state.session_id[:8]}..."
-            )
+        elif is_confirm_msg and state.task.is_active():
+            # User sent confirmation while task is COLLECTING (not yet CONFIRMING)
+            # If task has entities but is missing some fields, treat as "skip missing, confirm now"
+            # e.g. "gán xe luôn nhé" when CCCD is optional
+            if state.task.state == TaskState.COLLECTING and state.task.entities:
+                logger.info(f"[DETECTOR] User confirms during COLLECTING, promoting to CONFIRMATION")
+                return ContinuationType.CONFIRMATION, state.task.intent
+            elif state.task.state != TaskState.COLLECTING:
+                logger.warning(
+                    f"[DETECTOR] User sent confirmation '{message_lower}' but task.state is {state.task.state.value}! "
+                    f"Session may have been lost. session_id={state.session_id[:8]}..."
+                )
 
         # 3. Check correction
         correction_field = self._is_correction(message_lower, state)
         if correction_field:
             return ContinuationType.CORRECTION, correction_field
-        
+
         # 4. Check reference to past job
         if self._is_reference(message_lower):
             return ContinuationType.REFERENCE, None
-        
+
         # 5. Check if new task (has clear intent keywords)
         new_intent = self._detect_intent(message_lower)
         if new_intent:
-            # New task only if no active task or different intent
+            # If task is active with same intent and message has confirm signal, treat as continuation
+            if state.task.is_active() and new_intent == state.task.intent:
+                if is_confirm_msg:
+                    logger.info(f"[DETECTOR] Same intent + confirm signal → CONFIRMATION")
+                    return ContinuationType.CONFIRMATION, state.task.intent
+                # Same intent, no confirm signal → continue collecting
+                return ContinuationType.CONTINUATION, state.task.intent
+            # Different intent or no active task → new task
             if not state.task.is_active() or new_intent != state.task.intent:
                 return ContinuationType.NEW_TASK, new_intent
-        
+
         # 6. Default: continuation if there's active task
         if state.task.is_active():
             return ContinuationType.CONTINUATION, state.task.intent
-        
+
         # 7. If no active task and no clear intent, treat as new task
         # (will need to classify intent in next step)
         return ContinuationType.NEW_TASK, None
