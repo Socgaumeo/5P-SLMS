@@ -2,7 +2,12 @@
 import os
 
 bind = "0.0.0.0:8000"
-workers = int(os.environ.get("WEB_CONCURRENCY", 2))
+
+# IMPORTANT: Default to 1 worker because conversation state is stored in-memory
+# per worker. Multiple workers = different state dicts = context loss between requests.
+# Single async UvicornWorker handles concurrent requests fine for small teams.
+workers = int(os.environ.get("WEB_CONCURRENCY", 1))
+
 worker_class = "uvicorn.workers.UvicornWorker"
 timeout = 120
 keepalive = 5

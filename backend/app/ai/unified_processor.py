@@ -63,7 +63,11 @@ class UnifiedProcessor:
     def _get_state(self, session_id: str) -> UnifiedState:
         """Get or create session state"""
         if session_id not in self.states:
+            logger.info(f"[UNIFIED] NEW session {session_id[:8]}... (total_sessions={len(self.states)}, pid={__import__('os').getpid()})")
             self.states[session_id] = UnifiedState(session_id=session_id)
+        else:
+            s = self.states[session_id]
+            logger.info(f"[UNIFIED] EXISTING session {session_id[:8]}... intent={s.intent}, entities={len(s.entities)}, history={len(s.history)}")
         return self.states[session_id]
 
     async def process(
