@@ -213,6 +213,86 @@ def _is_numeric_price(val) -> bool:
         return False
 
 
+# Keywords for list-style header detection (packing, customs, warehouse)
+LIST_SERVICE_KEYWORDS = ["dịch vụ", "services", "nội dung", "hạng mục", "diễn giải"]
+LIST_PRICE_KEYWORDS = ["đơn giá", "unit price", "price"]
+LIST_UNIT_KEYWORDS = ["đvt", "đơn vị", "unit"]
+
+
+def _find_list_header_row(df_raw: pd.DataFrame) -> Optional[int]:
+    """Find header row for list-style rate sheets (STT | Service | Unit | Price)."""
+    for idx in range(min(20, len(df_raw))):
+        row_vals = [str(v).lower().strip() for v in df_raw.iloc[idx] if pd.notna(v)]
+        # Need at least 3 columns to be a valid header
+        if len(row_vals) < 3:
+            continue
+        row_text = " ".join(row_vals)
+        has_stt = any(kw in row_text for kw in ["stt", "no."])
+        has_service = any(kw in row_text for kw in LIST_SERVICE_KEYWORDS)
+        has_price = any(kw in row_text for kw in LIST_PRICE_KEYWORDS)
+        has_unit = any(kw in row_text for kw in LIST_UNIT_KEYWORDS)
+        # Require STT + (service or unit) + price
+        if has_stt and has_price and (has_service or has_unit):
+            return idx
+    return None
+
+
+def _parse_list_sheet(df: pd.DataFrame) -> dict:
+    """
+    Parse list-style rate tables (packing, customs, warehouse).
+    Format: STT | Service name | Unit | Price
+    """
+    rates = []
+    # Identify columns by header content
+    service_col = None
+    unit_col = None
+    price_col = None
+
+    for c in df.columns:
+        cl = str(c).lower().strip()
+        if cl in ["stt", "no.", "no", "tt"]:
+            continue
+        elif any(kw in cl for kw in LIST_PRICE_KEYWORDS):
+            price_col = c
+        elif any(kw in cl for kw in LIST_UNIT_KEYWORDS):
+            unit_col = c
+        elif service_col is None:
+            # First non-STT, non-price, non-unit column = service name
+            service_col = c
+
+    if not price_col:
+        return {"rates": [], "surcharges": [], "data_rows": 0}
+
+    data_rows = 0
+    last_group = None  # Track section headers (e.g. "Phí đóng kiện gỗ")
+
+    for _, row in df.iterrows():
+        price_val = row.get(price_col)
+        service_name = str(row.get(service_col, "")).strip() if service_col and pd.notna(row.get(service_col)) else None
+        unit_val = str(row.get(unit_col, "")).strip() if unit_col and pd.notna(row.get(unit_col)) else None
+
+        # Section header row (has service name but no price)
+        if service_name and service_name.lower() not in ["nan", ""] and (not pd.notna(price_val) or not _is_numeric_price(price_val)):
+            last_group = service_name
+            continue
+
+        if pd.notna(price_val) and _is_numeric_price(price_val):
+            data_rows += 1
+            # Build descriptive vehicle_type from group + service name
+            label = f"{last_group} - {service_name}" if last_group and service_name else (service_name or last_group or "")
+            rates.append({
+                "origin": None,
+                "destination": None,
+                "vehicle_type": label.strip()[:150] if label else None,
+                "price": float(price_val),
+                "unit": unit_val or "TRIP",
+                "notes": None,
+                "is_surcharge": False,
+            })
+
+    return {"rates": rates, "surcharges": [], "data_rows": data_rows}
+
+
 def parse_excel_rates(file_path: str) -> dict:
     """
     Parse an Excel/CSV rate file and extract rate rows.
@@ -244,37 +324,46 @@ def parse_excel_rates(file_path: str) -> dict:
             if df_raw.empty or len(df_raw) < 3:
                 continue
 
-            # Step 1: Find the header row (scan for STT/TỪ/ĐẾN + vehicle cols)
+            # Step 1: Try pivot-style parser (trucking with vehicle columns)
             header_idx = _find_header_row(df_raw)
-            if header_idx is None:
-                sheet_info.append({"sheet": sheet_name, "type": "no_header", "count": 0})
-                continue
+            if header_idx is not None:
+                df = df_raw.iloc[header_idx + 1:].copy()
+                df.columns = df_raw.iloc[header_idx]
+                df = df.loc[:, df.columns.notna()]
+                df = df.dropna(how="all")
 
-            # Step 2: Re-read with correct header
-            df = df_raw.iloc[header_idx + 1:].copy()
-            df.columns = df_raw.iloc[header_idx]
-            # Drop columns with NaN headers
-            df = df.loc[:, df.columns.notna()]
-            df = df.dropna(how="all")
+                if not df.empty:
+                    parsed = _parse_pivot_sheet(df)
+                    if parsed["rates"] or parsed["surcharges"]:
+                        all_rates.extend(parsed["rates"])
+                        all_surcharges.extend(parsed["surcharges"])
+                        sheet_info.append({
+                            "sheet": sheet_name, "type": "pivot",
+                            "count": len(parsed["rates"]),
+                            "data_rows": parsed["data_rows"],
+                        })
+                        continue
 
-            if df.empty:
-                continue
+            # Step 2: Try list-style parser (packing, customs, warehouse)
+            list_header_idx = _find_list_header_row(df_raw)
+            if list_header_idx is not None:
+                df = df_raw.iloc[list_header_idx + 1:].copy()
+                df.columns = df_raw.iloc[list_header_idx]
+                df = df.loc[:, df.columns.notna()]
+                df = df.dropna(how="all")
 
-            # Step 3: Parse as pivot table
-            parsed = _parse_pivot_sheet(df)
-            rates = parsed["rates"]
-            surcharges_found = parsed["surcharges"]
-            data_rows_count = parsed["data_rows"]
+                if not df.empty:
+                    parsed = _parse_list_sheet(df)
+                    if parsed["rates"]:
+                        all_rates.extend(parsed["rates"])
+                        sheet_info.append({
+                            "sheet": sheet_name, "type": "list",
+                            "count": len(parsed["rates"]),
+                            "data_rows": parsed["data_rows"],
+                        })
+                        continue
 
-            if rates or surcharges_found:
-                all_rates.extend(rates)
-                all_surcharges.extend(surcharges_found)
-                sheet_info.append({
-                    "sheet": sheet_name,
-                    "type": "pivot",
-                    "count": len(rates),
-                    "data_rows": data_rows_count,
-                })
+            sheet_info.append({"sheet": sheet_name, "type": "no_header", "count": 0})
 
     except Exception as e:
         logger.error(f"Error parsing rate file: {e}")
@@ -282,12 +371,15 @@ def parse_excel_rates(file_path: str) -> dict:
         traceback.print_exc()
         return {"file_name": file_name, "parsed_rates": [], "error": str(e)}
 
+    # Merge surcharges into parsed_rates so frontend can preview them
+    combined_rates = all_rates + all_surcharges
+
     return {
         "file_name": file_name,
-        "parsed_rates": all_rates,
+        "parsed_rates": combined_rates,
         "surcharges": all_surcharges,
         "sheet_info": sheet_info,
-        "total_rates": len(all_rates),
+        "total_rates": len(combined_rates),
     }
 
 

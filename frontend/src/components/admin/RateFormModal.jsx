@@ -127,9 +127,15 @@ export default function RateFormModal({
     }
   }, [editData])
 
+  // Auth header helper
+  const authHeaders = () => {
+    const token = localStorage.getItem('token')
+    return token ? { Authorization: `Bearer ${token}` } : {}
+  }
+
   const fetchServiceTypes = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/admin/service-types`)
+      const res = await fetch(`${API_URL}/api/admin/service-types`, { headers: authHeaders() })
       const json = await res.json()
       setServiceTypes(json.data || [])
     } catch (err) {
@@ -139,7 +145,7 @@ export default function RateFormModal({
 
   const fetchVendors = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/admin/vendors`)
+      const res = await fetch(`${API_URL}/api/admin/vendors`, { headers: authHeaders() })
       const json = await res.json()
       setVendors(json.data || [])
     } catch (err) {
@@ -149,7 +155,7 @@ export default function RateFormModal({
 
   const fetchCustomers = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/admin/customers`)
+      const res = await fetch(`${API_URL}/api/admin/customers`, { headers: authHeaders() })
       const json = await res.json()
       setCustomers(json.data || [])
     } catch (err) {
@@ -219,7 +225,7 @@ export default function RateFormModal({
 
       const res = await fetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify(payload),
       })
 

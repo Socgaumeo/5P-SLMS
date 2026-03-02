@@ -25,13 +25,19 @@ export default function RateUploadModal({ isOpen, onClose, onImported, rateType 
   // Editable rates (user can remove rows before confirming)
   const [editableRates, setEditableRates] = useState([])
 
+  // Auth header helper
+  const authHeaders = () => {
+    const token = localStorage.getItem('token')
+    return token ? { Authorization: `Bearer ${token}` } : {}
+  }
+
   useEffect(() => {
     if (isOpen) {
       // Fetch vendors/customers for dropdown
       if (rateType === 'buying') {
-        fetch(`${API_URL}/api/vendors`).then(r => r.json()).then(d => setVendors(d.vendors || []))
+        fetch(`${API_URL}/api/vendors`, { headers: authHeaders() }).then(r => r.json()).then(d => setVendors(d.vendors || []))
       } else {
-        fetch(`${API_URL}/api/customers`).then(r => r.json()).then(d => setCustomers(d.customers || []))
+        fetch(`${API_URL}/api/customers`, { headers: authHeaders() }).then(r => r.json()).then(d => setCustomers(d.customers || []))
       }
     }
   }, [isOpen, rateType])
@@ -68,6 +74,7 @@ export default function RateUploadModal({ isOpen, onClose, onImported, rateType 
 
       const res = await fetch(`${API_URL}/api/admin/rates/upload-file`, {
         method: 'POST',
+        headers: authHeaders(),
         body: formData,
       })
       const data = await res.json()
@@ -106,7 +113,7 @@ export default function RateUploadModal({ isOpen, onClose, onImported, rateType 
     try {
       const res = await fetch(`${API_URL}/api/admin/rates/confirm-import`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({
           file_ref_id: preview?.file_ref_id,
           rate_type: rateType,
