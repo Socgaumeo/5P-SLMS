@@ -4,13 +4,14 @@ Admin API endpoints for master data CRUD operations.
 Handles: Service Types, Vendors, Customers, Buying/Selling Rates.
 """
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Depends
 from pydantic import BaseModel
 from typing import Optional, List
 import logging
 from datetime import date
 
 from app.db.supabase_client import get_supabase
+from app.api.dependencies import require_manager_or_admin
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +33,10 @@ def fetch_all_with_pagination(table_query, page_size: int = 1000):
         offset += page_size
     return all_data
 
-router = APIRouter(prefix="/api/admin", tags=["Admin"])
+router = APIRouter(
+    prefix="/api/admin", tags=["Admin"],
+    dependencies=[Depends(require_manager_or_admin)]
+)
 
 
 # ============================================================

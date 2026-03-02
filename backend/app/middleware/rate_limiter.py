@@ -1,0 +1,6 @@
+"""Rate limiter using slowapi — default 100 req/min, 5 req/min for login."""
+
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+
+limiter = Limiter(key_func=get_remote_address, default_limits=["100/minute"])

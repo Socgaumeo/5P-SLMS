@@ -21,10 +21,12 @@ Loại dịch vụ gợi ý: {service_type_hint}
 Quy tắc:
 1. Mỗi dòng giá = 1 mục trong mảng kết quả
 2. Nếu bảng có dạng pivot (loại xe/container là header cột), tách mỗi cột giá thành 1 mục riêng
-3. Giá phải > 0 và là số thực (bỏ qua dòng tổng, dòng ghi chú, phụ phí)
+3. Giá phải > 0 và là số thực
 4. Nếu nhiều điểm đến chung 1 điểm đi, sử dụng điểm đi gần nhất ở trên
 5. Đơn vị mặc định: TRIP (chuyến). Nếu file ghi đơn vị khác thì dùng đơn vị đó
 6. Với dịch vụ CUSTOMS/PACKING/WAREHOUSE: không cần origin/destination, đặt tên dịch vụ vào vehicle_type
+7. Với phụ phí (chờ giờ, bốc xếp, hủy chuyến, lưu ca): vẫn trích xuất, đặt notes là "PHỤ PHÍ: <tên phụ phí>"
+8. Ghi chú quan trọng (điều kiện thanh toán, thời gian áp dụng): đặt vào field notes
 
 Trả về ĐÚNG JSON array, KHÔNG markdown, KHÔNG giải thích:
 [

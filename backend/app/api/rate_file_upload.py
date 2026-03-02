@@ -32,6 +32,7 @@ class RateRow(BaseModel):
     price: float
     unit: str = "TRIP"
     notes: Optional[str] = None
+    is_surcharge: bool = False
 
 
 class ConfirmImportRequest(BaseModel):
@@ -98,16 +99,17 @@ def _find_header_row(df_raw: pd.DataFrame) -> Optional[int]:
     return None
 
 
-def _parse_pivot_sheet(df: pd.DataFrame) -> list:
+def _parse_pivot_sheet(df: pd.DataFrame) -> dict:
     """
     Parse a DataFrame that's already re-indexed with the correct header row.
     Handles pivot-style rate tables (vehicle types as column headers).
     Carries forward origin for multi-destination rows.
+    Returns dict with rates and surcharges lists.
     """
     # Identify vehicle columns and text columns
     vehicle_cols = [c for c in df.columns if _is_vehicle_col(c)]
     if len(vehicle_cols) < 2:
-        return []
+        return {"rates": [], "surcharges": [], "data_rows": 0}
 
     # Text columns: everything except vehicle cols (skip STT-like first col)
     text_cols = [c for c in df.columns if c not in vehicle_cols]
@@ -132,9 +134,19 @@ def _parse_pivot_sheet(df: pd.DataFrame) -> list:
         dest_col = non_stt_text[1]
 
     rates = []
+    surcharges = []
     last_origin = None
+    data_rows = 0
 
     for _, row in df.iterrows():
+        # Count rows with at least one price value
+        has_price = any(
+            pd.notna(row.get(vc)) and _is_numeric_price(row.get(vc))
+            for vc in vehicle_cols
+        )
+        if has_price:
+            data_rows += 1
+
         # Get origin/destination values
         raw_origin = str(row[origin_col]).strip() if origin_col and pd.notna(row.get(origin_col)) else None
         raw_dest = str(row[dest_col]).strip() if dest_col and pd.notna(row.get(dest_col)) else None
@@ -144,19 +156,30 @@ def _parse_pivot_sheet(df: pd.DataFrame) -> list:
             last_origin = raw_origin
         origin = last_origin
 
-        # Skip rows without destination
-        if not raw_dest or raw_dest.lower() in ["nan", ""]:
-            # If no destination AND no origin, skip entirely
-            if not origin:
-                continue
-            # Could be a surcharge row — check
-            if _is_surcharge_row(row.values):
-                continue
-            # Skip if no destination for this row
+        # Collect surcharge rows instead of skipping
+        if _is_surcharge_row(row.values):
+            text = " | ".join(str(v) for v in row.values if pd.notna(v) and str(v).strip())
+            for vc in vehicle_cols:
+                price_val = row.get(vc)
+                if pd.notna(price_val):
+                    try:
+                        price = float(price_val)
+                        if price >= 10000:
+                            surcharges.append({
+                                "origin": None,
+                                "destination": None,
+                                "vehicle_type": str(vc).strip(),
+                                "price": price,
+                                "unit": "TRIP",
+                                "notes": f"PHỤ PHÍ: {text.strip()}"[:200],
+                                "is_surcharge": True,
+                            })
+                    except (ValueError, TypeError):
+                        continue
             continue
 
-        # Skip surcharge/note rows
-        if _is_surcharge_row(row.values):
+        # Skip rows without destination
+        if not raw_dest or raw_dest.lower() in ["nan", ""]:
             continue
 
         # Extract prices for each vehicle type
@@ -174,11 +197,20 @@ def _parse_pivot_sheet(df: pd.DataFrame) -> list:
                             "price": price,
                             "unit": "TRIP",
                             "notes": None,
+                            "is_surcharge": False,
                         })
                 except (ValueError, TypeError):
                     continue
 
-    return rates
+    return {"rates": rates, "surcharges": surcharges, "data_rows": data_rows}
+
+
+def _is_numeric_price(val) -> bool:
+    """Check if a value can be a valid price number."""
+    try:
+        return float(val) >= 10000
+    except (ValueError, TypeError):
+        return False
 
 
 def parse_excel_rates(file_path: str) -> dict:
@@ -193,6 +225,7 @@ def parse_excel_rates(file_path: str) -> dict:
     ext = os.path.splitext(file_path)[1].lower()
 
     all_rates = []
+    all_surcharges = []
     sheet_info = []
 
     try:
@@ -228,10 +261,20 @@ def parse_excel_rates(file_path: str) -> dict:
                 continue
 
             # Step 3: Parse as pivot table
-            rates = _parse_pivot_sheet(df)
-            if rates:
+            parsed = _parse_pivot_sheet(df)
+            rates = parsed["rates"]
+            surcharges_found = parsed["surcharges"]
+            data_rows_count = parsed["data_rows"]
+
+            if rates or surcharges_found:
                 all_rates.extend(rates)
-                sheet_info.append({"sheet": sheet_name, "type": "pivot", "count": len(rates)})
+                all_surcharges.extend(surcharges_found)
+                sheet_info.append({
+                    "sheet": sheet_name,
+                    "type": "pivot",
+                    "count": len(rates),
+                    "data_rows": data_rows_count,
+                })
 
     except Exception as e:
         logger.error(f"Error parsing rate file: {e}")
@@ -242,6 +285,7 @@ def parse_excel_rates(file_path: str) -> dict:
     return {
         "file_name": file_name,
         "parsed_rates": all_rates,
+        "surcharges": all_surcharges,
         "sheet_info": sheet_info,
         "total_rates": len(all_rates),
     }
@@ -279,18 +323,34 @@ async def upload_rate_file(
         # Step 1: Try fast regex parser
         result = parse_excel_rates(tmp_path)
 
-        # Step 2: If regex found nothing, fall back to AI parser
-        if not result.get("parsed_rates"):
+        # Step 2: Confidence check — call AI if regex extracted too few rates
+        regex_count = len(result.get("parsed_rates", []))
+        total_data_rows = sum(
+            info.get("data_rows", 0) for info in result.get("sheet_info", [])
+        )
+        confidence = regex_count / max(total_data_rows, 1)
+
+        if regex_count == 0 or confidence < 0.6:
             try:
                 import importlib
                 ai_parser = importlib.import_module("app.ai.excel.rate-sheet-ai-parser")
                 ai_result = await ai_parser.parse_rates_with_ai(
                     tmp_path, service_type_code=service_type_code
                 )
-                if ai_result.get("parsed_rates"):
+                if ai_result.get("parsed_rates") and len(ai_result["parsed_rates"]) > regex_count:
                     result = ai_result
+                    result["parse_method"] = "ai"
+                    result["confidence"] = 1.0
+                else:
+                    result["parse_method"] = "regex"
+                    result["confidence"] = confidence
             except Exception as ai_err:
                 logger.warning(f"AI parser fallback failed: {ai_err}")
+                result["parse_method"] = "regex"
+                result["confidence"] = confidence
+        else:
+            result["parse_method"] = "regex"
+            result["confidence"] = confidence
 
         # Create file reference in DB
         file_ref_id = None

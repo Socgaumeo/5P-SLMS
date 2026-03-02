@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     ANTHROPIC_API_KEY: Optional[str] = None
 
     # AI Model Settings
-    GEMINI_MODEL: str = "gemini-1.5-flash"
+    GEMINI_MODEL: str = "gemini-2.0-flash"
     DEEPSEEK_MODEL: str = "deepseek-chat"
     ANTHROPIC_MODEL: str = "claude-sonnet-4-20250514"
 

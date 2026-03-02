@@ -16,6 +16,8 @@ from app.core.security import (
     create_access_token,
 )
 
+from app.middleware.rate_limiter import limiter
+
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 
 
@@ -42,7 +44,8 @@ class UserResponse(BaseModel):
 
 
 @router.post("/login", response_model=LoginResponse)
-async def login(request: LoginRequest, req: Request):
+@limiter.limit("5/minute")
+async def login(request: Request, login_data: LoginRequest):
     """
     Authenticate user and return JWT token
     """
@@ -52,7 +55,7 @@ async def login(request: LoginRequest, req: Request):
         # Find user by email
         result = client.table('users').select(
             'user_id, user_code, full_name, email, password_hash, role, is_active'
-        ).eq('email', request.email).limit(1).execute()
+        ).eq('email', login_data.email).limit(1).execute()
 
         if not result.data:
             return LoginResponse(
@@ -77,7 +80,7 @@ async def login(request: LoginRequest, req: Request):
                 message="Tài khoản chưa được thiết lập mật khẩu"
             )
 
-        if not verify_password(request.password, password_hash):
+        if not verify_password(login_data.password, password_hash):
             return LoginResponse(
                 success=False,
                 message="Email hoặc mật khẩu không đúng"
@@ -105,7 +108,7 @@ async def login(request: LoginRequest, req: Request):
                 'entity_id': user['user_id'],
                 'entity_ref': user['user_code'],
                 'description': f"User {user['user_code']} logged in",
-                'ip_address': req.client.host if req.client else None,
+                'ip_address': request.client.host if request.client else None,
             }).execute()
         except Exception:
             pass  # Ignore if table doesn't exist yet
@@ -208,8 +211,8 @@ async def change_password(
         raise HTTPException(status_code=400, detail="Mật khẩu hiện tại không đúng")
 
     # Validate new password
-    if len(new_password) < 6:
-        raise HTTPException(status_code=400, detail="Mật khẩu mới phải có ít nhất 6 ký tự")
+    if len(new_password) < 8:
+        raise HTTPException(status_code=400, detail="Mật khẩu mới phải có ít nhất 8 ký tự")
 
     # Update password
     new_hash = get_password_hash(new_password)

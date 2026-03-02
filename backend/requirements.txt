@@ -26,6 +26,9 @@ pypdf>=4.0.0
 python-multipart>=0.0.9
 pillow>=10.2.0
 
+# Rate Limiting
+slowapi>=0.1.9
+
 # Utilities
 httpx>=0.26.0
 python-jose[cryptography]>=3.3.0

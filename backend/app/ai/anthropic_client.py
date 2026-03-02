@@ -40,7 +40,7 @@ class AnthropicClient:
         prompt: str,
         response_format: str = "text",
         temperature: float = 0.7,
-        max_tokens: int = 2000
+        max_tokens: int = 4096
     ) -> Union[str, Dict[str, Any]]:
         """
         Generate text from prompt using Claude
@@ -179,7 +179,19 @@ class AnthropicClient:
             except json.JSONDecodeError:
                 pass
 
-        # Strategy 4: Find JSON object pattern
+        # Strategy 4: Find JSON array pattern (rate sheets return arrays)
+        match = re.search(r"\[[\s\S]*\]", text)
+        if match:
+            json_str = match.group()
+            cleaned = self._clean_json(json_str)
+            try:
+                result = json.loads(cleaned)
+                logger.debug("[AnthropicClient] Extracted JSON array")
+                return result
+            except json.JSONDecodeError:
+                pass
+
+        # Strategy 5: Find JSON object pattern
         match = re.search(r"\{[\s\S]*\}", text)
         if match:
             json_str = match.group()

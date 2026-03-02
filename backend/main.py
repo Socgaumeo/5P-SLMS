@@ -3,12 +3,21 @@ SLMS Backend - FastAPI Application
 Main entry point with Chat UI API
 """
 
-from fastapi import FastAPI
+import re
+
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.gzip import GZipMiddleware
+from slowapi.middleware import SlowAPIMiddleware
+from slowapi.errors import RateLimitExceeded
+from slowapi import _rate_limit_exceeded_handler
 from contextlib import asynccontextmanager
 import logging
 
 from app.core.config import settings
+from app.api.dependencies import get_current_user, require_manager_or_admin
+from app.middleware.security_headers import SecurityHeadersMiddleware
+from app.middleware.rate_limiter import limiter
 from app.api import chat, jobs, health, excel_import, search, admin, auth, users, audit, rate_file_upload
 from app.api.exports import meiko_customer_export_template as meiko_export
 from app.api.exports import customer_export_template_registry as customer_exports
@@ -44,6 +53,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Security headers
+app.add_middleware(SecurityHeadersMiddleware)
+
+# GZip compression for API responses
+app.add_middleware(GZipMiddleware, minimum_size=500)
+
+# Rate limiting (default 100/min, login 5/min via decorator)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
+
 # Routers
 app.include_router(health.router, tags=["Health"])
 app.include_router(chat.router, prefix="/api/chat", tags=["Chat"])
@@ -70,21 +90,21 @@ async def root():
 
 # Dashboard endpoints
 @app.get("/api/dashboard/stats")
-async def dashboard_stats():
+async def dashboard_stats(current_user: dict = Depends(get_current_user)):
     """Get dashboard statistics"""
     from app.api.jobs import get_dashboard_stats
     return await get_dashboard_stats()
 
 
 @app.get("/api/services/{service_type}")
-async def services_by_type(service_type: str):
+async def services_by_type(service_type: str, current_user: dict = Depends(get_current_user)):
     """Get service-specific data (trucking, warehouse, customs, packing)"""
     from app.api.jobs import get_service_data
     return await get_service_data(service_type)
 
 
 @app.get("/api/customers")
-async def list_customers():
+async def list_customers(current_user: dict = Depends(get_current_user)):
     """Get customers for dropdown in job creation form"""
     try:
         from app.db.supabase_client import get_supabase
@@ -109,7 +129,7 @@ async def list_customers():
 
 
 @app.get("/api/vendors")
-async def list_vendors():
+async def list_vendors(current_user: dict = Depends(get_current_user)):
     """Get vendors for dropdown in assignment form"""
     try:
         from app.db.supabase_client import get_supabase
@@ -124,8 +144,9 @@ async def list_vendors():
 
 # Search endpoints for chat UI
 @app.get("/api/search/customers")
-async def search_customers_api(q: str = ""):
+async def search_customers_api(q: str = "", current_user: dict = Depends(get_current_user)):
     """Search customers by keyword for chat UI"""
+    q = re.sub(r'[,.()*;\'""]', '', q).strip()[:100]
     try:
         from app.db.supabase_client import get_supabase
         client = get_supabase()
@@ -155,8 +176,9 @@ async def search_customers_api(q: str = ""):
 
 
 @app.get("/api/search/vendors")
-async def search_vendors_api(q: str = ""):
+async def search_vendors_api(q: str = "", current_user: dict = Depends(get_current_user)):
     """Search vendors by keyword for chat UI"""
+    q = re.sub(r'[,.()*;\'""]', '', q).strip()[:100]
     try:
         from app.db.supabase_client import get_supabase
         client = get_supabase()
@@ -183,7 +205,7 @@ async def search_vendors_api(q: str = ""):
 
 
 @app.get("/api/employees")
-async def list_employees():
+async def list_employees(current_user: dict = Depends(get_current_user)):
     """Get employees for dropdown in assignment form"""
     try:
         from app.db.supabase_client import get_supabase
@@ -210,7 +232,7 @@ class AssignServiceRequest(BaseModel):
 
 
 @app.put("/api/services/{svc_id}/assign")
-async def assign_service(svc_id: int, request: AssignServiceRequest):
+async def assign_service(svc_id: int, request: AssignServiceRequest, current_user: dict = Depends(get_current_user)):
     """Assign vendor/employee and vehicle info to a service"""
     try:
         from app.db.supabase_client import get_supabase
@@ -278,7 +300,7 @@ class UpdateServiceStatusRequest(BaseModel):
 
 
 @app.put("/api/services/{svc_id}/status")
-async def update_service_status(svc_id: int, request: UpdateServiceStatusRequest):
+async def update_service_status(svc_id: int, request: UpdateServiceStatusRequest, current_user: dict = Depends(get_current_user)):
     """Update status of individual service"""
     try:
         from app.db.supabase_client import get_supabase
@@ -327,7 +349,7 @@ async def update_service_status(svc_id: int, request: UpdateServiceStatusRequest
 
 
 @app.delete("/api/services/{svc_id}")
-async def delete_service(svc_id: int):
+async def delete_service(svc_id: int, current_user: dict = Depends(require_manager_or_admin)):
     """Delete a service from job"""
     try:
         from app.db.supabase_client import get_supabase
@@ -362,7 +384,7 @@ class UpdateServiceNotesRequest(BaseModel):
 
 
 @app.put("/api/services/{svc_id}/notes")
-async def update_service_notes(svc_id: int, request: UpdateServiceNotesRequest):
+async def update_service_notes(svc_id: int, request: UpdateServiceNotesRequest, current_user: dict = Depends(get_current_user)):
     """Update notes/special requirements for a service"""
     try:
         from app.db.supabase_client import get_supabase
@@ -391,7 +413,7 @@ class UpdateJobStatusRequest(BaseModel):
 
 
 @app.put("/api/jobs/{job_id}/status")
-async def update_job_status(job_id: int, request: UpdateJobStatusRequest):
+async def update_job_status(job_id: int, request: UpdateJobStatusRequest, current_user: dict = Depends(get_current_user)):
     """Update job status (also updates all services status)"""
     try:
         from app.db.supabase_client import get_supabase
@@ -428,7 +450,7 @@ async def update_job_status(job_id: int, request: UpdateJobStatusRequest):
 
 
 @app.delete("/api/jobs/{job_id}/cancel")
-async def cancel_job(job_id: int):
+async def cancel_job(job_id: int, current_user: dict = Depends(require_manager_or_admin)):
     """Cancel a job (set status to CANCELLED)"""
     try:
         from app.db.supabase_client import get_supabase

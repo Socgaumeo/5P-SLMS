@@ -43,7 +43,7 @@ class DeepSeekClient:
                 model=self.model,
                 messages=messages,
                 temperature=temperature,
-                max_tokens=2000
+                max_tokens=4096
             )
             
             text = response.choices[0].message.content
@@ -75,15 +75,46 @@ class DeepSeekClient:
         return {"text": ""}
 
     def _parse_json(self, text: str) -> Dict[str, Any]:
-        """Extract and parse JSON from text"""
-        try:
-            clean_text = text.strip()
-            if "```json" in clean_text:
-                clean_text = clean_text.split("```json")[1].split("```")[0]
-            elif "```" in clean_text:
-                clean_text = clean_text.split("```")[1].split("```")[0]
-            
-            return json.loads(clean_text)
-        except Exception as e:
-            logger.error(f"Failed to parse JSON: {e}")
+        """Extract and parse JSON from text with multiple strategies"""
+        if not text:
             return {}
+
+        clean_text = text.strip()
+
+        # Strategy 1: Strip markdown code blocks
+        if "```json" in clean_text:
+            clean_text = clean_text.split("```json")[1].split("```")[0].strip()
+        elif "```" in clean_text:
+            clean_text = clean_text.split("```")[1].split("```")[0].strip()
+
+        # Strategy 2: Direct parse
+        try:
+            return json.loads(clean_text)
+        except json.JSONDecodeError:
+            pass
+
+        # Strategy 3: Find JSON array
+        import re
+        match = re.search(r"\[[\s\S]*\]", clean_text)
+        if match:
+            try:
+                return json.loads(match.group())
+            except json.JSONDecodeError:
+                # Try cleaning trailing commas
+                cleaned = re.sub(r',\s*}', '}', match.group())
+                cleaned = re.sub(r',\s*]', ']', cleaned)
+                try:
+                    return json.loads(cleaned)
+                except json.JSONDecodeError:
+                    pass
+
+        # Strategy 4: Find JSON object
+        match = re.search(r"\{[\s\S]*\}", clean_text)
+        if match:
+            try:
+                return json.loads(match.group())
+            except json.JSONDecodeError:
+                pass
+
+        logger.error(f"Failed to parse JSON from response (length={len(text)})")
+        return {}

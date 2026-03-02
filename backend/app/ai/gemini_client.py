@@ -28,7 +28,7 @@ class GeminiClient:
         self.api_key = api_key or settings.GOOGLE_GEMINI_API_KEY
         genai.configure(api_key=self.api_key)
         
-        self.model_name = getattr(settings, 'GEMINI_MODEL', 'gemini-1.5-flash')
+        self.model_name = getattr(settings, 'GEMINI_MODEL', 'gemini-2.0-flash')
         self.model = genai.GenerativeModel(self.model_name)
         
         logger.info(f"[GeminiClient] Initialized with model: {self.model_name}")
