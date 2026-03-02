@@ -276,8 +276,21 @@ async def upload_rate_file(
             tmp.write(content)
             tmp_path = tmp.name
 
-        # Parse
+        # Step 1: Try fast regex parser
         result = parse_excel_rates(tmp_path)
+
+        # Step 2: If regex found nothing, fall back to AI parser
+        if not result.get("parsed_rates"):
+            try:
+                import importlib
+                ai_parser = importlib.import_module("app.ai.excel.rate-sheet-ai-parser")
+                ai_result = await ai_parser.parse_rates_with_ai(
+                    tmp_path, service_type_code=service_type_code
+                )
+                if ai_result.get("parsed_rates"):
+                    result = ai_result
+            except Exception as ai_err:
+                logger.warning(f"AI parser fallback failed: {ai_err}")
 
         # Create file reference in DB
         file_ref_id = None
