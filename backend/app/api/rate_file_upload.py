@@ -44,88 +44,132 @@ class ConfirmImportRequest(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Helpers — auto-detect columns in a DataFrame
+# Helpers — parse Vietnamese trucking rate sheets
 # ---------------------------------------------------------------------------
 
-# Vietnamese + English keywords for column detection
-ORIGIN_KEYWORDS = ["điểm đi", "nơi đi", "origin", "from", "đi từ", "xuất phát", "điểm lấy hàng"]
-DEST_KEYWORDS = ["điểm đến", "nơi đến", "destination", "to", "đến", "giao hàng", "điểm trả hàng"]
-PRICE_KEYWORDS = ["giá", "price", "đơn giá", "cước", "phí", "cost", "rate", "amount"]
-VEHICLE_KEYWORDS = ["loại xe", "vehicle", "xe", "tải trọng", "tonnage", "truck", "container"]
-UNIT_KEYWORDS = ["đơn vị", "unit", "dvt"]
-NOTES_KEYWORDS = ["ghi chú", "note", "remark", "mô tả", "description"]
+import re
+
+# Keywords to identify header row containing origin/destination columns
+HEADER_KEYWORDS = ["stt", "từ", "đến", "tuyến", "origin", "destination", "no."]
+
+# Patterns that identify vehicle/container type columns
+VEHICLE_PATTERNS = [
+    r"\d+\.?\d*\s*t\b",       # 1.25T, 2.5T, 5T, 14T
+    r"truck\s*\d",             # Truck 1.25T, Truck 5T
+    r"cont\s*\d",             # CONT 20', CONT 40'
+    r"\d+\s*ft",               # 20ft, 40ft
+    r"\d+\s*hc",               # 40HC
+    r"\d+['']",                # 20', 40'
+]
+
+# Rows containing these keywords are surcharges, not route rates
+SURCHARGE_KEYWORDS = [
+    "chờ giờ", "lưu ca", "hủy chuyến", "huỷ chuyến", "bốc xếp",
+    "phụ phí", "lưu ý", "dịch vụ khác", "thanh lý", "ghi chú",
+    "note", "remark", "lưu kho",
+]
 
 
-def _match_column(col_name: str, keywords: list) -> bool:
-    """Check if column name matches any keyword (case-insensitive)."""
-    col_lower = str(col_name).lower().strip()
-    return any(kw in col_lower for kw in keywords)
+def _is_vehicle_col(col_name: str) -> bool:
+    """Check if column header looks like a vehicle/container type."""
+    s = str(col_name).lower().strip()
+    return any(re.search(p, s) for p in VEHICLE_PATTERNS)
 
 
-def _detect_columns(df: pd.DataFrame) -> dict:
-    """Auto-detect which DataFrame columns map to rate fields."""
-    mapping = {}
-    for col in df.columns:
-        if not mapping.get("origin") and _match_column(col, ORIGIN_KEYWORDS):
-            mapping["origin"] = col
-        elif not mapping.get("destination") and _match_column(col, DEST_KEYWORDS):
-            mapping["destination"] = col
-        elif not mapping.get("vehicle_type") and _match_column(col, VEHICLE_KEYWORDS):
-            mapping["vehicle_type"] = col
-        elif not mapping.get("price") and _match_column(col, PRICE_KEYWORDS):
-            mapping["price"] = col
-        elif not mapping.get("unit") and _match_column(col, UNIT_KEYWORDS):
-            mapping["unit"] = col
-        elif not mapping.get("notes") and _match_column(col, NOTES_KEYWORDS):
-            mapping["notes"] = col
-    return mapping
+def _is_surcharge_row(row_values: list) -> bool:
+    """Check if a row is a surcharge/note row (not a route rate)."""
+    text = " ".join(str(v).lower() for v in row_values if pd.notna(v))
+    return any(kw in text for kw in SURCHARGE_KEYWORDS)
 
 
-def _detect_pivot_table(df: pd.DataFrame) -> list:
+def _find_header_row(df_raw: pd.DataFrame) -> Optional[int]:
     """
-    Detect pivot-style rate tables where vehicle types are column headers
-    and prices are cell values. Common format for Vietnamese trucking rates.
-    Layout: Origin | Destination | 1.5T | 2.5T | 3.5T | 5T | ...
+    Scan first 20 rows of raw DataFrame (no header) to find the row
+    that contains column headers like STT, TỪ, ĐẾN, and vehicle types.
     """
-    # Heuristic: if >3 columns contain numbers and headers look like vehicle types
-    vehicle_pattern = [
-        "0.5t", "1t", "1.25t", "1.5t", "2t", "2.5t", "3t", "3.5t",
-        "5t", "7t", "8t", "10t", "15t", "20t", "25t", "30t",
-        "20ft", "40ft", "40hc", "cont 20", "cont 40",
-    ]
-    header_strs = [str(c).lower().strip() for c in df.columns]
+    for idx in range(min(20, len(df_raw))):
+        row_vals = [str(v).lower().strip() for v in df_raw.iloc[idx] if pd.notna(v)]
+        row_text = " ".join(row_vals)
+        # Must contain origin/destination keywords AND at least 1 vehicle column
+        has_header = any(kw in row_text for kw in ["từ", "đến", "origin", "destination", "stt"])
+        has_vehicle = any(_is_vehicle_col(v) for v in df_raw.iloc[idx] if pd.notna(v))
+        if has_header and has_vehicle:
+            return idx
+    return None
 
-    # Find columns that look like vehicle types
-    vehicle_cols = []
-    for i, h in enumerate(header_strs):
-        if any(vt in h for vt in vehicle_pattern):
-            vehicle_cols.append(df.columns[i])
 
+def _parse_pivot_sheet(df: pd.DataFrame) -> list:
+    """
+    Parse a DataFrame that's already re-indexed with the correct header row.
+    Handles pivot-style rate tables (vehicle types as column headers).
+    Carries forward origin for multi-destination rows.
+    """
+    # Identify vehicle columns and text columns
+    vehicle_cols = [c for c in df.columns if _is_vehicle_col(c)]
     if len(vehicle_cols) < 2:
         return []
 
-    # First 1-2 text columns are likely origin/destination
+    # Text columns: everything except vehicle cols (skip STT-like first col)
     text_cols = [c for c in df.columns if c not in vehicle_cols]
-    origin_col = text_cols[0] if len(text_cols) >= 1 else None
-    dest_col = text_cols[1] if len(text_cols) >= 2 else None
+    # Find origin and destination columns (usually first two text cols after STT)
+    stt_col = None
+    origin_col = None
+    dest_col = None
+    for tc in text_cols:
+        tc_lower = str(tc).lower().strip()
+        if tc_lower in ["stt", "no.", "no", "tt"]:
+            stt_col = tc
+        elif "từ" in tc_lower or "origin" in tc_lower or "from" in tc_lower:
+            origin_col = tc
+        elif "đến" in tc_lower or "destination" in tc_lower or "to" in tc_lower:
+            dest_col = tc
+
+    # Fallback: first non-STT text col = origin, second = destination
+    non_stt_text = [c for c in text_cols if c != stt_col]
+    if not origin_col and len(non_stt_text) >= 1:
+        origin_col = non_stt_text[0]
+    if not dest_col and len(non_stt_text) >= 2:
+        dest_col = non_stt_text[1]
 
     rates = []
-    for _, row in df.iterrows():
-        origin = str(row[origin_col]).strip() if origin_col and pd.notna(row[origin_col]) else None
-        dest = str(row[dest_col]).strip() if dest_col and pd.notna(row[dest_col]) else None
+    last_origin = None
 
-        if not origin or origin.lower() in ["nan", ""]:
+    for _, row in df.iterrows():
+        # Get origin/destination values
+        raw_origin = str(row[origin_col]).strip() if origin_col and pd.notna(row.get(origin_col)) else None
+        raw_dest = str(row[dest_col]).strip() if dest_col and pd.notna(row.get(dest_col)) else None
+
+        # Carry forward origin for multi-destination rows
+        if raw_origin and raw_origin.lower() not in ["nan", ""]:
+            last_origin = raw_origin
+        origin = last_origin
+
+        # Skip rows without destination
+        if not raw_dest or raw_dest.lower() in ["nan", ""]:
+            # If no destination AND no origin, skip entirely
+            if not origin:
+                continue
+            # Could be a surcharge row — check
+            if _is_surcharge_row(row.values):
+                continue
+            # Skip if no destination for this row
             continue
 
+        # Skip surcharge/note rows
+        if _is_surcharge_row(row.values):
+            continue
+
+        # Extract prices for each vehicle type
         for vc in vehicle_cols:
-            price_val = row[vc]
+            price_val = row.get(vc)
             if pd.notna(price_val):
                 try:
                     price = float(price_val)
-                    if price > 0:
+                    # Minimum price threshold to filter noise (> 10,000 VND)
+                    if price >= 10000:
                         rates.append({
                             "origin": origin,
-                            "destination": dest,
+                            "destination": raw_dest,
                             "vehicle_type": str(vc).strip(),
                             "price": price,
                             "unit": "TRIP",
@@ -133,13 +177,17 @@ def _detect_pivot_table(df: pd.DataFrame) -> list:
                         })
                 except (ValueError, TypeError):
                     continue
+
     return rates
 
 
 def parse_excel_rates(file_path: str) -> dict:
     """
-    Parse an Excel/CSV file and extract rate rows.
-    Returns { file_name, parsed_rates: [...], column_mapping, sheet_name }.
+    Parse an Excel/CSV rate file and extract rate rows.
+    Handles Vietnamese trucking rate sheet formats:
+    - Pivot tables (vehicle types as column headers)
+    - Header rows buried below company info
+    - Multi-destination rows sharing same origin
     """
     file_name = os.path.basename(file_path)
     ext = os.path.splitext(file_path)[1].lower()
@@ -149,69 +197,46 @@ def parse_excel_rates(file_path: str) -> dict:
 
     try:
         if ext == ".csv":
-            dfs = {"Sheet1": pd.read_csv(file_path)}
+            raw_sheets = {"Sheet1": pd.read_csv(file_path, header=None)}
         else:
             xls = pd.ExcelFile(file_path)
-            dfs = {}
+            raw_sheets = {}
             for sheet in xls.sheet_names:
                 try:
-                    dfs[sheet] = pd.read_excel(file_path, sheet_name=sheet)
+                    raw_sheets[sheet] = pd.read_excel(file_path, sheet_name=sheet, header=None)
                 except Exception:
                     continue
 
-        for sheet_name, df in dfs.items():
+        for sheet_name, df_raw in raw_sheets.items():
+            if df_raw.empty or len(df_raw) < 3:
+                continue
+
+            # Step 1: Find the header row (scan for STT/TỪ/ĐẾN + vehicle cols)
+            header_idx = _find_header_row(df_raw)
+            if header_idx is None:
+                sheet_info.append({"sheet": sheet_name, "type": "no_header", "count": 0})
+                continue
+
+            # Step 2: Re-read with correct header
+            df = df_raw.iloc[header_idx + 1:].copy()
+            df.columns = df_raw.iloc[header_idx]
+            # Drop columns with NaN headers
+            df = df.loc[:, df.columns.notna()]
+            df = df.dropna(how="all")
+
             if df.empty:
                 continue
 
-            # Drop fully empty rows/columns
-            df = df.dropna(how="all").dropna(axis=1, how="all")
-            if df.empty:
-                continue
-
-            # Try 1: pivot table detection (vehicle types as column headers)
-            pivot_rates = _detect_pivot_table(df)
-            if pivot_rates:
-                all_rates.extend(pivot_rates)
-                sheet_info.append({"sheet": sheet_name, "type": "pivot", "count": len(pivot_rates)})
-                continue
-
-            # Try 2: column-based detection
-            mapping = _detect_columns(df)
-            if not mapping.get("price"):
-                # Try with first row as header (sometimes header is in row 1)
-                if len(df) > 1:
-                    df2 = df.iloc[1:].copy()
-                    df2.columns = df.iloc[0]
-                    mapping = _detect_columns(df2)
-                    if mapping.get("price"):
-                        df = df2
-
-            if mapping.get("price"):
-                price_col = mapping["price"]
-                for _, row in df.iterrows():
-                    price_val = row[price_col]
-                    if pd.notna(price_val):
-                        try:
-                            price = float(price_val)
-                            if price <= 0:
-                                continue
-                        except (ValueError, TypeError):
-                            continue
-
-                        rate = {
-                            "origin": str(row[mapping["origin"]]).strip() if mapping.get("origin") and pd.notna(row.get(mapping["origin"])) else None,
-                            "destination": str(row[mapping["destination"]]).strip() if mapping.get("destination") and pd.notna(row.get(mapping["destination"])) else None,
-                            "vehicle_type": str(row[mapping["vehicle_type"]]).strip() if mapping.get("vehicle_type") and pd.notna(row.get(mapping["vehicle_type"])) else None,
-                            "price": price,
-                            "unit": str(row[mapping["unit"]]).strip() if mapping.get("unit") and pd.notna(row.get(mapping["unit"])) else "TRIP",
-                            "notes": str(row[mapping["notes"]]).strip() if mapping.get("notes") and pd.notna(row.get(mapping["notes"])) else None,
-                        }
-                        all_rates.append(rate)
-
-                sheet_info.append({"sheet": sheet_name, "type": "columnar", "count": len(all_rates)})
+            # Step 3: Parse as pivot table
+            rates = _parse_pivot_sheet(df)
+            if rates:
+                all_rates.extend(rates)
+                sheet_info.append({"sheet": sheet_name, "type": "pivot", "count": len(rates)})
 
     except Exception as e:
         logger.error(f"Error parsing rate file: {e}")
+        import traceback
+        traceback.print_exc()
         return {"file_name": file_name, "parsed_rates": [], "error": str(e)}
 
     return {

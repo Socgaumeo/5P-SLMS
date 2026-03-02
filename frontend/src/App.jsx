@@ -418,58 +418,57 @@ function JobDetailModal({ job, onClose, onUpdate }) {
     { value: 'COMPLETED', label: 'Hoàn thành' },
   ]
 
-  useEffect(() => {
-    const fetchJobDetails = async () => {
-      if (!job?.job_id) return
-      try {
-        const res = await fetch(`${API_URL}/api/jobs/${job.job_id}/details`)
-        if (res.ok) {
-          const data = await res.json()
-          // Parse vendor_text_input to extract vehicle info
-          const processedServices = (data.services || []).map(svc => {
-            // If license_plate is already set, use it
-            if (svc.license_plate) return svc
+  const fetchJobDetails = async () => {
+    if (!job?.job_id) return
+    try {
+      const res = await fetch(`${API_URL}/api/jobs/${job.job_id}/details`)
+      if (res.ok) {
+        const data = await res.json()
+        // Parse vendor_text_input to extract vehicle info
+        const processedServices = (data.services || []).map(svc => {
+          // If license_plate is already set, use it
+          if (svc.license_plate) return svc
 
-            // Otherwise, try to parse vendor_text_input
-            if (svc.vendor_text_input) {
-              try {
-                const parsed = JSON.parse(svc.vendor_text_input)
-                if (Array.isArray(parsed) && parsed.length > 0) {
-                  // Store all vehicles and use first one as primary
-                  const firstVehicle = parsed[0]
-                  return {
-                    ...svc,
-                    license_plate: firstVehicle.license_plate,
-                    driver_name: firstVehicle.driver_name,
-                    driver_phone: firstVehicle.driver_phone,
-                    driver_id_card: firstVehicle.driver_id_card,
-                    vehicles: parsed // Store all vehicles for multi-vehicle display
-                  }
-                } else if (parsed.license_plate) {
-                  // Single vehicle object
-                  return {
-                    ...svc,
-                    license_plate: parsed.license_plate,
-                    driver_name: parsed.driver_name,
-                    driver_phone: parsed.driver_phone,
-                    driver_id_card: parsed.driver_id_card,
-                    vehicles: [parsed]
-                  }
+          // Otherwise, try to parse vendor_text_input
+          if (svc.vendor_text_input) {
+            try {
+              const parsed = JSON.parse(svc.vendor_text_input)
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                const firstVehicle = parsed[0]
+                return {
+                  ...svc,
+                  license_plate: firstVehicle.license_plate,
+                  driver_name: firstVehicle.driver_name,
+                  driver_phone: firstVehicle.driver_phone,
+                  driver_id_card: firstVehicle.driver_id_card,
+                  vehicles: parsed
                 }
-              } catch (e) {
-                console.log('Could not parse vendor_text_input:', e)
+              } else if (parsed.license_plate) {
+                return {
+                  ...svc,
+                  license_plate: parsed.license_plate,
+                  driver_name: parsed.driver_name,
+                  driver_phone: parsed.driver_phone,
+                  driver_id_card: parsed.driver_id_card,
+                  vehicles: [parsed]
+                }
               }
+            } catch (e) {
+              console.log('Could not parse vendor_text_input:', e)
             }
-            return svc
-          })
-          setServices(processedServices)
-        }
-      } catch (error) {
-        console.error('Failed to fetch job details:', error)
-      } finally {
-        setLoading(false)
+          }
+          return svc
+        })
+        setServices(processedServices)
       }
+    } catch (error) {
+      console.error('Failed to fetch job details:', error)
+    } finally {
+      setLoading(false)
     }
+  }
+
+  useEffect(() => {
     fetchJobDetails()
   }, [job])
 
@@ -541,6 +540,8 @@ function JobDetailModal({ job, onClose, onUpdate }) {
       const result = await res.json()
       if (result.success) {
         alert('Đã lưu báo giá thành công!')
+        // Re-fetch to ensure UI reflects saved data
+        await fetchJobDetails()
       } else {
         alert(result.message || 'Không thể lưu báo giá')
       }
@@ -565,7 +566,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
       )
       if (svcsWithPricing.length === 0) {
         alert('Chưa có báo giá nào để lưu. Hãy chọn báo giá từ dropdown hoặc nhập tay.')
-        return
+        return false
       }
       const results = await Promise.all(svcsWithPricing.map(svc =>
         fetch(`${API_URL}/api/jobs/services/${svc.svc_id}/quotations`, {
@@ -584,12 +585,17 @@ function JobDetailModal({ job, onClose, onUpdate }) {
       const failed = results.filter(r => !r.success)
       if (failed.length > 0) {
         alert(`Lưu thất bại ${failed.length}/${results.length} dịch vụ`)
+        return false
       } else {
         alert(`Đã lưu báo giá cho ${results.length} dịch vụ thành công!`)
+        // Re-fetch to ensure UI reflects saved data
+        await fetchJobDetails()
+        return true
       }
     } catch (e) {
       console.error('Save all changes error:', e)
       alert('Lỗi khi lưu: ' + e.message)
+      return false
     } finally {
       setSaving(false)
     }
@@ -1394,35 +1400,47 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                 {totalCost > 0 && ` (${(profit / totalCost * 100).toFixed(1)}%)`}
                               </span>
                             </div>
-                            {/* Show extra costs/revenues breakdown if any */}
-                            {((svc.extra_costs || []).length > 0 || (svc.extra_revenues || []).length > 0) && (
-                              <div style={{
-                                marginTop: '8px',
-                                paddingTop: '8px',
-                                borderTop: '1px dashed rgba(0,0,0,0.1)',
-                                fontSize: '11px',
-                                color: 'var(--text-secondary)'
-                              }}>
-                                {(svc.extra_costs || []).map((cost, idx) => (
-                                  <div key={`vc-${idx}`} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
-                                    <span>📥 {cost.name}{cost.vendor && <span style={{ color: '#6B7280' }}> ({cost.vendor})</span>}</span>
-                                    <span style={{ color: '#EF4444' }}>
-                                      {cost.unit_price ? `${cost.qty || 1} ${cost.unit || 'ca'} × ${formatPrice(cost.unit_price)} = ` : ''}
-                                      <b>{formatPrice(cost.amount || ((cost.qty || 1) * (cost.unit_price || 0)))}</b>
-                                    </span>
-                                  </div>
-                                ))}
-                                {(svc.extra_revenues || []).map((rev, idx) => (
-                                  <div key={`vr-${idx}`} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
-                                    <span>📤 {rev.name}</span>
-                                    <span style={{ color: '#10B981' }}>
-                                      {rev.unit_price ? `${rev.qty || 1} ${rev.unit || 'chuyến'} × ${formatPrice(rev.unit_price)} = ` : ''}
-                                      <b>{formatPrice(rev.amount || ((rev.qty || 1) * (rev.unit_price || 0)))}</b>
-                                    </span>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
+                            {/* Breakdown: base prices + extras */}
+                            <div style={{
+                              marginTop: '8px',
+                              paddingTop: '8px',
+                              borderTop: '1px dashed rgba(0,0,0,0.1)',
+                              fontSize: '11px',
+                              color: 'var(--text-secondary)'
+                            }}>
+                              {/* Base cost (buying_price) */}
+                              {svc.buying_price > 0 && (
+                                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
+                                  <span>📥 Chi phí vận chuyển</span>
+                                  <span style={{ color: '#EF4444' }}><b>{formatPrice(svc.buying_price)}</b></span>
+                                </div>
+                              )}
+                              {(svc.extra_costs || []).map((cost, idx) => (
+                                <div key={`vc-${idx}`} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
+                                  <span>📥 {cost.name}{cost.vendor && <span style={{ color: '#6B7280' }}> ({cost.vendor})</span>}</span>
+                                  <span style={{ color: '#EF4444' }}>
+                                    {cost.unit_price ? `${cost.qty || 1} ${cost.unit || 'ca'} × ${formatPrice(cost.unit_price)} = ` : ''}
+                                    <b>{formatPrice(cost.amount || ((cost.qty || 1) * (cost.unit_price || 0)))}</b>
+                                  </span>
+                                </div>
+                              ))}
+                              {/* Base revenue (selling_price) */}
+                              {svc.selling_price > 0 && (
+                                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
+                                  <span>📤 Doanh thu vận chuyển</span>
+                                  <span style={{ color: '#10B981' }}><b>{formatPrice(svc.selling_price)}</b></span>
+                                </div>
+                              )}
+                              {(svc.extra_revenues || []).map((rev, idx) => (
+                                <div key={`vr-${idx}`} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
+                                  <span>📤 {rev.name}</span>
+                                  <span style={{ color: '#10B981' }}>
+                                    {rev.unit_price ? `${rev.qty || 1} ${rev.unit || 'chuyến'} × ${formatPrice(rev.unit_price)} = ` : ''}
+                                    <b>{formatPrice(rev.amount || ((rev.qty || 1) * (rev.unit_price || 0)))}</b>
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
                           </div>
                         )
                       })()}
@@ -2012,7 +2030,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
 
         <div className="modal-footer">
           <button className="btn-secondary" onClick={onClose}>Đóng</button>
-          {editMode && <button className="btn-primary" disabled={saving} onClick={async () => { await handleSaveAllChanges(); setEditMode(false); onUpdate && onUpdate(); }}>{saving ? '⏳ Đang lưu...' : '✓ Lưu thay đổi'}</button>}
+          {editMode && <button className="btn-primary" disabled={saving} onClick={async () => { const ok = await handleSaveAllChanges(); if (ok !== false) { setEditMode(false); onUpdate && onUpdate(); } }}>{saving ? '⏳ Đang lưu...' : '✓ Lưu thay đổi'}</button>}
         </div>
       </div>
     </div>
@@ -2791,7 +2809,10 @@ function MainDashboard() {
       <ChatWindow isOpen={chatOpen} onClose={() => setChatOpen(false)} />
 
       {/* Job Detail Modal */}
-      {showJobDetail && <JobDetailModal job={selectedJob} onClose={() => setShowJobDetail(false)} />}
+      {showJobDetail && <JobDetailModal job={selectedJob} onClose={() => setShowJobDetail(false)} onUpdate={() => {
+        // Refresh recent jobs list after quotation save
+        fetch(`${API_URL}/api/jobs/recent?limit=10`).then(r => r.json()).then(d => setRecentJobs(d.jobs || []))
+      }} />}
 
       {/* Job Create Form */}
       {showJobCreate && <JobCreateForm onClose={() => setShowJobCreate(false)} onSuccess={handleJobCreated} />}
