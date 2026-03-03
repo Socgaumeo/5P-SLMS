@@ -502,10 +502,16 @@ async def confirm_rate_import(request: ConfirmImportRequest):
                 "service_type_code": request.service_type_code,
             }
 
-            if rate.notes:
-                row["notes"] = rate.notes
             if rate.vehicle_type:
-                row["vehicle_type"] = rate.vehicle_type
+                # DB column is varchar(20) — truncate and put full name in notes
+                vt = rate.vehicle_type.strip()
+                row["vehicle_type"] = vt[:20]
+                if len(vt) > 20:
+                    row["notes"] = f"{vt} | {rate.notes}" if rate.notes else vt
+                elif rate.notes:
+                    row["notes"] = rate.notes
+            elif rate.notes:
+                row["notes"] = rate.notes
             if request.file_ref_id:
                 row["file_reference_id"] = request.file_ref_id
 

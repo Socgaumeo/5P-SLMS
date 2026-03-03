@@ -872,7 +872,7 @@ function CostItemsTab() {
       let url = `${API_URL}/api/admin/cost-items?include_inactive=true`
       if (filterRegion) url += `&region=${encodeURIComponent(filterRegion)}`
       if (filterCategory) url += `&category=${encodeURIComponent(filterCategory)}`
-      const res = await fetch(url)
+      const res = await authFetch(url)
       const json = await res.json()
       setData(json.data || [])
     } catch (err) {
@@ -1633,7 +1633,7 @@ function BuyingRatesTab() {
       if (filterParams.maxPrice) params.append('max_price', filterParams.maxPrice)
 
       const url = `${API_URL}/api/admin/buying-rates/vendor/${vendorId}${params.toString() ? '?' + params : ''}`
-      const res = await fetch(url)
+      const res = await authFetch(url)
       const json = await res.json()
       setVendorDetail(json)
       if (json.filters) {
@@ -2005,10 +2005,36 @@ function SellingRatesTab() {
       {data.length === 0 ? (
         <div className="empty-state">Chưa có dữ liệu báo giá bán</div>
       ) : (
-        <div className="info-box">
-          <p>Đang phát triển view theo khách hàng...</p>
-          <p>Hiện có {data.length} rates trong hệ thống.</p>
-        </div>
+        <table className="admin-table">
+          <thead>
+            <tr>
+              <th>Khách hàng</th>
+              <th>Loại xe</th>
+              <th>Tuyến / Ghi chú</th>
+              <th>Đơn giá</th>
+              <th>ĐVT</th>
+              <th>Ngày HL</th>
+              <th>Trạng thái</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.map(item => (
+              <tr key={item.id}>
+                <td>{item.customers?.short_name || item.customer_id}</td>
+                <td>{item.vehicle_type || '-'}</td>
+                <td>{item.notes || (item.master_routes ? `${item.master_routes.origin} → ${item.master_routes.destination}` : '-')}</td>
+                <td style={{ textAlign: 'right' }}>{formatCurrency(item.price)}</td>
+                <td>{item.unit || 'TRIP'}</td>
+                <td>{item.effective_date || '-'}</td>
+                <td>
+                  <span className={`status-badge ${item.is_active ? 'active' : 'inactive'}`}>
+                    {item.is_active ? 'Active' : 'Inactive'}
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       )}
     </div>
   )
