@@ -33,7 +33,7 @@ class EntityAccumulator:
         # New intents
         "create_customer": ["company_name"],  # Company name is required
         "create_vendor": ["vendor_name"],  # Vendor name is required
-        "create_quotation": ["price"],  # Price is required for quotation
+        "create_quotation": ["quote_type", "price"],  # Both required for quotation
     }
 
     # Fields that we encourage but allow missing

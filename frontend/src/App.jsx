@@ -474,8 +474,14 @@ function JobDetailModal({ job, onClose, onUpdate }) {
   useEffect(() => {
     if (editMode) {
       // Fetch vendors, employees, and customers for dropdowns
-      authFetch(`${API_URL}/api/admin/vendors`).then(r => r.json()).then(d => setVendors(d.data || []))
-      authFetch(`${API_URL}/api/admin/customers`).then(r => r.json()).then(d => setCustomers(d.data || []))
+      authFetch(`${API_URL}/api/jobs/lookup/vendors`)
+        .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json() })
+        .then(d => setVendors(d.data || []))
+        .catch(err => console.error('Vendor fetch failed:', err))
+      authFetch(`${API_URL}/api/jobs/lookup/customers`)
+        .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json() })
+        .then(d => setCustomers(d.data || []))
+        .catch(err => console.error('Customer fetch failed:', err))
       // Fetch standard cost rates
       authFetch(`${API_URL}/api/admin/cost-items`).then(r => r.json()).then(d => setStandardRates(d.data || []))
 

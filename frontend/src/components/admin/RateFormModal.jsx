@@ -12,17 +12,17 @@ const SERVICE_CATEGORIES = {
   TRUCKING: {
     label: 'Vận chuyển',
     fields: ['route', 'vehicle_type', 'rate_type', 'temperature_range'],
-    units: ['TRIP', 'KG', 'CBM'],
+    units: ['TRIP', 'CONT', 'KG', 'CBM', 'PALLET', 'SHIPMENT', 'SET', 'UNIT'],
   },
   CONTAINER: {
     label: 'Nâng hạ Container',
     fields: ['container_type', 'cargo_type'],
-    units: ['CONT', 'UNIT'],
+    units: ['CONT', 'UNIT', 'TRIP'],
   },
   CUSTOMS: {
     label: 'Thủ tục Hải quan',
     fields: ['customs_type'],
-    units: ['SHIPMENT', 'BILL', 'SET'],
+    units: ['TỜ KHAI', 'BỘ', 'SHIPMENT', 'SET', 'BILL'],
   },
   PACKING: {
     label: 'Đóng gói / Chằng buộc',

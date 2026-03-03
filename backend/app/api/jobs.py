@@ -2215,3 +2215,50 @@ async def update_service_notes(svc_id: int, request: ServiceNotesRequest):
     except Exception as e:
         logger.error(f"Error updating service notes: {e}")
         return {"success": False, "message": str(e)}
+
+
+# ============================================================
+# LIGHTWEIGHT LOOKUP ENDPOINTS (no admin auth required)
+# Used by job edit dropdowns — avoids admin dependency
+# ============================================================
+
+@router.get("/lookup/vendors")
+async def lookup_vendors(search: Optional[str] = Query(None)):
+    """List active vendors for dropdown selection (no admin auth)."""
+    try:
+        client = get_supabase()
+        query = client.table('vendors').select(
+            'vendor_id, vendor_code, short_name, company_name'
+        ).eq('is_active', True)
+
+        if search:
+            query = query.or_(
+                f"short_name.ilike.%{search}%,company_name.ilike.%{search}%,vendor_code.ilike.%{search}%"
+            )
+
+        result = query.order('vendor_code').limit(200).execute()
+        return {"data": result.data or []}
+    except Exception as e:
+        logger.error(f"Error looking up vendors: {e}")
+        return {"data": []}
+
+
+@router.get("/lookup/customers")
+async def lookup_customers(search: Optional[str] = Query(None)):
+    """List active customers for dropdown selection (no admin auth)."""
+    try:
+        client = get_supabase()
+        query = client.table('customers').select(
+            'customer_id, customer_code, short_name, company_name'
+        ).eq('is_active', True)
+
+        if search:
+            query = query.or_(
+                f"short_name.ilike.%{search}%,company_name.ilike.%{search}%,customer_code.ilike.%{search}%"
+            )
+
+        result = query.order('customer_code').limit(200).execute()
+        return {"data": result.data or []}
+    except Exception as e:
+        logger.error(f"Error looking up customers: {e}")
+        return {"data": []}

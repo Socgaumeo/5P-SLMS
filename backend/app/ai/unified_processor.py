@@ -159,6 +159,16 @@ class UnifiedProcessor:
         ready_to_execute = result.get("ready_to_execute", False)
         needs_confirmation = result.get("needs_confirmation", False)
 
+        # SAFETY NET: If user confirmed and we have active intent+entities,
+        # force execution even if AI didn't set ready_to_execute
+        if is_confirmation and state.intent and state.entities and not ready_to_execute:
+            logger.info(f"[UNIFIED] Forcing execution: user confirmed with active intent={state.intent}")
+            ready_to_execute = True
+
+        # Track confirmation state for next turn
+        if needs_confirmation:
+            state.needs_confirmation = True
+
         # Get response text
         response_text = result.get("response", "")
         if not response_text:
@@ -707,6 +717,12 @@ class UnifiedProcessor:
                                             }
                     return {"success": False, "response": "Lỗi thêm chi phí/doanh thu"}
 
+                elif state.intent == "create_quotation":
+                    return await self._execute_create_quotation(state, client, API_BASE_URL)
+
+                elif state.intent in ("create_customer", "create_vendor"):
+                    return await self._execute_create_entity(state, client, API_BASE_URL)
+
         except Exception as e:
             logger.error(f"[UNIFIED] Action execution failed: {e}")
             return {"success": False, "response": f"Lỗi: {str(e)}"}
@@ -777,6 +793,105 @@ class UnifiedProcessor:
                 lines.append(driver_line)
 
         return "\n".join(lines)
+
+    async def _execute_create_quotation(self, state, client, api_base):
+        """Create a quotation (buying or selling rate) via admin API."""
+        entities = state.entities
+        quote_type = entities.get("quote_type", "buying").lower()
+
+        # Lookup vendor/customer by name
+        vendor_id = None
+        customer_id = None
+
+        if quote_type == "buying" and entities.get("vendor_name"):
+            resp = await client.get(f"{api_base}/api/jobs/lookup/vendors", timeout=10.0)
+            if resp.status_code == 200:
+                for v in resp.json().get("data", []):
+                    name_lower = entities["vendor_name"].lower()
+                    if name_lower in (v.get("short_name") or "").lower() or \
+                       name_lower in (v.get("company_name") or "").lower():
+                        vendor_id = v.get("vendor_id")
+                        break
+
+        elif quote_type == "selling" and entities.get("customer_name"):
+            resp = await client.get(f"{api_base}/api/jobs/lookup/customers", timeout=10.0)
+            if resp.status_code == 200:
+                for c in resp.json().get("data", []):
+                    name_lower = entities["customer_name"].lower()
+                    if name_lower in (c.get("short_name") or "").lower() or \
+                       name_lower in (c.get("company_name") or "").lower() or \
+                       name_lower in (c.get("customer_code") or "").lower():
+                        customer_id = c.get("customer_id")
+                        break
+
+        endpoint = "buying-rates" if quote_type == "buying" else "selling-rates"
+        payload = {
+            "price": entities.get("price"),
+            "currency": entities.get("currency", "VND"),
+            "unit": entities.get("unit", "TRIP"),
+            "vehicle_type": entities.get("vehicle_type"),
+            "origin_province": entities.get("origin_province"),
+            "destination_province": entities.get("destination_province"),
+            "notes": entities.get("sub_route") or entities.get("notes"),
+            "rate_type": entities.get("rate_type", "STANDARD"),
+            "is_active": True,
+        }
+
+        if quote_type == "buying":
+            if not vendor_id:
+                return {"success": False, "response": f"Không tìm thấy NCC '{entities.get('vendor_name')}'. Vui lòng tạo NCC trước."}
+            payload["vendor_id"] = vendor_id
+        else:
+            if not customer_id:
+                return {"success": False, "response": f"Không tìm thấy KH '{entities.get('customer_name')}'. Vui lòng tạo KH trước."}
+            payload["customer_id"] = customer_id
+
+        resp = await client.post(f"{api_base}/api/admin/{endpoint}", json=payload, timeout=30.0)
+        if resp.status_code == 200:
+            label = "mua" if quote_type == "buying" else "bán"
+            route = ""
+            if entities.get("origin_province") and entities.get("destination_province"):
+                route = f" {entities['origin_province']}→{entities['destination_province']}"
+            price = entities.get("price", 0)
+            return {
+                "success": True,
+                "response": f"✅ Đã tạo báo giá {label}{route} | {price:,.0f} VND thành công!"
+            }
+        error = resp.json() if resp.status_code != 500 else {}
+        return {"success": False, "response": f"Lỗi tạo báo giá: {error.get('detail', resp.text[:200])}"}
+
+    async def _execute_create_entity(self, state, client, api_base):
+        """Create customer or vendor via admin API."""
+        entities = state.entities
+        if state.intent == "create_customer":
+            payload = {
+                "customer_code": entities.get("customer_code"),
+                "company_name": entities.get("company_name"),
+                "short_name": entities.get("short_name"),
+                "address": entities.get("address"),
+                "tax_code": entities.get("tax_code"),
+                "contact_phone": entities.get("contact_phone"),
+                "contact_email": entities.get("contact_email"),
+                "contact_person": entities.get("contact_person"),
+            }
+            resp = await client.post(f"{api_base}/api/admin/customers", json=payload, timeout=30.0)
+            if resp.status_code == 200 and resp.json().get("data"):
+                return {"success": True, "response": f"✅ Đã tạo khách hàng {entities.get('company_name')} thành công!"}
+            return {"success": False, "response": f"Lỗi tạo KH: {resp.text[:200]}"}
+        else:
+            payload = {
+                "vendor_code": entities.get("vendor_code"),
+                "vendor_name": entities.get("vendor_name"),
+                "short_name": entities.get("short_name"),
+                "phone": entities.get("phone"),
+                "email": entities.get("email"),
+                "address": entities.get("address"),
+                "tax_code": entities.get("tax_code"),
+            }
+            resp = await client.post(f"{api_base}/api/admin/vendors", json=payload, timeout=30.0)
+            if resp.status_code == 200 and resp.json().get("data"):
+                return {"success": True, "response": f"✅ Đã tạo NCC {entities.get('vendor_name')} thành công!"}
+            return {"success": False, "response": f"Lỗi tạo NCC: {resp.text[:200]}"}
 
     def _reset_state(self, state: UnifiedState):
         """Reset state after successful execution"""
