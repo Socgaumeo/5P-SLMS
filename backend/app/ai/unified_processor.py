@@ -825,9 +825,14 @@ class UnifiedProcessor:
                     customer_id = c.get("customer_id")
                     break
 
+        # Validate price
+        price = entities.get("price")
+        if not price:
+            return {"success": False, "response": "Thiếu giá (price). Vui lòng cung cấp giá báo giá."}
+
         # Build insert data
         insert_data = {
-            'price': entities.get("price"),
+            'price': price,
             'currency': entities.get("currency", "VND"),
             'unit': entities.get("unit", "TRIP"),
             'vehicle_type': entities.get("vehicle_type"),

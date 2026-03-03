@@ -782,6 +782,7 @@ async def get_recent_jobs(limit: int = 10, status: Optional[str] = None):
                 'status_code': row['status_code'],
                 'etd': row['etd'],
                 'created_at': row['created_at'],
+                'customer_id': row.get('customer_id'),
                 'customer_code': customer.get('customer_code'),
                 'customer_name': customer.get('short_name'),
                 'created_by': row.get('created_by'),
