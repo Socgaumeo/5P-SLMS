@@ -1950,6 +1950,7 @@ function SellingRatesTab() {
   const [loading, setLoading] = useState(true)
   const [showAddModal, setShowAddModal] = useState(false)
   const [showUploadModal, setShowUploadModal] = useState(false)
+  const [editItem, setEditItem] = useState(null)
 
   const fetchData = async () => {
     setLoading(true)
@@ -1969,7 +1970,23 @@ function SellingRatesTab() {
   }, [])
 
   const handleRateSaved = () => {
+    setEditItem(null)
     fetchData()
+  }
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('Bạn có chắc muốn xoá báo giá này?')) return
+    try {
+      await authFetch(`${API_URL}/api/admin/selling-rates/${id}`, { method: 'DELETE' })
+      fetchData()
+    } catch (err) {
+      console.error('Failed to delete:', err)
+    }
+  }
+
+  const handleEdit = (item) => {
+    setEditItem(item)
+    setShowAddModal(true)
   }
 
   if (loading) return <div className="loading-state">Đang tải...</div>
@@ -1990,9 +2007,10 @@ function SellingRatesTab() {
 
       <RateFormModal
         isOpen={showAddModal}
-        onClose={() => setShowAddModal(false)}
+        onClose={() => { setShowAddModal(false); setEditItem(null) }}
         onSave={handleRateSaved}
         rateType="selling"
+        editData={editItem}
       />
 
       <RateUploadModal
@@ -2015,6 +2033,7 @@ function SellingRatesTab() {
               <th>ĐVT</th>
               <th>Ngày HL</th>
               <th>Trạng thái</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -2030,6 +2049,12 @@ function SellingRatesTab() {
                   <span className={`status-badge ${item.is_active ? 'active' : 'inactive'}`}>
                     {item.is_active ? 'Active' : 'Inactive'}
                   </span>
+                </td>
+                <td>
+                  <div style={{ display: 'flex', gap: '4px' }}>
+                    <button className="btn-icon" title="Sửa" onClick={() => handleEdit(item)}>✏️</button>
+                    <button className="btn-icon danger" title="Xoá" onClick={() => handleDelete(item.id)}>🗑️</button>
+                  </div>
                 </td>
               </tr>
             ))}

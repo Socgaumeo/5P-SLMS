@@ -747,17 +747,20 @@ async def export_jobs_by_entity_v2(
 
 # NOTE: This route MUST be defined BEFORE /{job_id} to avoid path matching conflict
 @router.get("/recent")
-async def get_recent_jobs(limit: int = 10):
+async def get_recent_jobs(limit: int = 10, status: Optional[str] = None):
     """
-    Get recent jobs for dashboard
+    Get recent jobs for dashboard, optionally filtered by status
     """
     try:
         client = get_supabase()
         # Fetch jobs with customer info (created_by join added when column exists)
-        result = client.table('jobs').select(
+        query = client.table('jobs').select(
             'job_id, job_no, status_code, etd, created_at, customer_id, created_by, '
             'customers(customer_code, short_name)'
-        ).order('created_at', desc=True).limit(limit).execute()
+        )
+        if status:
+            query = query.eq('status_code', status)
+        result = query.order('created_at', desc=True).limit(limit).execute()
 
         # Get user info for created_by if any jobs have it
         creator_ids = [r.get('created_by') for r in result.data if r.get('created_by')]
@@ -1229,8 +1232,23 @@ async def get_dashboard_stats():
             status = row.get('status_code') or 'PENDING'
             status_counts[status] = status_counts.get(status, 0) + 1
 
-        # Revenue MTD (placeholder for now)
-        revenue_mtd = "1.2B"
+        # Revenue MTD - sum selling amounts from job_costs in current month
+        month_start = date.today().replace(day=1).isoformat()
+        revenue_result = client.table('jobs').select(
+            'total_revenue'
+        ).gte('created_at', f'{month_start}T00:00:00').execute()
+        revenue_total = sum(
+            float(r.get('total_revenue') or 0) for r in revenue_result.data
+        )
+        # Format: 1.2B, 500M, 50K, or raw number
+        if revenue_total >= 1_000_000_000:
+            revenue_mtd = f"{revenue_total / 1_000_000_000:.1f}B"
+        elif revenue_total >= 1_000_000:
+            revenue_mtd = f"{revenue_total / 1_000_000:.0f}M"
+        elif revenue_total >= 1_000:
+            revenue_mtd = f"{revenue_total / 1_000:.0f}K"
+        else:
+            revenue_mtd = f"{int(revenue_total)}"
 
         return {
             "jobs_today": jobs_today,

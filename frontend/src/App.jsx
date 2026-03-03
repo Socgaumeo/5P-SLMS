@@ -2387,6 +2387,9 @@ function MainDashboard() {
   const [serviceData, setServiceData] = useState([])
   const [loading, setLoading] = useState(true)
 
+  // Filter states
+  const [statusFilter, setStatusFilter] = useState('')
+
   // Modal states
   const [selectedJob, setSelectedJob] = useState(null)
   const [showJobDetail, setShowJobDetail] = useState(false)
@@ -2479,6 +2482,16 @@ function MainDashboard() {
     const interval = setInterval(fetchData, 30000)
     return () => clearInterval(interval)
   }, [])
+
+  // Fetch filtered jobs when status filter changes
+  useEffect(() => {
+    if (activeNav === 'jobs' && statusFilter) {
+      authFetch(`${API_URL}/api/jobs/recent?limit=100&status=${statusFilter}`)
+        .then(r => r.json())
+        .then(data => setRecentJobs(data.jobs || []))
+        .catch(err => console.error('Failed to fetch filtered jobs:', err))
+    }
+  }, [activeNav, statusFilter])
 
   // Fetch service-specific data
   useEffect(() => {
@@ -2631,7 +2644,9 @@ function MainDashboard() {
                 <h3 className="card-title">Jobs by Status</h3>
                 <div className="status-bars">
                   {Object.entries(stats.status_counts || {}).map(([status, count], i) => (
-                    <div key={i} className="status-bar-row">
+                    <div key={i} className="status-bar-row" style={{ cursor: 'pointer' }}
+                      onClick={() => { setStatusFilter(status); setActiveNav('jobs') }}
+                      title={`Click để xem jobs ${status}`}>
                       <div className="status-indicator" style={{ backgroundColor: statusColors[status] || theme.primary }} />
                       <span className="status-label">{status.replace(/_/g, ' ')}</span>
                       <span className="status-value">{count}</span>
@@ -2762,7 +2777,18 @@ function MainDashboard() {
           <div className="service-content">
             <div className="card full-width">
               <div className="card-header">
-                <h3 className="card-title">📋 All Jobs</h3>
+                <h3 className="card-title">
+                  📋 All Jobs
+                  {statusFilter && (
+                    <span style={{ fontSize: '0.75em', marginLeft: '8px', padding: '2px 8px', borderRadius: '12px', backgroundColor: statusColors[statusFilter] || theme.primary, color: '#fff' }}>
+                      {statusFilter.replace(/_/g, ' ')}
+                      <span style={{ marginLeft: '6px', cursor: 'pointer' }} onClick={() => {
+                        setStatusFilter('')
+                        authFetch(`${API_URL}/api/jobs/recent?limit=10`).then(r => r.json()).then(d => setRecentJobs(d.jobs || []))
+                      }}>✕</span>
+                    </span>
+                  )}
+                </h3>
                 <button className="add-job-btn" onClick={() => setShowJobCreate(true)}>+ New Job</button>
               </div>
               <table className="services-table">
