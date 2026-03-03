@@ -28,9 +28,9 @@ export default function RateUploadModal({ isOpen, onClose, onImported, rateType 
     if (isOpen) {
       // Fetch vendors/customers for dropdown
       if (rateType === 'buying') {
-        authFetch(`${API_URL}/api/vendors`).then(r => r.json()).then(d => setVendors(d.vendors || []))
+        authFetch(`${API_URL}/api/admin/vendors`).then(r => r.json()).then(d => setVendors(d.data || []))
       } else {
-        authFetch(`${API_URL}/api/customers`).then(r => r.json()).then(d => setCustomers(d.customers || []))
+        authFetch(`${API_URL}/api/admin/customers`).then(r => r.json()).then(d => setCustomers(d.data || []))
       }
     }
   }, [isOpen, rateType])

@@ -130,12 +130,9 @@ function UsersTab() {
         : `${API_URL}/api/users`
       const method = editItem ? 'PUT' : 'POST'
 
-      const res = await fetch(url, {
+      const res = await authFetch(url, {
         method,
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
       })
 
@@ -697,7 +694,7 @@ function ServiceTypesTab() {
         : `${API_URL}/api/admin/service-types`
       const method = editItem ? 'PUT' : 'POST'
 
-      await fetch(url, {
+      await authFetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
@@ -926,7 +923,7 @@ function CostItemsTab() {
         : `${API_URL}/api/admin/cost-items`
       const method = editItem ? 'PUT' : 'POST'
 
-      await fetch(url, {
+      await authFetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
@@ -1224,7 +1221,7 @@ function VendorsTab() {
         : `${API_URL}/api/admin/vendors`
       const method = editItem ? 'PUT' : 'POST'
 
-      await fetch(url, {
+      await authFetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
@@ -1447,7 +1444,7 @@ function CustomersTab() {
         : `${API_URL}/api/admin/customers`
       const method = editItem ? 'PUT' : 'POST'
 
-      await fetch(url, {
+      await authFetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
@@ -1977,7 +1974,11 @@ function SellingRatesTab() {
   const handleDelete = async (id) => {
     if (!window.confirm('Bạn có chắc muốn xoá báo giá này?')) return
     try {
-      await authFetch(`${API_URL}/api/admin/selling-rates/${id}`, { method: 'DELETE' })
+      const res = await authFetch(`${API_URL}/api/admin/selling-rates/${id}?hard_delete=true`, { method: 'DELETE' })
+      if (!res.ok) {
+        const err = await res.json()
+        alert('Lỗi xoá: ' + (err.detail || 'Unknown error'))
+      }
       fetchData()
     } catch (err) {
       console.error('Failed to delete:', err)

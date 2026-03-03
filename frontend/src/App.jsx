@@ -491,14 +491,14 @@ function JobDetailModal({ job, onClose, onUpdate }) {
   const fetchQuotationsForService = async (svc) => {
     try {
       // Fetch buying rates (vendor rates)
-      const buyingRes = await fetch(
-        `${API_URL}/api/quotations/search?type=buying&service_type=${svc.service_type_code || ''}`
+      const buyingRes = await authFetch(
+        `${API_URL}/api/jobs/quotations/search?type=buying&service_type=${svc.service_type_code || ''}`
       )
       const buyingData = await buyingRes.json()
 
       // Fetch selling rates (customer rates)
-      const sellingRes = await fetch(
-        `${API_URL}/api/quotations/search?type=selling&customer_id=${job?.customer_id || ''}&service_type=${svc.service_type_code || ''}`
+      const sellingRes = await authFetch(
+        `${API_URL}/api/jobs/quotations/search?type=selling&customer_id=${job?.customer_id || ''}&service_type=${svc.service_type_code || ''}`
       )
       const sellingData = await sellingRes.json()
 
