@@ -487,26 +487,21 @@ function JobDetailModal({ job, onClose, onUpdate }) {
     }
   }, [editMode, services.length])
 
-  // Fetch matching quotations for a service
+  // Fetch matching quotations for a service (filtered by vendor/customer)
   const fetchQuotationsForService = async (svc) => {
     try {
-      // Fetch buying rates (vendor rates)
-      const buyingRes = await authFetch(
-        `${API_URL}/api/jobs/quotations/search?type=buying&service_type=${svc.service_type_code || ''}`
-      )
+      const svcType = svc.service_type_code || ''
+
+      // Buying rates: filter by vendor assigned to this service
+      let buyingUrl = `${API_URL}/api/jobs/quotations/search?type=buying&service_type=${svcType}`
+      if (svc.vendor_id) buyingUrl += `&vendor_id=${svc.vendor_id}`
+      const buyingRes = await authFetch(buyingUrl)
       const buyingData = await buyingRes.json()
 
-      // Fetch selling rates (customer rates) - try customer-specific first, fallback to all
-      let sellingRes = await authFetch(
-        `${API_URL}/api/jobs/quotations/search?type=selling&customer_id=${job?.customer_id || ''}&service_type=${svc.service_type_code || ''}`
-      )
-      let sellingCheck = await sellingRes.clone().json()
-      if ((!sellingCheck.rates || sellingCheck.rates.length === 0) && job?.customer_id) {
-        // Fallback: fetch all selling rates without customer filter
-        sellingRes = await authFetch(
-          `${API_URL}/api/jobs/quotations/search?type=selling&service_type=${svc.service_type_code || ''}`
-        )
-      }
+      // Selling rates: filter by job's customer
+      let sellingUrl = `${API_URL}/api/jobs/quotations/search?type=selling&service_type=${svcType}`
+      if (job?.customer_id) sellingUrl += `&customer_id=${job.customer_id}`
+      const sellingRes = await authFetch(sellingUrl)
       const sellingData = await sellingRes.json()
 
       setQuotations(prev => ({
