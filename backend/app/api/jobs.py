@@ -2,7 +2,7 @@
 Jobs API - Job management endpoints
 """
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Query
 from pydantic import BaseModel
 from typing import Optional, Dict, Any
 from datetime import date, time, datetime
