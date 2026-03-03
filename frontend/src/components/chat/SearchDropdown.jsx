@@ -1,8 +1,7 @@
 // frontend/src/components/chat/SearchDropdown.jsx
 import React, { useState, useEffect, useRef } from 'react'
 import './SearchDropdown.css'
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+import { authFetch, API_URL } from '../../utils/auth-fetch'
 
 /**
  * SearchDropdown - Searchable dropdown for customers/vendors
@@ -68,7 +67,7 @@ const SearchDropdown = ({
                     endpoint = `/api/search/customers?q=${encodeURIComponent(term)}`
             }
 
-            const res = await fetch(`${API_URL}${endpoint}`)
+            const res = await authFetch(`${API_URL}${endpoint}`)
             if (res.ok) {
                 const data = await res.json()
                 setResults(data.results || data || [])

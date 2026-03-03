@@ -5,8 +5,7 @@
  */
 
 import { useState, useEffect } from 'react'
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+import { authFetch, API_URL } from '../../utils/auth-fetch'
 
 // Service type categories for different rate structures
 const SERVICE_CATEGORIES = {
@@ -127,15 +126,9 @@ export default function RateFormModal({
     }
   }, [editData])
 
-  // Auth header helper
-  const authHeaders = () => {
-    const token = localStorage.getItem('token')
-    return token ? { Authorization: `Bearer ${token}` } : {}
-  }
-
   const fetchServiceTypes = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/admin/service-types`, { headers: authHeaders() })
+      const res = await authFetch(`${API_URL}/api/admin/service-types`)
       const json = await res.json()
       setServiceTypes(json.data || [])
     } catch (err) {
@@ -145,7 +138,7 @@ export default function RateFormModal({
 
   const fetchVendors = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/admin/vendors`, { headers: authHeaders() })
+      const res = await authFetch(`${API_URL}/api/admin/vendors`)
       const json = await res.json()
       setVendors(json.data || [])
     } catch (err) {
@@ -155,7 +148,7 @@ export default function RateFormModal({
 
   const fetchCustomers = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/admin/customers`, { headers: authHeaders() })
+      const res = await authFetch(`${API_URL}/api/admin/customers`)
       const json = await res.json()
       setCustomers(json.data || [])
     } catch (err) {
@@ -223,9 +216,9 @@ export default function RateFormModal({
         ? `${endpoint}/${editData.id || editData.rate_id}`
         : endpoint
 
-      const res = await fetch(url, {
+      const res = await authFetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       })
 

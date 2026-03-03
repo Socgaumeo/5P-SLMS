@@ -5,8 +5,7 @@
  */
 
 import { useState, useEffect } from 'react'
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+import { authFetch, API_URL } from '../../utils/auth-fetch'
 
 export default function RateUploadModal({ isOpen, onClose, onImported, rateType = 'buying' }) {
   const [file, setFile] = useState(null)
@@ -25,19 +24,13 @@ export default function RateUploadModal({ isOpen, onClose, onImported, rateType 
   // Editable rates (user can remove rows before confirming)
   const [editableRates, setEditableRates] = useState([])
 
-  // Auth header helper
-  const authHeaders = () => {
-    const token = localStorage.getItem('token')
-    return token ? { Authorization: `Bearer ${token}` } : {}
-  }
-
   useEffect(() => {
     if (isOpen) {
       // Fetch vendors/customers for dropdown
       if (rateType === 'buying') {
-        fetch(`${API_URL}/api/vendors`, { headers: authHeaders() }).then(r => r.json()).then(d => setVendors(d.vendors || []))
+        authFetch(`${API_URL}/api/vendors`).then(r => r.json()).then(d => setVendors(d.vendors || []))
       } else {
-        fetch(`${API_URL}/api/customers`, { headers: authHeaders() }).then(r => r.json()).then(d => setCustomers(d.customers || []))
+        authFetch(`${API_URL}/api/customers`).then(r => r.json()).then(d => setCustomers(d.customers || []))
       }
     }
   }, [isOpen, rateType])
@@ -72,9 +65,8 @@ export default function RateUploadModal({ isOpen, onClose, onImported, rateType 
       if (selectedCustomerId) formData.append('customer_id', selectedCustomerId)
       if (serviceTypeCode) formData.append('service_type_code', serviceTypeCode)
 
-      const res = await fetch(`${API_URL}/api/admin/rates/upload-file`, {
+      const res = await authFetch(`${API_URL}/api/admin/rates/upload-file`, {
         method: 'POST',
-        headers: authHeaders(),
         body: formData,
       })
       const data = await res.json()
@@ -111,9 +103,9 @@ export default function RateUploadModal({ isOpen, onClose, onImported, rateType 
     setError('')
 
     try {
-      const res = await fetch(`${API_URL}/api/admin/rates/confirm-import`, {
+      const res = await authFetch(`${API_URL}/api/admin/rates/confirm-import`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           file_ref_id: preview?.file_ref_id,
           rate_type: rateType,

@@ -1,7 +1,6 @@
 // frontend/src/hooks/useChatSession.js
 import { useState, useRef, useEffect } from 'react'
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+import { authFetch, API_URL } from '../utils/auth-fetch'
 const STORAGE_KEY = 'slms_chat_session_id'
 const MESSAGES_KEY = 'slms_chat_messages'
 const STATE_KEY = 'slms_chat_state'
@@ -67,7 +66,7 @@ export const useChatSession = () => {
 
     const fetchSessionState = async (sid) => {
         try {
-            const res = await fetch(`${API_URL}/api/chat/session/${sid}`)
+            const res = await authFetch(`${API_URL}/api/chat/session/${sid}`)
             if (res.ok) {
                 const data = await res.json()
                 setTaskState(data.task_state)
@@ -110,18 +109,18 @@ export const useChatSession = () => {
                     formData.append('image', file)
                     formData.append('context', JSON.stringify({ ...context, session_id: sessionId }))
                     console.log('[CHAT] Sending image, session_id in context:', sessionId)
-                    const res = await fetch(`${API_URL}/api/chat/process-image`, { method: 'POST', body: formData })
+                    const res = await authFetch(`${API_URL}/api/chat/process-image`, { method: 'POST', body: formData })
                     result = await res.json()
                 } else {
                     formData.append('file', file)
                     formData.append('context', JSON.stringify({ ...context, session_id: sessionId }))
                     console.log('[CHAT] Sending file, session_id in context:', sessionId)
-                    const res = await fetch(`${API_URL}/api/chat/process-file`, { method: 'POST', body: formData })
+                    const res = await authFetch(`${API_URL}/api/chat/process-file`, { method: 'POST', body: formData })
                     result = await res.json()
                 }
             } else {
                 console.log('[CHAT] Sending text message with session_id:', sessionId)
-                const res = await fetch(`${API_URL}/api/chat/message`, {
+                const res = await authFetch(`${API_URL}/api/chat/message`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -178,7 +177,7 @@ export const useChatSession = () => {
 
         setIsLoading(true)
         try {
-            const res = await fetch(`${API_URL}/api/chat/confirm/${sessionId}`, { method: 'POST' })
+            const res = await authFetch(`${API_URL}/api/chat/confirm/${sessionId}`, { method: 'POST' })
             const result = await res.json()
 
             setMessages(prev => [...prev, {
@@ -209,7 +208,7 @@ export const useChatSession = () => {
 
         setIsLoading(true)
         try {
-            const res = await fetch(`${API_URL}/api/chat/cancel/${sessionId}`, { method: 'POST' })
+            const res = await authFetch(`${API_URL}/api/chat/cancel/${sessionId}`, { method: 'POST' })
             const result = await res.json()
 
             setMessages(prev => [...prev, {

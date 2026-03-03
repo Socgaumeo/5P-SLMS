@@ -11,8 +11,7 @@ import { useState, useEffect } from 'react'
 import './AdminPanel.css'
 import RateFormModal from './RateFormModal'
 import RateUploadModal from './RateUploadModal'
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+import { authFetch, API_URL } from '../../utils/auth-fetch'
 
 // Helper to format currency
 const formatCurrency = (value) => {
@@ -94,7 +93,7 @@ function UsersTab() {
   const fetchUsers = async () => {
     try {
       const token = localStorage.getItem('token')
-      const res = await fetch(`${API_URL}/api/users?include_inactive=true`, {
+      const res = await authFetch(`${API_URL}/api/users?include_inactive=true`, {
         headers: { Authorization: `Bearer ${token}` }
       })
       const data = await res.json()
@@ -112,7 +111,7 @@ function UsersTab() {
     if (!confirm(`Vô hiệu hóa user "${user.user_code}"?`)) return
     try {
       const token = localStorage.getItem('token')
-      await fetch(`${API_URL}/api/users/${user.user_id}`, {
+      await authFetch(`${API_URL}/api/users/${user.user_id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` }
       })
@@ -161,7 +160,7 @@ function UsersTab() {
     if (!confirm(`Reset mật khẩu cho "${user.full_name}"?`)) return
     try {
       const token = localStorage.getItem('token')
-      const res = await fetch(`${API_URL}/api/users/${user.user_id}/reset-password`, {
+      const res = await authFetch(`${API_URL}/api/users/${user.user_id}/reset-password`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` }
       })
@@ -182,7 +181,7 @@ function UsersTab() {
   const handleActivate = async (user) => {
     try {
       const token = localStorage.getItem('token')
-      await fetch(`${API_URL}/api/users/${user.user_id}/activate`, {
+      await authFetch(`${API_URL}/api/users/${user.user_id}/activate`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` }
       })
@@ -387,7 +386,7 @@ function AuditLogsTab() {
   const fetchUsers = async () => {
     try {
       const token = localStorage.getItem('token')
-      const res = await fetch(`${API_URL}/api/audit/users`, {
+      const res = await authFetch(`${API_URL}/api/audit/users`, {
         headers: { Authorization: `Bearer ${token}` }
       })
       const data = await res.json()
@@ -412,7 +411,7 @@ function AuditLogsTab() {
       if (filterParams.search) params.append('search', filterParams.search)
       params.append('limit', '100')
 
-      const res = await fetch(`${API_URL}/api/audit/logs?${params}`, {
+      const res = await authFetch(`${API_URL}/api/audit/logs?${params}`, {
         headers: { Authorization: `Bearer ${token}` }
       })
       const data = await res.json()
@@ -651,7 +650,7 @@ function ServiceTypesTab() {
   const fetchData = async () => {
     setLoading(true)
     try {
-      const res = await fetch(`${API_URL}/api/admin/service-types?include_inactive=true`)
+      const res = await authFetch(`${API_URL}/api/admin/service-types?include_inactive=true`)
       const json = await res.json()
       setData(json.data || [])
     } catch (err) {
@@ -681,7 +680,7 @@ function ServiceTypesTab() {
   const handleDelete = async (item) => {
     if (!confirm(`Delete service type "${item.service_code}"?`)) return
     try {
-      await fetch(`${API_URL}/api/admin/service-types/${item.service_code}`, {
+      await authFetch(`${API_URL}/api/admin/service-types/${item.service_code}`, {
         method: 'DELETE',
       })
       fetchData()
@@ -910,7 +909,7 @@ function CostItemsTab() {
   const handleDelete = async (item) => {
     if (!confirm(`Xóa chi phí "${item.name_vi}"?`)) return
     try {
-      await fetch(`${API_URL}/api/admin/cost-items/${item.cost_item_id}`, {
+      await authFetch(`${API_URL}/api/admin/cost-items/${item.cost_item_id}`, {
         method: 'DELETE',
       })
       fetchData()
@@ -1176,7 +1175,7 @@ function VendorsTab() {
   const fetchData = async () => {
     setLoading(true)
     try {
-      const res = await fetch(`${API_URL}/api/admin/vendors?include_inactive=true`)
+      const res = await authFetch(`${API_URL}/api/admin/vendors?include_inactive=true`)
       const json = await res.json()
       setData(json.data || [])
     } catch (err) {
@@ -1208,7 +1207,7 @@ function VendorsTab() {
   const handleDelete = async (item) => {
     if (!confirm(`Delete vendor "${item.vendor_name}"?`)) return
     try {
-      await fetch(`${API_URL}/api/admin/vendors/${item.vendor_id}`, {
+      await authFetch(`${API_URL}/api/admin/vendors/${item.vendor_id}`, {
         method: 'DELETE',
       })
       fetchData()
@@ -1399,7 +1398,7 @@ function CustomersTab() {
   const fetchData = async () => {
     setLoading(true)
     try {
-      const res = await fetch(`${API_URL}/api/admin/customers?include_inactive=true`)
+      const res = await authFetch(`${API_URL}/api/admin/customers?include_inactive=true`)
       const json = await res.json()
       setData(json.data || [])
     } catch (err) {
@@ -1431,7 +1430,7 @@ function CustomersTab() {
   const handleDelete = async (item) => {
     if (!confirm(`Delete customer "${item.company_name}"?`)) return
     try {
-      await fetch(`${API_URL}/api/admin/customers/${item.customer_id}`, {
+      await authFetch(`${API_URL}/api/admin/customers/${item.customer_id}`, {
         method: 'DELETE',
       })
       fetchData()
@@ -1613,7 +1612,7 @@ function BuyingRatesTab() {
   const fetchSummary = async () => {
     setLoading(true)
     try {
-      const res = await fetch(`${API_URL}/api/admin/buying-rates/summary`)
+      const res = await authFetch(`${API_URL}/api/admin/buying-rates/summary`)
       const json = await res.json()
       setSummary(json.data || [])
     } catch (err) {
@@ -1955,7 +1954,7 @@ function SellingRatesTab() {
   const fetchData = async () => {
     setLoading(true)
     try {
-      const res = await fetch(`${API_URL}/api/admin/selling-rates?include_inactive=true`)
+      const res = await authFetch(`${API_URL}/api/admin/selling-rates?include_inactive=true`)
       const json = await res.json()
       setData(json.data || [])
     } catch (err) {

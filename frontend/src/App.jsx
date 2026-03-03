@@ -5,8 +5,7 @@ import AdminPanel from './components/admin/AdminPanel'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import LoginPage from './pages/LoginPage'
 import SearchBox from './components/SearchBox'
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+import { authFetch, API_URL } from './utils/auth-fetch'
 
 // Theme colors from 5P Vietnam logo
 const theme = {
@@ -421,7 +420,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
   const fetchJobDetails = async () => {
     if (!job?.job_id) return
     try {
-      const res = await fetch(`${API_URL}/api/jobs/${job.job_id}/details`)
+      const res = await authFetch(`${API_URL}/api/jobs/${job.job_id}/details`)
       if (res.ok) {
         const data = await res.json()
         // Parse vendor_text_input to extract vehicle info
@@ -475,11 +474,11 @@ function JobDetailModal({ job, onClose, onUpdate }) {
   useEffect(() => {
     if (editMode) {
       // Fetch vendors, employees, and customers for dropdowns
-      fetch(`${API_URL}/api/vendors`).then(r => r.json()).then(d => setVendors(d.vendors || []))
-      fetch(`${API_URL}/api/employees`).then(r => r.json()).then(d => setEmployees(d.employees || []))
-      fetch(`${API_URL}/api/customers`).then(r => r.json()).then(d => setCustomers(d.customers || []))
+      authFetch(`${API_URL}/api/vendors`).then(r => r.json()).then(d => setVendors(d.vendors || []))
+      authFetch(`${API_URL}/api/employees`).then(r => r.json()).then(d => setEmployees(d.employees || []))
+      authFetch(`${API_URL}/api/customers`).then(r => r.json()).then(d => setCustomers(d.customers || []))
       // Fetch standard cost rates
-      fetch(`${API_URL}/api/admin/cost-items`).then(r => r.json()).then(d => setStandardRates(d.data || []))
+      authFetch(`${API_URL}/api/admin/cost-items`).then(r => r.json()).then(d => setStandardRates(d.data || []))
 
       // Fetch quotations for each service
       if (services.length > 0) {
@@ -525,7 +524,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
   const handleSaveQuotations = async (svc) => {
     setSaving(true)
     try {
-      const res = await fetch(`${API_URL}/api/jobs/services/${svc.svc_id}/quotations`, {
+      const res = await authFetch(`${API_URL}/api/jobs/services/${svc.svc_id}/quotations`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -569,7 +568,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
         return false
       }
       const results = await Promise.all(svcsWithPricing.map(svc =>
-        fetch(`${API_URL}/api/jobs/services/${svc.svc_id}/quotations`, {
+        authFetch(`${API_URL}/api/jobs/services/${svc.svc_id}/quotations`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -604,7 +603,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
   const handleAssign = async (svc_id, vendor_id, employee_id, vehicleInfo = {}) => {
     setSaving(true)
     try {
-      const res = await fetch(`${API_URL}/api/services/${svc_id}/assign`, {
+      const res = await authFetch(`${API_URL}/api/services/${svc_id}/assign`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ vendor_id, employee_id, ...vehicleInfo })
@@ -634,7 +633,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
   const handleUpdateStatus = async (newStatus) => {
     setSaving(true)
     try {
-      const res = await fetch(`${API_URL}/api/jobs/${job.job_id}/status`, {
+      const res = await authFetch(`${API_URL}/api/jobs/${job.job_id}/status`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status_code: newStatus })
@@ -660,7 +659,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
 
     setSaving(true)
     try {
-      const res = await fetch(`${API_URL}/api/jobs/${job.job_id}/cancel`, { method: 'DELETE' })
+      const res = await authFetch(`${API_URL}/api/jobs/${job.job_id}/cancel`, { method: 'DELETE' })
       const result = await res.json()
       if (result.success) {
         setJobStatus('CANCELLED')
@@ -682,7 +681,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
   const handleUpdateServiceStatus = async (svc_id, newStatus) => {
     setSaving(true)
     try {
-      const res = await fetch(`${API_URL}/api/services/${svc_id}/status`, {
+      const res = await authFetch(`${API_URL}/api/services/${svc_id}/status`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status_code: newStatus })
@@ -709,7 +708,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
 
     setSaving(true)
     try {
-      const res = await fetch(`${API_URL}/api/services/${svc_id}`, { method: 'DELETE' })
+      const res = await authFetch(`${API_URL}/api/services/${svc_id}`, { method: 'DELETE' })
       const result = await res.json()
       if (result.success) {
         setServices(prev => prev.filter(s => s.svc_id !== svc_id))
@@ -728,7 +727,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
   const handleUpdateServiceNotes = async (svc_id, notes) => {
     setSaving(true)
     try {
-      const res = await fetch(`${API_URL}/api/jobs/services/${svc_id}/notes`, {
+      const res = await authFetch(`${API_URL}/api/jobs/services/${svc_id}/notes`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ notes: notes || '' })
@@ -754,7 +753,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
 
     setSaving(true)
     try {
-      const res = await fetch(`${API_URL}/api/jobs/${job.job_id}/customer`, {
+      const res = await authFetch(`${API_URL}/api/jobs/${job.job_id}/customer`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -791,7 +790,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
 
     setSaving(true)
     try {
-      const res = await fetch(`${API_URL}/api/jobs/${job.job_id}/services`, {
+      const res = await authFetch(`${API_URL}/api/jobs/${job.job_id}/services`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newService)
@@ -2065,7 +2064,7 @@ function JobCreateForm({ onClose, onSuccess }) {
     // Fetch customers
     const fetchCustomers = async () => {
       try {
-        const res = await fetch(`${API_URL}/api/customers`)
+        const res = await authFetch(`${API_URL}/api/customers`)
         if (res.ok) {
           const data = await res.json()
           setCustomers(data.customers || [])
@@ -2123,7 +2122,7 @@ function JobCreateForm({ onClose, onSuccess }) {
         }
       }
 
-      const res = await fetch(`${API_URL}/api/jobs/create`, {
+      const res = await authFetch(`${API_URL}/api/jobs/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -2458,13 +2457,13 @@ function MainDashboard() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const statsRes = await fetch(`${API_URL}/api/dashboard/stats`)
+        const statsRes = await authFetch(`${API_URL}/api/dashboard/stats`)
         if (statsRes.ok) {
           const statsData = await statsRes.json()
           setStats(statsData)
         }
 
-        const jobsRes = await fetch(`${API_URL}/api/jobs/recent?limit=10`)
+        const jobsRes = await authFetch(`${API_URL}/api/jobs/recent?limit=10`)
         if (jobsRes.ok) {
           const jobsData = await jobsRes.json()
           setRecentJobs(jobsData.jobs || [])
@@ -2487,7 +2486,7 @@ function MainDashboard() {
       const serviceNavs = ['trucking', 'container', 'air', 'sea', 'warehouse', 'handling', 'customs', 'co', 'packing', 'special']
       if (serviceNavs.includes(activeNav)) {
         try {
-          const res = await fetch(`${API_URL}/api/services/${activeNav}`)
+          const res = await authFetch(`${API_URL}/api/services/${activeNav}`)
           if (res.ok) {
             const data = await res.json()
             setServiceData(data.services || [])
@@ -2536,7 +2535,7 @@ function MainDashboard() {
 
   const handleJobCreated = (result) => {
     // Refresh data
-    fetch(`${API_URL}/api/jobs/recent?limit=10`)
+    authFetch(`${API_URL}/api/jobs/recent?limit=10`)
       .then(res => res.json())
       .then(data => setRecentJobs(data.jobs || []))
   }
@@ -2811,7 +2810,7 @@ function MainDashboard() {
       {/* Job Detail Modal */}
       {showJobDetail && <JobDetailModal job={selectedJob} onClose={() => setShowJobDetail(false)} onUpdate={() => {
         // Refresh recent jobs list after quotation save
-        fetch(`${API_URL}/api/jobs/recent?limit=10`).then(r => r.json()).then(d => setRecentJobs(d.jobs || []))
+        authFetch(`${API_URL}/api/jobs/recent?limit=10`).then(r => r.json()).then(d => setRecentJobs(d.jobs || []))
       }} />}
 
       {/* Job Create Form */}

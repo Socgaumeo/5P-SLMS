@@ -6,8 +6,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import './SearchBox.css';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+import { authFetch, API_URL } from '../utils/auth-fetch';
 
 // Get current month in YYYY-MM format
 const getCurrentMonth = () => {
@@ -77,8 +76,8 @@ export default function SearchBox({ onJobSelect }) {
 
       // Also check for customer/vendor match
       const [custRes, vendorRes] = await Promise.all([
-        fetch(`${API_URL}/api/search/customers?q=${encodeURIComponent(searchQuery)}&limit=1`),
-        fetch(`${API_URL}/api/search/vendors?q=${encodeURIComponent(searchQuery)}&limit=1`)
+        authFetch(`${API_URL}/api/search/customers?q=${encodeURIComponent(searchQuery)}&limit=1`),
+        authFetch(`${API_URL}/api/search/vendors?q=${encodeURIComponent(searchQuery)}&limit=1`)
       ]);
 
       const custData = await custRes.json();
@@ -112,7 +111,7 @@ export default function SearchBox({ onJobSelect }) {
   // Check if customer has custom export template
   const checkCustomTemplate = async (customerCode) => {
     try {
-      const res = await fetch(`${API_URL}/api/exports/templates/${customerCode}`);
+      const res = await authFetch(`${API_URL}/api/exports/templates/${customerCode}`);
       const data = await res.json();
       setTemplateInfo(data.has_template ? data : null);
     } catch (error) {
