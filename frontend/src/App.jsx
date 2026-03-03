@@ -250,11 +250,35 @@ function QuotationSelector({ type, rates, standardRates = [], selectedRateId, se
                 style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--border)', fontSize: '12px', width: '100%' }}
               >
                 <option value="">-- Chọn báo giá --</option>
-                {(type === 'buying' ? filteredVendorRates : rates).map(r => (
-                  <option key={r.rate_id} value={r.rate_id}>
-                    {r.origin && r.destination ? `${r.origin}→${r.destination}` : r.vendor_name || r.customer_name || 'N/A'} | {r.vehicle_type || 'N/A'} | {formatPriceDisplay(r.price)}
-                  </option>
-                ))}
+                {type === 'buying' ? (
+                  filteredVendorRates.map(r => (
+                    <option key={r.rate_id} value={r.rate_id}>
+                      {r.origin && r.destination ? `${r.origin}→${r.destination}` : r.vendor_name || 'N/A'} | {r.vehicle_type || r.unit || 'N/A'} | {formatPriceDisplay(r.price)}
+                    </option>
+                  ))
+                ) : (
+                  Object.entries(
+                    rates.reduce((groups, r) => {
+                      const key = r.customer_name || 'Khác'
+                      if (!groups[key]) groups[key] = []
+                      groups[key].push(r)
+                      return groups
+                    }, {})
+                  ).map(([custName, custRates]) => (
+                    <optgroup key={custName} label={custName}>
+                      {custRates.map(r => {
+                        const info = r.origin && r.destination
+                          ? `${r.origin}→${r.destination}`
+                          : r.service_type_code || r.vehicle_type || ''
+                        return (
+                          <option key={r.rate_id} value={r.rate_id}>
+                            {info} | {formatPriceDisplay(r.price)}/{r.unit || 'TRIP'}
+                          </option>
+                        )
+                      })}
+                    </optgroup>
+                  ))
+                )}
               </select>
             )}
           </div>
@@ -1126,7 +1150,8 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                               }}>
                                 <div
                                   style={{ padding: '8px 10px', cursor: 'pointer', borderBottom: '1px solid var(--border)' }}
-                                  onClick={() => {
+                                  onMouseDown={(e) => {
+                                    e.preventDefault()
                                     handleAssign(svc.svc_id, null, svc.employee_id || null)
                                     setServices(prev => prev.map(s =>
                                       s.svc_id === svc.svc_id ? { ...s, showVendorDropdown: false, vendorSearch: '', vendor_id: null, vendor_name: null } : s
@@ -1148,7 +1173,8 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                     }}
                                     onMouseEnter={(e) => e.target.style.background = 'rgba(37, 99, 235, 0.1)'}
                                     onMouseLeave={(e) => e.target.style.background = svc.vendor_id === v.vendor_id ? 'rgba(37, 99, 235, 0.2)' : 'transparent'}
-                                    onClick={() => {
+                                    onMouseDown={(e) => {
+                                      e.preventDefault()
                                       handleAssign(svc.svc_id, v.vendor_id, svc.employee_id || null)
                                       setServices(prev => prev.map(s =>
                                         s.svc_id === svc.svc_id ? { ...s, showVendorDropdown: false, vendorSearch: '', vendor_id: v.vendor_id, vendor_name: v.short_name || v.company_name } : s

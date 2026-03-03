@@ -16,6 +16,7 @@ import json
 import re
 from typing import Dict, Any, Optional, Tuple
 from dataclasses import dataclass, field
+from app.db.supabase_client import get_supabase
 
 logger = logging.getLogger(__name__)
 
@@ -795,70 +796,79 @@ class UnifiedProcessor:
         return "\n".join(lines)
 
     async def _execute_create_quotation(self, state, client, api_base):
-        """Create a quotation (buying or selling rate) via admin API."""
+        """Create a quotation (buying or selling rate) via direct DB insert."""
+        from datetime import date as date_type
         entities = state.entities
         quote_type = entities.get("quote_type", "buying").lower()
 
-        # Lookup vendor/customer by name
+        # Lookup vendor/customer by name via direct DB query
         vendor_id = None
         customer_id = None
+        db = get_supabase()
 
         if quote_type == "buying" and entities.get("vendor_name"):
-            resp = await client.get(f"{api_base}/api/jobs/lookup/vendors", timeout=10.0)
-            if resp.status_code == 200:
-                for v in resp.json().get("data", []):
-                    name_lower = entities["vendor_name"].lower()
-                    if name_lower in (v.get("short_name") or "").lower() or \
-                       name_lower in (v.get("company_name") or "").lower():
-                        vendor_id = v.get("vendor_id")
-                        break
+            result = db.table('vendors').select('vendor_id, short_name, company_name').eq('is_active', True).execute()
+            for v in result.data or []:
+                name_lower = entities["vendor_name"].lower()
+                if name_lower in (v.get("short_name") or "").lower() or \
+                   name_lower in (v.get("company_name") or "").lower():
+                    vendor_id = v.get("vendor_id")
+                    break
 
         elif quote_type == "selling" and entities.get("customer_name"):
-            resp = await client.get(f"{api_base}/api/jobs/lookup/customers", timeout=10.0)
-            if resp.status_code == 200:
-                for c in resp.json().get("data", []):
-                    name_lower = entities["customer_name"].lower()
-                    if name_lower in (c.get("short_name") or "").lower() or \
-                       name_lower in (c.get("company_name") or "").lower() or \
-                       name_lower in (c.get("customer_code") or "").lower():
-                        customer_id = c.get("customer_id")
-                        break
+            result = db.table('customers').select('customer_id, short_name, company_name, customer_code').eq('is_active', True).execute()
+            for c in result.data or []:
+                name_lower = entities["customer_name"].lower()
+                if name_lower in (c.get("short_name") or "").lower() or \
+                   name_lower in (c.get("company_name") or "").lower() or \
+                   name_lower in (c.get("customer_code") or "").lower():
+                    customer_id = c.get("customer_id")
+                    break
 
-        endpoint = "buying-rates" if quote_type == "buying" else "selling-rates"
-        payload = {
-            "price": entities.get("price"),
-            "currency": entities.get("currency", "VND"),
-            "unit": entities.get("unit", "TRIP"),
-            "vehicle_type": entities.get("vehicle_type"),
-            "origin_province": entities.get("origin_province"),
-            "destination_province": entities.get("destination_province"),
-            "notes": entities.get("sub_route") or entities.get("notes"),
-            "rate_type": entities.get("rate_type", "STANDARD"),
-            "is_active": True,
+        # Build insert data
+        insert_data = {
+            'price': entities.get("price"),
+            'currency': entities.get("currency", "VND"),
+            'unit': entities.get("unit", "TRIP"),
+            'vehicle_type': entities.get("vehicle_type"),
+            'origin_province': entities.get("origin_province"),
+            'destination_province': entities.get("destination_province"),
+            'notes': entities.get("sub_route") or entities.get("notes"),
+            'rate_type': entities.get("rate_type", "STANDARD"),
+            'is_active': True,
+            'effective_date': date_type.today().isoformat(),
+            'service_type_code': entities.get("service_type_code"),
         }
+        # Remove None values
+        insert_data = {k: v for k, v in insert_data.items() if v is not None}
 
         if quote_type == "buying":
             if not vendor_id:
                 return {"success": False, "response": f"Không tìm thấy NCC '{entities.get('vendor_name')}'. Vui lòng tạo NCC trước."}
-            payload["vendor_id"] = vendor_id
+            insert_data["vendor_id"] = vendor_id
+            table = 'vendor_rates'
         else:
             if not customer_id:
                 return {"success": False, "response": f"Không tìm thấy KH '{entities.get('customer_name')}'. Vui lòng tạo KH trước."}
-            payload["customer_id"] = customer_id
+            insert_data["customer_id"] = customer_id
+            table = 'customer_rates'
 
-        resp = await client.post(f"{api_base}/api/admin/{endpoint}", json=payload, timeout=30.0)
-        if resp.status_code == 200:
-            label = "mua" if quote_type == "buying" else "bán"
-            route = ""
-            if entities.get("origin_province") and entities.get("destination_province"):
-                route = f" {entities['origin_province']}→{entities['destination_province']}"
-            price = entities.get("price", 0)
-            return {
-                "success": True,
-                "response": f"✅ Đã tạo báo giá {label}{route} | {price:,.0f} VND thành công!"
-            }
-        error = resp.json() if resp.status_code != 500 else {}
-        return {"success": False, "response": f"Lỗi tạo báo giá: {error.get('detail', resp.text[:200])}"}
+        try:
+            result = db.table(table).insert(insert_data).execute()
+            if result.data:
+                label = "mua" if quote_type == "buying" else "bán"
+                route = ""
+                if entities.get("origin_province") and entities.get("destination_province"):
+                    route = f" {entities['origin_province']}→{entities['destination_province']}"
+                price = entities.get("price", 0)
+                return {
+                    "success": True,
+                    "response": f"✅ Đã tạo báo giá {label}{route} | {price:,.0f} VND thành công!"
+                }
+            return {"success": False, "response": "Lỗi tạo báo giá: không có dữ liệu trả về"}
+        except Exception as e:
+            logger.error(f"[UNIFIED] Direct DB insert failed: {e}")
+            return {"success": False, "response": f"Lỗi tạo báo giá: {str(e)}"}
 
     async def _execute_create_entity(self, state, client, api_base):
         """Create customer or vendor via admin API."""

@@ -32,7 +32,17 @@ const SERVICE_CATEGORIES = {
   WAREHOUSE: {
     label: 'Kho bãi',
     fields: ['warehouse_service'],
-    units: ['CBM/DAY', 'PALLET/DAY', 'UNIT'],
+    units: ['CBM/DAY', 'PALLET/DAY', 'KG/DAY', '/LAN', 'UNIT'],
+  },
+  LOADING: {
+    label: 'Bốc xếp',
+    fields: [],
+    units: ['KG', 'PALLET', 'CONT', 'TRIP'],
+  },
+  INFRA: {
+    label: 'CSHT',
+    fields: [],
+    units: ['/CONT', '/SHIPMENT'],
   },
 }
 
@@ -101,6 +111,10 @@ export default function RateFormModal({
 
     // Warehouse specific
     warehouse_service: '',
+
+    // Min charge
+    min_charge: false,
+    min_charge_amount: '',
   })
 
   // Fetch reference data
@@ -118,10 +132,13 @@ export default function RateFormModal({
   // Populate form when editing
   useEffect(() => {
     if (editData) {
+      const meta = editData.metadata || {}
       setFormData({
         ...formData,
         ...editData,
         sub_route: editData.notes || '',
+        min_charge: meta.min_charge || false,
+        min_charge_amount: meta.min_charge_amount || '',
       })
     }
   }, [editData])
@@ -166,7 +183,7 @@ export default function RateFormModal({
     setLoading(true)
 
     try {
-      // Prepare payload
+      // Prepare payload - route fields common to all categories
       const payload = {
         price: parseFloat(formData.price),
         currency: formData.currency,
@@ -176,13 +193,13 @@ export default function RateFormModal({
         notes: formData.sub_route || formData.notes,
         is_active: formData.is_active,
         service_type_code: formData.service_type_code || null,
+        origin_province: formData.origin_province || null,
+        destination_province: formData.destination_province || null,
       }
 
       // Add service-specific fields
       const category = getSelectedServiceCategory()
       if (category === 'TRUCKING') {
-        payload.origin_province = formData.origin_province
-        payload.destination_province = formData.destination_province
         payload.vehicle_type = formData.vehicle_type
         payload.rate_type = formData.rate_type
         if (formData.rate_type === 'REFRIGERATED') {
@@ -197,6 +214,15 @@ export default function RateFormModal({
         payload.metadata = { packing_type: formData.packing_type }
       } else if (category === 'WAREHOUSE') {
         payload.metadata = { warehouse_service: formData.warehouse_service }
+      }
+
+      // Add min_charge to metadata if enabled
+      if (formData.min_charge && formData.min_charge_amount) {
+        payload.metadata = {
+          ...(payload.metadata || {}),
+          min_charge: true,
+          min_charge_amount: parseFloat(formData.min_charge_amount),
+        }
       }
 
       // Add vendor/customer
@@ -319,42 +345,42 @@ export default function RateFormModal({
             </div>
           </div>
 
+          {/* Route fields - all categories */}
+          <div className="form-row">
+            <div className="form-group">
+              <label>Điểm đi</label>
+              <input
+                type="text"
+                value={formData.origin_province}
+                onChange={(e) => setFormData({ ...formData, origin_province: e.target.value })}
+                placeholder="VD: Hà Nội, Cảng Cát Lái..."
+              />
+            </div>
+            <div className="form-group">
+              <label>Điểm đến</label>
+              <input
+                type="text"
+                value={formData.destination_province}
+                onChange={(e) => setFormData({ ...formData, destination_province: e.target.value })}
+                placeholder="VD: Bắc Ninh, KCN VSIP..."
+              />
+            </div>
+          </div>
+
+          {/* Sub-route detail - all categories */}
+          <div className="form-group">
+            <label>Chi tiết (Sub-route)</label>
+            <input
+              type="text"
+              value={formData.sub_route}
+              onChange={(e) => setFormData({ ...formData, sub_route: e.target.value })}
+              placeholder="VD: Nội Bài -> KCN Thăng Long"
+            />
+          </div>
+
           {/* Trucking specific fields */}
           {category === 'TRUCKING' && (
             <>
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Tỉnh đi *</label>
-                  <input
-                    type="text"
-                    value={formData.origin_province}
-                    onChange={(e) => setFormData({ ...formData, origin_province: e.target.value })}
-                    placeholder="VD: Hà Nội"
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Tỉnh đến *</label>
-                  <input
-                    type="text"
-                    value={formData.destination_province}
-                    onChange={(e) => setFormData({ ...formData, destination_province: e.target.value })}
-                    placeholder="VD: Bắc Ninh"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label>Chi tiết điểm giao (Sub-route)</label>
-                <input
-                  type="text"
-                  value={formData.sub_route}
-                  onChange={(e) => setFormData({ ...formData, sub_route: e.target.value })}
-                  placeholder="VD: Nội Bài -> KCN Thăng Long"
-                />
-              </div>
-
               <div className="form-row">
                 <div className="form-group">
                   <label>Loại xe *</label>
@@ -521,6 +547,31 @@ export default function RateFormModal({
             </div>
           </div>
 
+          {/* Min charge */}
+          <div className="form-row" style={{ alignItems: 'center' }}>
+            <div className="form-group" style={{ flex: '0 0 auto' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <input
+                  type="checkbox"
+                  checked={formData.min_charge}
+                  onChange={(e) => setFormData({ ...formData, min_charge: e.target.checked })}
+                />
+                Có mức thu tối thiểu (Min charge)
+              </label>
+            </div>
+            {formData.min_charge && (
+              <div className="form-group">
+                <label>Mức tối thiểu</label>
+                <input
+                  type="number"
+                  value={formData.min_charge_amount}
+                  onChange={(e) => setFormData({ ...formData, min_charge_amount: e.target.value })}
+                  placeholder="VD: 500000"
+                />
+              </div>
+            )}
+          </div>
+
           {/* Date fields */}
           <div className="form-row">
             <div className="form-group">
@@ -541,17 +592,15 @@ export default function RateFormModal({
             </div>
           </div>
 
-          {/* Notes */}
-          {category !== 'TRUCKING' && (
-            <div className="form-group">
-              <label>Ghi chú</label>
-              <textarea
-                value={formData.notes}
-                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                placeholder="Ghi chú thêm..."
-              />
-            </div>
-          )}
+          {/* Notes - always visible */}
+          <div className="form-group">
+            <label>Ghi chú</label>
+            <textarea
+              value={formData.notes}
+              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+              placeholder="Ghi chú thêm..."
+            />
+          </div>
 
           {/* Actions */}
           <div className="form-actions">
