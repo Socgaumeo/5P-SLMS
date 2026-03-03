@@ -515,12 +515,13 @@ async def confirm_rate_import(request: ConfirmImportRequest):
             if request.file_ref_id:
                 row["file_reference_id"] = request.file_ref_id
 
+            if rate.origin:
+                row["origin_province"] = rate.origin
+            if rate.destination:
+                row["destination_province"] = rate.destination
+
             if request.rate_type == "buying":
                 row["vendor_id"] = request.vendor_id
-                if rate.origin:
-                    row["origin_province"] = rate.origin
-                if rate.destination:
-                    row["destination_province"] = rate.destination
             else:
                 row["customer_id"] = request.customer_id
 

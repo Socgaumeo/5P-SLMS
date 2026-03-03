@@ -252,7 +252,7 @@ function QuotationSelector({ type, rates, standardRates = [], selectedRateId, se
                 <option value="">-- Chọn báo giá --</option>
                 {(type === 'buying' ? filteredVendorRates : rates).map(r => (
                   <option key={r.rate_id} value={r.rate_id}>
-                    {r.vendor_name || r.customer_name || 'N/A'} - {r.vehicle_type || 'N/A'} - {formatPriceDisplay(r.price)}
+                    {r.origin && r.destination ? `${r.origin}→${r.destination}` : r.vendor_name || r.customer_name || 'N/A'} | {r.vehicle_type || 'N/A'} | {formatPriceDisplay(r.price)}
                   </option>
                 ))}
               </select>
@@ -496,10 +496,17 @@ function JobDetailModal({ job, onClose, onUpdate }) {
       )
       const buyingData = await buyingRes.json()
 
-      // Fetch selling rates (customer rates)
-      const sellingRes = await authFetch(
+      // Fetch selling rates (customer rates) - try customer-specific first, fallback to all
+      let sellingRes = await authFetch(
         `${API_URL}/api/jobs/quotations/search?type=selling&customer_id=${job?.customer_id || ''}&service_type=${svc.service_type_code || ''}`
       )
+      let sellingCheck = await sellingRes.clone().json()
+      if ((!sellingCheck.rates || sellingCheck.rates.length === 0) && job?.customer_id) {
+        // Fallback: fetch all selling rates without customer filter
+        sellingRes = await authFetch(
+          `${API_URL}/api/jobs/quotations/search?type=selling&service_type=${svc.service_type_code || ''}`
+        )
+      }
       const sellingData = await sellingRes.json()
 
       setQuotations(prev => ({
@@ -2635,7 +2642,7 @@ function MainDashboard() {
               <StatsCard icon="📋" label="Jobs Today" value={stats.jobs_today || 0} color={theme.primary} />
               <StatsCard icon="🚚" label="Active Trucking" value={stats.trucking || 0} color={theme.accent} />
               <StatsCard icon="🏭" label="In Storage" value={stats.warehouse || 0} color="#8B5CF6" />
-              <StatsCard icon="📈" label="Revenue MTD" value={stats.revenue || '0'} color={theme.success} />
+              <StatsCard icon="📈" label="Doanh thu" value={stats.revenue || '0'} color={theme.success} />
             </div>
 
             <div className="dashboard-grid">

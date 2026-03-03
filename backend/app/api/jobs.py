@@ -1232,14 +1232,19 @@ async def get_dashboard_stats():
             status = row.get('status_code') or 'PENDING'
             status_counts[status] = status_counts.get(status, 0) + 1
 
-        # Revenue MTD - sum selling amounts from job_costs in current month
-        month_start = date.today().replace(day=1).isoformat()
-        revenue_result = client.table('jobs').select(
-            'total_revenue'
-        ).gte('created_at', f'{month_start}T00:00:00').execute()
-        revenue_total = sum(
+        # Revenue - sum from job_services.service_details JSONB + jobs.total_revenue
+        # Source 1: jobs.total_revenue (populated by job_costs trigger)
+        revenue_result = client.table('jobs').select('total_revenue').execute()
+        jobs_revenue = sum(
             float(r.get('total_revenue') or 0) for r in revenue_result.data
         )
+        # Source 2: job_services.service_details JSONB (populated by quotation system)
+        svc_result = client.table('job_services').select('service_details').execute()
+        svc_revenue = 0
+        for svc in svc_result.data:
+            details = svc.get('service_details') or {}
+            svc_revenue += float(details.get('total_revenue') or details.get('selling_price') or 0)
+        revenue_total = max(jobs_revenue, svc_revenue)
         # Format: 1.2B, 500M, 50K, or raw number
         if revenue_total >= 1_000_000_000:
             revenue_mtd = f"{revenue_total / 1_000_000_000:.1f}B"
