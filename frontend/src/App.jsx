@@ -474,9 +474,8 @@ function JobDetailModal({ job, onClose, onUpdate }) {
   useEffect(() => {
     if (editMode) {
       // Fetch vendors, employees, and customers for dropdowns
-      authFetch(`${API_URL}/api/vendors`).then(r => r.json()).then(d => setVendors(d.vendors || []))
-      authFetch(`${API_URL}/api/employees`).then(r => r.json()).then(d => setEmployees(d.employees || []))
-      authFetch(`${API_URL}/api/customers`).then(r => r.json()).then(d => setCustomers(d.customers || []))
+      authFetch(`${API_URL}/api/admin/vendors`).then(r => r.json()).then(d => setVendors(d.data || []))
+      authFetch(`${API_URL}/api/admin/customers`).then(r => r.json()).then(d => setCustomers(d.data || []))
       // Fetch standard cost rates
       authFetch(`${API_URL}/api/admin/cost-items`).then(r => r.json()).then(d => setStandardRates(d.data || []))
 
@@ -605,7 +604,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
   const handleAssign = async (svc_id, vendor_id, employee_id, vehicleInfo = {}) => {
     setSaving(true)
     try {
-      const res = await authFetch(`${API_URL}/api/services/${svc_id}/assign`, {
+      const res = await authFetch(`${API_URL}/api/jobs/services/${svc_id}/assign`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ vendor_id, employee_id, ...vehicleInfo })
@@ -1122,9 +1121,9 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                 <div
                                   style={{ padding: '8px 10px', cursor: 'pointer', borderBottom: '1px solid var(--border)' }}
                                   onClick={() => {
-                                    handleAssign(svc.svc_id, null, null)
+                                    handleAssign(svc.svc_id, null, svc.employee_id || null)
                                     setServices(prev => prev.map(s =>
-                                      s.svc_id === svc.svc_id ? { ...s, showVendorDropdown: false, vendorSearch: '' } : s
+                                      s.svc_id === svc.svc_id ? { ...s, showVendorDropdown: false, vendorSearch: '', vendor_id: null, vendor_name: null } : s
                                     ))
                                   }}
                                 >
@@ -1144,9 +1143,9 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                     onMouseEnter={(e) => e.target.style.background = 'rgba(37, 99, 235, 0.1)'}
                                     onMouseLeave={(e) => e.target.style.background = svc.vendor_id === v.vendor_id ? 'rgba(37, 99, 235, 0.2)' : 'transparent'}
                                     onClick={() => {
-                                      handleAssign(svc.svc_id, v.vendor_id, null)
+                                      handleAssign(svc.svc_id, v.vendor_id, svc.employee_id || null)
                                       setServices(prev => prev.map(s =>
-                                        s.svc_id === svc.svc_id ? { ...s, showVendorDropdown: false, vendorSearch: '', vendor_name: v.short_name || v.company_name } : s
+                                        s.svc_id === svc.svc_id ? { ...s, showVendorDropdown: false, vendorSearch: '', vendor_id: v.vendor_id, vendor_name: v.short_name || v.company_name } : s
                                       ))
                                     }}
                                   >
@@ -1159,7 +1158,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                           <span>hoặc</span>
                           <select
                             value={svc.employee_id || ''}
-                            onChange={e => handleAssign(svc.svc_id, null, e.target.value ? parseInt(e.target.value) : null)}
+                            onChange={e => handleAssign(svc.svc_id, svc.vendor_id || null, e.target.value ? parseInt(e.target.value) : null)}
                             disabled={saving}
                           >
                             <option value="">-- Nhân viên --</option>

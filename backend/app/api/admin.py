@@ -554,6 +554,8 @@ def create_selling_rate(data: RateCreate):
             'is_active': data.is_active,
             'service_type_code': data.service_type_code,
             'metadata': data.metadata,
+            'origin_province': data.origin_province,
+            'destination_province': data.destination_province,
         }
 
         # Remove None values to let DB use defaults

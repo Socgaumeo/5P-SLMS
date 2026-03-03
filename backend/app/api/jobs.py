@@ -2142,6 +2142,43 @@ async def update_service_quotations(svc_id: int, request: ServiceQuotationReques
         return {"success": False, "message": str(e)}
 
 
+class ServiceAssignRequest(BaseModel):
+    vendor_id: Optional[int] = None
+    employee_id: Optional[int] = None
+    vehicle_id: Optional[int] = None
+    driver_id: Optional[int] = None
+
+
+@router.put("/services/{svc_id}/assign")
+async def assign_service(svc_id: int, request: ServiceAssignRequest):
+    """Assign vendor/employee to a service from the UI edit mode."""
+    try:
+        client = get_supabase()
+        update_data = {}
+        if request.vendor_id is not None:
+            update_data['vendor_id'] = request.vendor_id if request.vendor_id else None
+        if request.employee_id is not None:
+            update_data['employee_id'] = request.employee_id if request.employee_id else None
+        if request.vehicle_id is not None:
+            update_data['vehicle_id'] = request.vehicle_id if request.vehicle_id else None
+        if request.driver_id is not None:
+            update_data['driver_id'] = request.driver_id if request.driver_id else None
+
+        if not update_data:
+            return {"success": False, "message": "No fields to update"}
+
+        result = client.table('job_services').update(update_data).eq('svc_id', svc_id).execute()
+        if not result.data:
+            raise HTTPException(404, f"Service {svc_id} not found")
+
+        return {"success": True, "data": result.data[0]}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error assigning service {svc_id}: {e}")
+        raise HTTPException(500, str(e))
+
+
 class ServiceNotesRequest(BaseModel):
     notes: str
 
