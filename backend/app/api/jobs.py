@@ -2008,7 +2008,7 @@ async def search_quotations(
             if vendor_id:
                 query = query.eq('vendor_id', vendor_id)
 
-            result = query.order('price').limit(20).execute()
+            result = query.order('price').limit(50).execute()
 
             rates = []
             for r in result.data:
@@ -2023,6 +2023,7 @@ async def search_quotations(
                     'destination': r.get('destination_province'),
                     'unit': r.get('unit', 'TRIP'),
                     'service_type_code': r.get('service_type_code'),
+                    'notes': r.get('notes'),
                 })
 
         else:
@@ -2037,7 +2038,7 @@ async def search_quotations(
                 # Include rates matching this service type OR rates without service_type_code (legacy)
                 query = query.or_(f'service_type_code.eq.{service_type},service_type_code.is.null')
 
-            result = query.order('price', desc=True).limit(20).execute()
+            result = query.order('price', desc=True).limit(50).execute()
 
             rates = []
             for r in result.data:

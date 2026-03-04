@@ -251,11 +251,14 @@ function QuotationSelector({ type, rates, standardRates = [], selectedRateId, se
               >
                 <option value="">-- Chọn báo giá --</option>
                 {type === 'buying' ? (
-                  filteredVendorRates.map(r => (
-                    <option key={r.rate_id} value={r.rate_id}>
-                      {r.origin && r.destination ? `${r.origin}→${r.destination}` : r.vendor_name || 'N/A'} | {r.vehicle_type || r.unit || 'N/A'} | {formatPriceDisplay(r.price)}
-                    </option>
-                  ))
+                  filteredVendorRates.map(r => {
+                    const route = r.notes || (r.origin && r.destination ? `${r.origin}→${r.destination}` : r.vendor_name || 'N/A')
+                    return (
+                      <option key={r.rate_id} value={r.rate_id}>
+                        {route} | {r.vehicle_type || r.unit || 'N/A'} | {formatPriceDisplay(r.price)}
+                      </option>
+                    )
+                  })
                 ) : (
                   Object.entries(
                     rates.reduce((groups, r) => {
@@ -337,6 +340,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
   // Quotation state for per-service pricing
   const [quotations, setQuotations] = useState({}) // {svc_id: {buying: [], selling: []}}
   const [standardRates, setStandardRates] = useState([]) // Standard cost items from master_cost_items
+  const [savedField, setSavedField] = useState(null) // Flash "Saved" indicator: 'vendor-{svc_id}', 'vehicle-{svc_id}'
 
   // Service type labels for display
   const SERVICE_TYPE_LABELS = {
@@ -447,6 +451,14 @@ function JobDetailModal({ job, onClose, onUpdate }) {
       const res = await authFetch(`${API_URL}/api/jobs/${job.job_id}/details`)
       if (res.ok) {
         const data = await res.json()
+        // Update jobCustomer from API response (ensures customer_id is always available)
+        if (data.job?.customer_id) {
+          setJobCustomer({
+            id: data.job.customer_id,
+            code: data.job.customer_code || jobCustomer.code,
+            name: data.job.customer_name || jobCustomer.name
+          })
+        }
         // Parse vendor_text_input to extract vehicle info
         const processedServices = (data.services || []).map(svc => {
           // If license_plate is already set, use it
@@ -514,7 +526,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
         services.forEach(svc => fetchQuotationsForService(svc))
       }
     }
-  }, [editMode, services.length])
+  }, [editMode, services.length, jobCustomer?.id])
 
   // Fetch matching quotations for a service (filtered by vendor/customer)
   const fetchQuotationsForService = async (svc) => {
@@ -527,9 +539,10 @@ function JobDetailModal({ job, onClose, onUpdate }) {
       const buyingRes = await authFetch(buyingUrl)
       const buyingData = await buyingRes.json()
 
-      // Selling rates: filter by job's customer
+      // Selling rates: filter by job's customer (use jobCustomer state, fallback to job prop)
       let sellingUrl = `${API_URL}/api/jobs/quotations/search?type=selling&service_type=${svcType}`
-      if (job?.customer_id) sellingUrl += `&customer_id=${job.customer_id}`
+      const custId = jobCustomer?.id || job?.customer_id
+      if (custId) sellingUrl += `&customer_id=${custId}`
       const sellingRes = await authFetch(sellingUrl)
       const sellingData = await sellingRes.json()
 
@@ -641,15 +654,20 @@ function JobDetailModal({ job, onClose, onUpdate }) {
       })
       const result = await res.json()
       if (result.success) {
-        // Update local state
-        setServices(prev => prev.map(s =>
-          s.svc_id === svc_id ? {
-            ...s, vendor_id, employee_id,
-            vendor_name: vendors.find(v => v.vendor_id === vendor_id)?.short_name || vendors.find(v => v.vendor_id === vendor_id)?.company_name,
-            employee_name: employees.find(e => e.employee_id === employee_id)?.short_name,
-            ...vehicleInfo
-          } : s
-        ))
+        // Update local state and refresh quotations with new vendor
+        const updatedSvc = services.find(s => s.svc_id === svc_id)
+        const newSvc = {
+          ...updatedSvc, vendor_id, employee_id,
+          vendor_name: vendors.find(v => v.vendor_id === vendor_id)?.short_name || vendors.find(v => v.vendor_id === vendor_id)?.company_name,
+          employee_name: employees.find(e => e.employee_id === employee_id)?.short_name,
+          ...vehicleInfo
+        }
+        setServices(prev => prev.map(s => s.svc_id === svc_id ? newSvc : s))
+        // Auto-refresh quotations with updated vendor_id
+        fetchQuotationsForService(newSvc)
+        // Flash saved indicator
+        setSavedField(`vendor-${svc_id}`)
+        setTimeout(() => setSavedField(null), 2000)
       } else {
         alert(result.message || 'Không thể cập nhật')
       }
@@ -1092,9 +1110,9 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                       )}
                     </div>
 
-                    {/* Assignment info - Editable */}
+                    {/* Assignment info - Editable (auto-saves on selection) */}
                     <div className="service-assignment">
-                      <strong>Người xử lý:</strong>
+                      <strong>Vendor/NV:</strong>
                       {editMode ? (
                         <div className="assign-controls">
                           {/* Searchable Vendor Dropdown */}
@@ -1187,6 +1205,9 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                               </div>
                             )}
                           </div>
+                          {savedField === `vendor-${svc.svc_id}` && (
+                            <span style={{ color: '#10B981', fontSize: '12px', fontWeight: 'bold', animation: 'fadeIn 0.3s' }}>Da luu</span>
+                          )}
                           <span>hoặc</span>
                           <select
                             value={svc.employee_id || ''}
