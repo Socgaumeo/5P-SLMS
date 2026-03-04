@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import './App.css'
 import ChatWindow from './components/chat/ChatWindow'
 import AdminPanel from './components/admin/AdminPanel'
@@ -89,13 +89,15 @@ const FloatingAIButton = ({ onClick, hasNotification }) => (
 // ========================================
 // QUOTATION SELECTOR COMPONENT
 // ========================================
-function QuotationSelector({ type, rates, standardRates = [], selectedRateId, selectedPrice, quantity = 1, onQuantityChange, onSelect, disabled, vendorId, onSearch }) {
+// Remove Vietnamese diacritics for search matching
+const removeDiacritics = (str) => str?.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D') || ''
+
+function QuotationSelector({ type, rates, standardRates = [], selectedRateId, selectedPrice, quantity = 1, onQuantityChange, onSelect, disabled, vendorId }) {
   const [manualMode, setManualMode] = useState(false)
   const [manualUnitPrice, setManualUnitPrice] = useState('')
   const [manualUnit, setManualUnit] = useState('TRIP')
   const [costSource, setCostSource] = useState('vendor') // 'vendor' or 'standard'
   const [rateSearch, setRateSearch] = useState('')
-  const searchTimerRef = useRef(null)
 
   const label = type === 'buying' ? 'Chi phí' : 'Doanh Thu'
   const icon = type === 'buying' ? '📥' : '📤'
@@ -115,8 +117,18 @@ function QuotationSelector({ type, rates, standardRates = [], selectedRateId, se
     setManualMode(false)
   }
 
-  // Filter vendor rates by selected vendor
-  const filteredVendorRates = vendorId ? rates.filter(r => r.vendor_id === vendorId) : rates
+  // Client-side search filter (diacritic-insensitive)
+  const searchFilter = (items) => {
+    if (!rateSearch.trim()) return items
+    const terms = removeDiacritics(rateSearch.toLowerCase()).split(/[\s,]+/).filter(Boolean)
+    return items.filter(r => {
+      const haystack = removeDiacritics(`${r.notes || ''} ${r.origin || ''} ${r.destination || ''} ${r.vehicle_type || ''} ${r.vendor_name || ''} ${r.customer_name || ''}`).toLowerCase()
+      return terms.every(term => haystack.includes(term))
+    })
+  }
+  // Filter vendor rates by selected vendor + search text
+  const filteredVendorRates = searchFilter(vendorId ? rates.filter(r => r.vendor_id === vendorId) : rates)
+  const filteredSellingRates = searchFilter(rates)
 
   // For buying type, show cost source options
   const showCostSourceToggle = type === 'buying' && standardRates.length > 0
@@ -218,21 +230,14 @@ function QuotationSelector({ type, rates, standardRates = [], selectedRateId, se
         </div>
       ) : (
         <div>
-          {/* Search input for filtering rates */}
+          {/* Search input for filtering rates (client-side with diacritic support) */}
           {costSource !== 'standard' && (
             <div style={{ marginBottom: '4px' }}>
               <input
                 type="text"
                 placeholder={`🔍 Tìm tuyến, xe... (VD: Binh Duong, 5T)`}
                 value={rateSearch}
-                onChange={(e) => {
-                  const val = e.target.value
-                  setRateSearch(val)
-                  if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
-                  if (onSearch) {
-                    searchTimerRef.current = setTimeout(() => onSearch(val), 500)
-                  }
-                }}
+                onChange={(e) => setRateSearch(e.target.value)}
                 style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--border)', fontSize: '12px', width: '100%' }}
               />
             </div>
@@ -263,7 +268,7 @@ function QuotationSelector({ type, rates, standardRates = [], selectedRateId, se
                 value={selectedRateId || ''}
                 onChange={e => {
                   const rateId = e.target.value
-                  const rate = (type === 'buying' ? filteredVendorRates : rates).find(r => r.rate_id == rateId)
+                  const rate = (type === 'buying' ? filteredVendorRates : filteredSellingRates).find(r => r.rate_id == rateId)
                   const totalPrice = (rate?.price || 0) * quantity
                   onSelect(rateId ? parseInt(rateId) : null, totalPrice, { source: 'vendor', unitPrice: rate?.price })
                 }}
@@ -282,7 +287,7 @@ function QuotationSelector({ type, rates, standardRates = [], selectedRateId, se
                   })
                 ) : (
                   Object.entries(
-                    rates.reduce((groups, r) => {
+                    filteredSellingRates.reduce((groups, r) => {
                       const key = r.customer_name || 'Khác'
                       if (!groups[key]) groups[key] = []
                       groups[key].push(r)
@@ -549,24 +554,21 @@ function JobDetailModal({ job, onClose, onUpdate }) {
     }
   }, [editMode, services.length, jobCustomer?.id])
 
-  // Fetch matching quotations for a service (filtered by vendor/customer, optional search text)
-  const fetchQuotationsForService = async (svc, searchText = '') => {
+  // Fetch matching quotations for a service (filtered by vendor/customer)
+  const fetchQuotationsForService = async (svc) => {
     try {
       const svcType = svc.service_type_code || ''
-      const enc = (s) => encodeURIComponent(s)
 
-      // Buying rates: filter by vendor + optionally by route search
-      let buyingUrl = `${API_URL}/api/jobs/quotations/search?type=buying&service_type=${enc(svcType)}`
+      // Buying rates: filter by vendor
+      let buyingUrl = `${API_URL}/api/jobs/quotations/search?type=buying&service_type=${encodeURIComponent(svcType)}`
       if (svc.vendor_id) buyingUrl += `&vendor_id=${svc.vendor_id}`
-      if (searchText) buyingUrl += `&search=${enc(searchText)}`
       const buyingRes = await authFetch(buyingUrl)
       const buyingData = await buyingRes.json()
 
       // Selling rates: filter by job's customer
-      let sellingUrl = `${API_URL}/api/jobs/quotations/search?type=selling&service_type=${enc(svcType)}`
+      let sellingUrl = `${API_URL}/api/jobs/quotations/search?type=selling&service_type=${encodeURIComponent(svcType)}`
       const custId = jobCustomer?.id || job?.customer_id
       if (custId) sellingUrl += `&customer_id=${custId}`
-      if (searchText) sellingUrl += `&search=${enc(searchText)}`
       const sellingRes = await authFetch(sellingUrl)
       const sellingData = await sellingRes.json()
 
@@ -1287,7 +1289,32 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                             <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Invoice</label>
                             <input type="text" value={svc.invoice_numbers || ''} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, invoice_numbers: e.target.value } : s))} placeholder="VD: INV-001, INV-002" style={{ width: '100%', padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px' }} />
                           </div>
-                          <div style={{ gridColumn: '1 / -1' }}>
+                          {/* Dynamic extra info fields */}
+                          {(svc.extra_info || []).map((info, idx) => (
+                            <div key={`info-${idx}`} style={{ gridColumn: '1 / -1', display: 'flex', gap: '4px', alignItems: 'center' }}>
+                              <input type="text" value={info.label || ''} onChange={e => {
+                                const updated = [...(svc.extra_info || [])]
+                                updated[idx] = { ...updated[idx], label: e.target.value }
+                                setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, extra_info: updated } : s))
+                              }} placeholder="Tên (VD: Điểm giao 2)" style={{ width: '140px', padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px' }} />
+                              <input type="text" value={info.value || ''} onChange={e => {
+                                const updated = [...(svc.extra_info || [])]
+                                updated[idx] = { ...updated[idx], value: e.target.value }
+                                setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, extra_info: updated } : s))
+                              }} placeholder="Giá trị" style={{ flex: 1, padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px' }} />
+                              <button type="button" onClick={() => {
+                                const updated = (svc.extra_info || []).filter((_, i) => i !== idx)
+                                setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, extra_info: updated } : s))
+                              }} style={{ padding: '4px 8px', background: '#FEE2E2', color: '#DC2626', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '11px' }}>✕</button>
+                            </div>
+                          ))}
+                          <div style={{ gridColumn: '1 / -1', display: 'flex', gap: '8px', alignItems: 'center' }}>
+                            <button type="button" onClick={() => {
+                              const updated = [...(svc.extra_info || []), { label: '', value: '' }]
+                              setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, extra_info: updated } : s))
+                            }} style={{ padding: '4px 10px', background: 'rgba(59, 130, 246, 0.1)', color: 'var(--primary)', border: '1px dashed var(--primary)', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}>
+                              + Thêm thông tin
+                            </button>
                             <button type="button" onClick={async () => {
                               setSaving(true)
                               try {
@@ -1303,6 +1330,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                     scheduled_date: svc.scheduled_date || null,
                                     scheduled_time: svc.scheduled_time || null,
                                     invoice_numbers: svc.invoice_numbers || null,
+                                    extra_info: (svc.extra_info || []).filter(i => i.label || i.value),
                                   })
                                 })
                                 const result = await res.json()
@@ -1316,7 +1344,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                               {saving ? '...' : '✓'} Lưu chi tiết
                             </button>
                             {savedField === `details-${svc.svc_id}` && (
-                              <span style={{ marginLeft: '8px', color: '#10B981', fontSize: '12px', fontWeight: 'bold' }}>Da luu</span>
+                              <span style={{ color: '#10B981', fontSize: '12px', fontWeight: 'bold' }}>Da luu</span>
                             )}
                           </div>
                         </div>
@@ -1330,6 +1358,9 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                           {svc.scheduled_date && <div><strong>Ngày:</strong> {svc.scheduled_date}</div>}
                           {svc.scheduled_time && <div><strong>Giờ:</strong> {svc.scheduled_time}</div>}
                           {svc.invoice_numbers && <div><strong>Invoice:</strong> {svc.invoice_numbers}</div>}
+                          {(svc.extra_info || []).map((info, idx) => (
+                            info.label && info.value ? <div key={idx}><strong>{info.label}:</strong> {info.value}</div> : null
+                          ))}
                         </>
                       )}
 
@@ -1616,7 +1647,6 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                             selectedPrice={svc.buying_price}
                             quantity={svc.buying_qty || 1}
                             vendorId={svc.vendor_id}
-                            onSearch={(text) => fetchQuotationsForService(svc, text)}
                             onQuantityChange={(qty) => {
                               setServices(prev => prev.map(s =>
                                 s.svc_id === svc.svc_id
@@ -1745,7 +1775,6 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                             selectedRateId={svc.selling_rate_id}
                             selectedPrice={svc.selling_price}
                             quantity={svc.selling_qty || 1}
-                            onSearch={(text) => fetchQuotationsForService(svc, text)}
                             onQuantityChange={(qty) => {
                               setServices(prev => prev.map(s =>
                                 s.svc_id === svc.svc_id

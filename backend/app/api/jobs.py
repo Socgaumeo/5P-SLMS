@@ -922,11 +922,13 @@ async def get_job_details(job_id: int):
                         if details.get('selling_rate_id') is not None:
                             svc['selling_rate_id'] = details['selling_rate_id']
 
-                        # Extract extra costs and revenues
+                        # Extract extra costs, revenues, and custom info
                         if details.get('extra_costs'):
                             svc['extra_costs'] = details['extra_costs']
                         if details.get('extra_revenues'):
                             svc['extra_revenues'] = details['extra_revenues']
+                        if details.get('extra_info'):
+                            svc['extra_info'] = details['extra_info']
 
                         # Extract calculated profit
                         if details.get('profit') is not None:
@@ -1984,22 +1986,19 @@ async def add_job_service(job_id: int, request: AddServiceRequest):
 async def search_quotations(
     type: str = "buying",
     service_type: Optional[str] = None,
-    origin: Optional[str] = None,
-    destination: Optional[str] = None,
     customer_id: Optional[int] = None,
-    vendor_id: Optional[int] = None,
-    search: Optional[str] = None
+    vendor_id: Optional[int] = None
 ):
     """
     Search for matching quotations based on service parameters.
     type=buying returns vendor_rates, type=selling returns customer_rates.
-    search: text search on notes/origin/destination (ilike)
+    Client-side search handles text filtering with diacritic normalization.
     """
     try:
         client = get_supabase()
 
         if type == "buying":
-            # Search vendor_rates
+            # Search vendor_rates (exclude 0-price rates)
             query = client.table('vendor_rates').select(
                 '*, vendors(short_name, company_name)'
             ).eq('is_active', True).gt('price', 0)
@@ -2008,14 +2007,8 @@ async def search_quotations(
                 query = query.or_(f'service_type_code.eq.{service_type},service_type_code.is.null')
             if vendor_id:
                 query = query.eq('vendor_id', vendor_id)
-            if origin:
-                query = query.ilike('origin_province', f'%{origin}%')
-            if destination:
-                query = query.ilike('destination_province', f'%{destination}%')
-            if search:
-                query = query.or_(f'notes.ilike.%{search}%,origin_province.ilike.%{search}%,destination_province.ilike.%{search}%,vehicle_type.ilike.%{search}%')
 
-            result = query.order('price').limit(50).execute()
+            result = query.order('price').limit(200).execute()
 
             rates = []
             for r in result.data:
@@ -2034,7 +2027,7 @@ async def search_quotations(
                 })
 
         else:
-            # Search customer_rates
+            # Search customer_rates (exclude 0-price rates)
             query = client.table('customer_rates').select(
                 '*, customers(short_name, customer_code)'
             ).eq('is_active', True).gt('price', 0)
@@ -2043,10 +2036,8 @@ async def search_quotations(
                 query = query.eq('customer_id', customer_id)
             if service_type:
                 query = query.or_(f'service_type_code.eq.{service_type},service_type_code.is.null')
-            if search:
-                query = query.or_(f'notes.ilike.%{search}%,origin_province.ilike.%{search}%,destination_province.ilike.%{search}%')
 
-            result = query.order('price', desc=True).limit(50).execute()
+            result = query.order('price', desc=True).limit(200).execute()
 
             rates = []
             for r in result.data:
@@ -2242,6 +2233,20 @@ async def update_service_details(svc_id: int, request: Request):
             'invoice_numbers'
         }
         update_data = {k: v for k, v in body.items() if k in allowed}
+
+        # Store extra_info in service_details JSONB
+        if 'extra_info' in body:
+            # Merge extra_info into existing service_details
+            svc_row = client.table('job_services').select('service_details').eq('svc_id', svc_id).limit(1).execute()
+            existing = svc_row.data[0].get('service_details') or {} if svc_row.data else {}
+            if isinstance(existing, str):
+                try:
+                    existing = json.loads(existing)
+                except Exception:
+                    existing = {}
+            existing['extra_info'] = body['extra_info']
+            update_data['service_details'] = json.dumps(existing, ensure_ascii=False)
+
         if not update_data:
             return {"success": False, "message": "No valid fields to update"}
 
