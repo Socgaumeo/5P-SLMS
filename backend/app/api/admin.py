@@ -619,6 +619,103 @@ def delete_selling_rate(rate_id: int, hard_delete: bool = Query(False)):
 
 
 # ============================================================
+# SELLING RATES SUMMARY (grouped by customer)
+# ============================================================
+
+@router.get("/selling-rates/summary")
+def get_selling_rates_summary():
+    """Get summary of selling rates grouped by customer with stats"""
+    try:
+        client = get_supabase()
+        query = client.table('customer_rates').select(
+            'customer_id, service_type_code, vehicle_type, effective_date, '
+            'customers(customer_id, customer_code, company_name, short_name)'
+        ).eq('is_active', True)
+        all_data = fetch_all_with_pagination(query)
+
+        # Group by customer
+        cust_map = {}
+        for r in all_data:
+            cid = r['customer_id']
+            if cid not in cust_map:
+                customer = r.get('customers', {}) or {}
+                cust_map[cid] = {
+                    'customer_id': cid,
+                    'customer_code': customer.get('customer_code'),
+                    'customer_name': customer.get('short_name') or customer.get('company_name'),
+                    'rate_count': 0,
+                    'service_types': set(),
+                    'vehicle_types': set(),
+                    'effective_date': r.get('effective_date'),
+                }
+            cust_map[cid]['rate_count'] += 1
+            if r.get('service_type_code'):
+                cust_map[cid]['service_types'].add(r['service_type_code'])
+            if r.get('vehicle_type'):
+                cust_map[cid]['vehicle_types'].add(r['vehicle_type'])
+
+        summary = []
+        for v in cust_map.values():
+            v['service_types'] = sorted(list(v['service_types']))
+            v['vehicle_types'] = sorted(list(v['vehicle_types']))
+            summary.append(v)
+
+        summary.sort(key=lambda x: x['customer_name'] or '')
+        return {"data": summary, "total": len(summary)}
+    except Exception as e:
+        logger.error(f"Error getting selling rates summary: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/selling-rates/customer/{customer_id}")
+def get_customer_rates_detail(
+    customer_id: int,
+    service_type_code: Optional[str] = Query(None),
+):
+    """Get detailed selling rates for a customer, grouped by service type"""
+    try:
+        client = get_supabase()
+
+        customer_result = client.table('customers').select(
+            'customer_id, customer_code, company_name, short_name'
+        ).eq('customer_id', customer_id).execute()
+        if not customer_result.data:
+            raise HTTPException(status_code=404, detail="Customer not found")
+        customer = customer_result.data[0]
+
+        query = client.table('customer_rates').select('*').eq(
+            'customer_id', customer_id
+        ).eq('is_active', True)
+        if service_type_code:
+            query = query.eq('service_type_code', service_type_code)
+
+        all_rates = fetch_all_with_pagination(query.order('service_type_code').order('price'))
+
+        # Group by service_type_code
+        svc_map = {}
+        for r in all_rates:
+            svc = r.get('service_type_code') or 'OTHER'
+            if svc not in svc_map:
+                svc_map[svc] = []
+            svc_map[svc].append(r)
+
+        # Available service types for filter
+        svc_types = sorted(svc_map.keys())
+
+        return {
+            "customer": customer,
+            "service_groups": svc_map,
+            "service_types": svc_types,
+            "total": len(all_rates)
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting customer rates detail: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================
 # BUYING RATES (Vendor Rates) CRUD
 # ============================================================
 

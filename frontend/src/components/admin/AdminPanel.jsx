@@ -1941,45 +1941,91 @@ function BuyingRatesTab() {
   )
 }
 
-// Selling Rates Tab - Grouped by Customer
+// Service type display labels
+const SERVICE_TYPE_DISPLAY = {
+  TRUCKING_DOM: 'Van tai noi dia',
+  BORDER_IMP: 'Nhap khau duong bo',
+  AIR_EXP: 'Hang khong xuat',
+  AIR_IMP: 'Hang khong nhap',
+  SEA_FCL_EXP: 'Duong bien FCL xuat',
+  SEA_FCL_IMP: 'Duong bien FCL nhap',
+  CUSTOMS_IMP: 'Hai quan nhap',
+  CUSTOMS_EXP: 'Hai quan xuat',
+  WAREHOUSE: 'Kho bai',
+  PACKING: 'Dong goi',
+  CONTAINER: 'Nang ha cont',
+  LOADING: 'Boc xep',
+  INFRA: 'CSHT',
+}
+
+// Selling Rates Tab - Grouped by Customer (card view)
 function SellingRatesTab() {
-  const [data, setData] = useState([])
+  const [summary, setSummary] = useState([])
   const [loading, setLoading] = useState(true)
+  const [selectedCustomer, setSelectedCustomer] = useState(null)
+  const [customerDetail, setCustomerDetail] = useState(null)
+  const [detailLoading, setDetailLoading] = useState(false)
   const [showAddModal, setShowAddModal] = useState(false)
   const [showUploadModal, setShowUploadModal] = useState(false)
   const [editItem, setEditItem] = useState(null)
+  const [expandedSvc, setExpandedSvc] = useState({})
 
-  const fetchData = async () => {
+  const fetchSummary = async () => {
     setLoading(true)
     try {
-      const res = await authFetch(`${API_URL}/api/admin/selling-rates?include_inactive=true`)
+      const res = await authFetch(`${API_URL}/api/admin/selling-rates/summary`)
       const json = await res.json()
-      setData(json.data || [])
+      setSummary(json.data || [])
     } catch (err) {
-      console.error('Failed to fetch selling rates:', err)
+      console.error('Failed to fetch selling rates summary:', err)
     } finally {
       setLoading(false)
     }
   }
 
-  useEffect(() => {
-    fetchData()
-  }, [])
+  const fetchCustomerDetail = async (customerId) => {
+    setDetailLoading(true)
+    try {
+      const res = await authFetch(`${API_URL}/api/admin/selling-rates/customer/${customerId}`)
+      const json = await res.json()
+      setCustomerDetail(json)
+      // Auto-expand first service group
+      const firstSvc = Object.keys(json.service_groups || {})[0]
+      if (firstSvc) setExpandedSvc({ [firstSvc]: true })
+    } catch (err) {
+      console.error('Failed to fetch customer detail:', err)
+    } finally {
+      setDetailLoading(false)
+    }
+  }
+
+  useEffect(() => { fetchSummary() }, [])
+
+  const handleViewCustomer = (cust) => {
+    setSelectedCustomer(cust)
+    setExpandedSvc({})
+    fetchCustomerDetail(cust.customer_id)
+  }
+
+  const handleBack = () => {
+    setSelectedCustomer(null)
+    setCustomerDetail(null)
+    fetchSummary()
+  }
 
   const handleRateSaved = () => {
     setEditItem(null)
-    fetchData()
+    setShowAddModal(false)
+    if (selectedCustomer) fetchCustomerDetail(selectedCustomer.customer_id)
+    else fetchSummary()
   }
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Bạn có chắc muốn xoá báo giá này?')) return
+    if (!window.confirm('Xoa bao gia nay?')) return
     try {
-      const res = await authFetch(`${API_URL}/api/admin/selling-rates/${id}?hard_delete=true`, { method: 'DELETE' })
-      if (!res.ok) {
-        const err = await res.json()
-        alert('Lỗi xoá: ' + (err.detail || 'Unknown error'))
-      }
-      fetchData()
+      await authFetch(`${API_URL}/api/admin/selling-rates/${id}?hard_delete=true`, { method: 'DELETE' })
+      if (selectedCustomer) fetchCustomerDetail(selectedCustomer.customer_id)
+      else fetchSummary()
     } catch (err) {
       console.error('Failed to delete:', err)
     }
@@ -1990,77 +2036,145 @@ function SellingRatesTab() {
     setShowAddModal(true)
   }
 
-  if (loading) return <div className="loading-state">Đang tải...</div>
+  if (loading) return <div className="loading-state">Dang tai...</div>
 
+  // Detail view for selected customer
+  if (selectedCustomer) {
+    return (
+      <div className="admin-tab-content">
+        <div className="tab-header">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <button className="btn-secondary" onClick={handleBack} style={{ padding: '6px 12px' }}>← Quay lai</button>
+            <h3>{selectedCustomer.customer_name} ({selectedCustomer.customer_code})</h3>
+            <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{selectedCustomer.rate_count} bao gia</span>
+          </div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button className="btn-secondary" onClick={() => setShowUploadModal(true)}>Upload Excel</button>
+            <button className="btn-primary" onClick={() => setShowAddModal(true)}>+ Them bao gia</button>
+          </div>
+        </div>
+
+        <RateFormModal isOpen={showAddModal} onClose={() => { setShowAddModal(false); setEditItem(null) }} onSave={handleRateSaved} rateType="selling" editData={editItem} />
+        <RateUploadModal isOpen={showUploadModal} onClose={() => setShowUploadModal(false)} onImported={handleRateSaved} rateType="selling" />
+
+        {detailLoading ? <div className="loading-state">Dang tai...</div> : customerDetail && (
+          <div>
+            {Object.entries(customerDetail.service_groups || {}).map(([svcCode, rates]) => (
+              <div key={svcCode} style={{ marginBottom: '12px', border: '1px solid var(--border)', borderRadius: '8px', overflow: 'hidden' }}>
+                {/* Service group header - clickable */}
+                <div
+                  onClick={() => setExpandedSvc(prev => ({ ...prev, [svcCode]: !prev[svcCode] }))}
+                  style={{
+                    padding: '12px 16px',
+                    background: expandedSvc[svcCode] ? 'rgba(37, 99, 235, 0.08)' : 'var(--bg-card)',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    borderBottom: expandedSvc[svcCode] ? '1px solid var(--border)' : 'none'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span style={{ fontSize: '16px' }}>{expandedSvc[svcCode] ? '▾' : '▸'}</span>
+                    <strong>{SERVICE_TYPE_DISPLAY[svcCode] || svcCode}</strong>
+                    <span className="nav-badge">{rates.length}</span>
+                  </div>
+                </div>
+
+                {/* Expanded rates table */}
+                {expandedSvc[svcCode] && (
+                  <table className="admin-table" style={{ margin: 0, borderRadius: 0 }}>
+                    <thead>
+                      <tr>
+                        <th>Loai xe</th>
+                        <th>Tuyen / Ghi chu</th>
+                        <th>Don gia</th>
+                        <th>DVT</th>
+                        <th>Ngay HL</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rates.map(item => (
+                        <tr key={item.id}>
+                          <td>{item.vehicle_type || '-'}</td>
+                          <td>{item.notes || (item.origin_province && item.destination_province ? `${item.origin_province} → ${item.destination_province}` : '-')}</td>
+                          <td style={{ textAlign: 'right' }}>{formatCurrency(item.price)}</td>
+                          <td>{item.unit || 'TRIP'}</td>
+                          <td>{item.effective_date || '-'}</td>
+                          <td>
+                            <div style={{ display: 'flex', gap: '4px' }}>
+                              <button className="btn-icon" title="Sua" onClick={() => handleEdit(item)}>✏️</button>
+                              <button className="btn-icon danger" title="Xoa" onClick={() => handleDelete(item.id)}>🗑️</button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // Summary view - customer cards
   return (
     <div className="admin-tab-content">
       <div className="tab-header">
-        <h3>Selling Rates - Báo giá bán ra (theo Khách hàng)</h3>
+        <h3>Selling Rates - Bao gia ban ra (theo Khach hang)</h3>
         <div style={{ display: 'flex', gap: '8px' }}>
-          <button className="btn-secondary" onClick={() => setShowUploadModal(true)}>
-            Upload Excel
-          </button>
-          <button className="btn-primary" onClick={() => setShowAddModal(true)}>
-            + Thêm báo giá
-          </button>
+          <button className="btn-secondary" onClick={() => setShowUploadModal(true)}>Upload Excel</button>
+          <button className="btn-primary" onClick={() => setShowAddModal(true)}>+ Them bao gia</button>
         </div>
       </div>
 
-      <RateFormModal
-        isOpen={showAddModal}
-        onClose={() => { setShowAddModal(false); setEditItem(null) }}
-        onSave={handleRateSaved}
-        rateType="selling"
-        editData={editItem}
-      />
+      <RateFormModal isOpen={showAddModal} onClose={() => { setShowAddModal(false); setEditItem(null) }} onSave={handleRateSaved} rateType="selling" editData={editItem} />
+      <RateUploadModal isOpen={showUploadModal} onClose={() => setShowUploadModal(false)} onImported={handleRateSaved} rateType="selling" />
 
-      <RateUploadModal
-        isOpen={showUploadModal}
-        onClose={() => setShowUploadModal(false)}
-        onImported={handleRateSaved}
-        rateType="selling"
-      />
-
-      {data.length === 0 ? (
-        <div className="empty-state">Chưa có dữ liệu báo giá bán</div>
+      {summary.length === 0 ? (
+        <div className="empty-state">Chua co du lieu bao gia ban</div>
       ) : (
-        <table className="admin-table">
-          <thead>
-            <tr>
-              <th>Khách hàng</th>
-              <th>Loại xe</th>
-              <th>Tuyến / Ghi chú</th>
-              <th>Đơn giá</th>
-              <th>ĐVT</th>
-              <th>Ngày HL</th>
-              <th>Trạng thái</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.map(item => (
-              <tr key={item.id}>
-                <td>{item.customers?.short_name || item.customer_id}</td>
-                <td>{item.vehicle_type || '-'}</td>
-                <td>{item.notes || (item.master_routes ? `${item.master_routes.origin} → ${item.master_routes.destination}` : '-')}</td>
-                <td style={{ textAlign: 'right' }}>{formatCurrency(item.price)}</td>
-                <td>{item.unit || 'TRIP'}</td>
-                <td>{item.effective_date || '-'}</td>
-                <td>
-                  <span className={`status-badge ${item.is_active ? 'active' : 'inactive'}`}>
-                    {item.is_active ? 'Active' : 'Inactive'}
-                  </span>
-                </td>
-                <td>
-                  <div style={{ display: 'flex', gap: '4px' }}>
-                    <button className="btn-icon" title="Sửa" onClick={() => handleEdit(item)}>✏️</button>
-                    <button className="btn-icon danger" title="Xoá" onClick={() => handleDelete(item.id)}>🗑️</button>
+        <div className="vendor-cards-grid">
+          {summary.map(cust => (
+            <div key={cust.customer_id} className="vendor-card" onClick={() => handleViewCustomer(cust)}>
+              <div className="vendor-card-header">
+                <span className="vendor-card-name">{cust.customer_name}</span>
+                <span className="vendor-card-code">{cust.customer_code}</span>
+              </div>
+              <div className="vendor-card-stats">
+                <div className="meta-row">
+                  <span className="meta-label">So bao gia:</span>
+                  <span className="meta-value"><strong>{cust.rate_count}</strong></span>
+                </div>
+                {cust.service_types.length > 0 && (
+                  <div className="meta-row">
+                    <span className="meta-label">Dich vu:</span>
+                    <span className="meta-value">{cust.service_types.map(s => SERVICE_TYPE_DISPLAY[s] || s).join(', ')}</span>
                   </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                )}
+                {cust.vehicle_types.length > 0 && (
+                  <div className="meta-row">
+                    <span className="meta-label">Loai xe:</span>
+                    <span className="meta-value">{cust.vehicle_types.slice(0, 5).join(', ')}{cust.vehicle_types.length > 5 ? '...' : ''}</span>
+                  </div>
+                )}
+                {cust.effective_date && (
+                  <div className="meta-row">
+                    <span className="meta-label">Hieu luc:</span>
+                    <span className="meta-value">{cust.effective_date}</span>
+                  </div>
+                )}
+              </div>
+              <div className="vendor-card-action">
+                <span>Xem chi tiet</span>
+              </div>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   )
