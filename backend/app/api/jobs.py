@@ -1987,11 +1987,13 @@ async def search_quotations(
     origin: Optional[str] = None,
     destination: Optional[str] = None,
     customer_id: Optional[int] = None,
-    vendor_id: Optional[int] = None
+    vendor_id: Optional[int] = None,
+    search: Optional[str] = None
 ):
     """
     Search for matching quotations based on service parameters.
     type=buying returns vendor_rates, type=selling returns customer_rates.
+    search: text search on notes/origin/destination (ilike)
     """
     try:
         client = get_supabase()
@@ -2000,13 +2002,18 @@ async def search_quotations(
             # Search vendor_rates
             query = client.table('vendor_rates').select(
                 '*, vendors(short_name, company_name)'
-            ).eq('is_active', True)
+            ).eq('is_active', True).gt('price', 0)
 
             if service_type:
-                # Include rates matching this service type OR rates without service_type_code (legacy)
                 query = query.or_(f'service_type_code.eq.{service_type},service_type_code.is.null')
             if vendor_id:
                 query = query.eq('vendor_id', vendor_id)
+            if origin:
+                query = query.ilike('origin_province', f'%{origin}%')
+            if destination:
+                query = query.ilike('destination_province', f'%{destination}%')
+            if search:
+                query = query.or_(f'notes.ilike.%{search}%,origin_province.ilike.%{search}%,destination_province.ilike.%{search}%,vehicle_type.ilike.%{search}%')
 
             result = query.order('price').limit(50).execute()
 
@@ -2030,13 +2037,14 @@ async def search_quotations(
             # Search customer_rates
             query = client.table('customer_rates').select(
                 '*, customers(short_name, customer_code)'
-            ).eq('is_active', True)
+            ).eq('is_active', True).gt('price', 0)
 
             if customer_id:
                 query = query.eq('customer_id', customer_id)
             if service_type:
-                # Include rates matching this service type OR rates without service_type_code (legacy)
                 query = query.or_(f'service_type_code.eq.{service_type},service_type_code.is.null')
+            if search:
+                query = query.or_(f'notes.ilike.%{search}%,origin_province.ilike.%{search}%,destination_province.ilike.%{search}%')
 
             result = query.order('price', desc=True).limit(50).execute()
 
@@ -2216,6 +2224,33 @@ async def update_service_notes(svc_id: int, request: ServiceNotesRequest):
         raise
     except Exception as e:
         logger.error(f"Error updating service notes: {e}")
+        return {"success": False, "message": str(e)}
+
+
+@router.put("/services/{svc_id}/details")
+async def update_service_details(svc_id: int, request: Request):
+    """Update editable service details: cargo, route, date, invoice, package info."""
+    try:
+        client = get_supabase()
+        body = await request.json()
+
+        # Whitelist of editable columns
+        allowed = {
+            'cargo_type', 'package_quantity', 'package_unit',
+            'origin_address', 'dest_address',
+            'scheduled_date', 'scheduled_time',
+            'invoice_numbers'
+        }
+        update_data = {k: v for k, v in body.items() if k in allowed}
+        if not update_data:
+            return {"success": False, "message": "No valid fields to update"}
+
+        update_data['updated_at'] = datetime.now().isoformat()
+        client.table('job_services').update(update_data).eq('svc_id', svc_id).execute()
+        logger.info(f"Updated details for service {svc_id}: {list(update_data.keys())}")
+        return {"success": True, "svc_id": svc_id}
+    except Exception as e:
+        logger.error(f"Error updating service details: {e}")
         return {"success": False, "message": str(e)}
 
 

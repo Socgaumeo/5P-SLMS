@@ -89,11 +89,13 @@ const FloatingAIButton = ({ onClick, hasNotification }) => (
 // ========================================
 // QUOTATION SELECTOR COMPONENT
 // ========================================
-function QuotationSelector({ type, rates, standardRates = [], selectedRateId, selectedPrice, quantity = 1, onQuantityChange, onSelect, disabled, vendorId }) {
+function QuotationSelector({ type, rates, standardRates = [], selectedRateId, selectedPrice, quantity = 1, onQuantityChange, onSelect, disabled, vendorId, onSearch }) {
   const [manualMode, setManualMode] = useState(false)
   const [manualUnitPrice, setManualUnitPrice] = useState('')
   const [manualUnit, setManualUnit] = useState('TRIP')
   const [costSource, setCostSource] = useState('vendor') // 'vendor' or 'standard'
+  const [rateSearch, setRateSearch] = useState('')
+  const searchTimerRef = useRef(null)
 
   const label = type === 'buying' ? 'Chi phí' : 'Doanh Thu'
   const icon = type === 'buying' ? '📥' : '📤'
@@ -216,6 +218,25 @@ function QuotationSelector({ type, rates, standardRates = [], selectedRateId, se
         </div>
       ) : (
         <div>
+          {/* Search input for filtering rates */}
+          {costSource !== 'standard' && (
+            <div style={{ marginBottom: '4px' }}>
+              <input
+                type="text"
+                placeholder={`🔍 Tìm tuyến, xe... (VD: Binh Duong, 5T)`}
+                value={rateSearch}
+                onChange={(e) => {
+                  const val = e.target.value
+                  setRateSearch(val)
+                  if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
+                  if (onSearch) {
+                    searchTimerRef.current = setTimeout(() => onSearch(val), 500)
+                  }
+                }}
+                style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--border)', fontSize: '12px', width: '100%' }}
+              />
+            </div>
+          )}
           {/* Row 1: Select dropdown - full width */}
           <div style={{ marginBottom: '6px' }}>
             {type === 'buying' && costSource === 'standard' && standardRates.length > 0 ? (
@@ -528,21 +549,24 @@ function JobDetailModal({ job, onClose, onUpdate }) {
     }
   }, [editMode, services.length, jobCustomer?.id])
 
-  // Fetch matching quotations for a service (filtered by vendor/customer)
-  const fetchQuotationsForService = async (svc) => {
+  // Fetch matching quotations for a service (filtered by vendor/customer, optional search text)
+  const fetchQuotationsForService = async (svc, searchText = '') => {
     try {
       const svcType = svc.service_type_code || ''
+      const enc = (s) => encodeURIComponent(s)
 
-      // Buying rates: filter by vendor assigned to this service
-      let buyingUrl = `${API_URL}/api/jobs/quotations/search?type=buying&service_type=${svcType}`
+      // Buying rates: filter by vendor + optionally by route search
+      let buyingUrl = `${API_URL}/api/jobs/quotations/search?type=buying&service_type=${enc(svcType)}`
       if (svc.vendor_id) buyingUrl += `&vendor_id=${svc.vendor_id}`
+      if (searchText) buyingUrl += `&search=${enc(searchText)}`
       const buyingRes = await authFetch(buyingUrl)
       const buyingData = await buyingRes.json()
 
-      // Selling rates: filter by job's customer (use jobCustomer state, fallback to job prop)
-      let sellingUrl = `${API_URL}/api/jobs/quotations/search?type=selling&service_type=${svcType}`
+      // Selling rates: filter by job's customer
+      let sellingUrl = `${API_URL}/api/jobs/quotations/search?type=selling&service_type=${enc(svcType)}`
       const custId = jobCustomer?.id || job?.customer_id
       if (custId) sellingUrl += `&customer_id=${custId}`
+      if (searchText) sellingUrl += `&search=${enc(searchText)}`
       const sellingRes = await authFetch(sellingUrl)
       const sellingData = await sellingRes.json()
 
@@ -1229,13 +1253,85 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                     </div>
 
                     <div className="service-details-grid">
-                      {svc.cargo_type && <div><strong>Hàng:</strong> {svc.cargo_type}</div>}
-                      {svc.package_quantity && <div><strong>Số kiện:</strong> {svc.package_quantity} {svc.package_unit || 'pallet'}</div>}
-                      {svc.origin_address && <div><strong>Điểm đi:</strong> {svc.origin_address}</div>}
-                      {svc.dest_address && <div><strong>Điểm đến:</strong> {svc.dest_address}</div>}
-                      {svc.scheduled_date && <div><strong>Ngày:</strong> {svc.scheduled_date}</div>}
-                      {svc.scheduled_time && <div><strong>Giờ:</strong> {svc.scheduled_time}</div>}
-                      {svc.invoice_numbers && <div><strong>Invoice:</strong> {svc.invoice_numbers}</div>}
+                      {editMode ? (
+                        /* Editable service details */
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', width: '100%' }}>
+                          <div>
+                            <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Hàng</label>
+                            <input type="text" value={svc.cargo_type || ''} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, cargo_type: e.target.value } : s))} placeholder="VD: loc khi, linh kien..." style={{ width: '100%', padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px' }} />
+                          </div>
+                          <div>
+                            <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Số kiện</label>
+                            <div style={{ display: 'flex', gap: '4px' }}>
+                              <input type="text" value={svc.package_quantity || ''} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, package_quantity: e.target.value } : s))} placeholder="38" style={{ width: '60px', padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px' }} />
+                              <input type="text" value={svc.package_unit || ''} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, package_unit: e.target.value } : s))} placeholder="pallet" style={{ flex: 1, padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px' }} />
+                            </div>
+                          </div>
+                          <div>
+                            <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Điểm đi</label>
+                            <input type="text" value={svc.origin_address || ''} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, origin_address: e.target.value } : s))} placeholder="VD: Binh Duong" style={{ width: '100%', padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px' }} />
+                          </div>
+                          <div>
+                            <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Điểm đến</label>
+                            <input type="text" value={svc.dest_address || ''} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, dest_address: e.target.value } : s))} placeholder="VD: KCN Song Cong" style={{ width: '100%', padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px' }} />
+                          </div>
+                          <div>
+                            <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Ngày</label>
+                            <input type="date" value={svc.scheduled_date || ''} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, scheduled_date: e.target.value } : s))} style={{ width: '100%', padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px' }} />
+                          </div>
+                          <div>
+                            <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Giờ</label>
+                            <input type="time" value={(svc.scheduled_time || '').slice(0, 5)} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, scheduled_time: e.target.value } : s))} style={{ width: '100%', padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px' }} />
+                          </div>
+                          <div style={{ gridColumn: '1 / -1' }}>
+                            <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Invoice</label>
+                            <input type="text" value={svc.invoice_numbers || ''} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, invoice_numbers: e.target.value } : s))} placeholder="VD: INV-001, INV-002" style={{ width: '100%', padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px' }} />
+                          </div>
+                          <div style={{ gridColumn: '1 / -1' }}>
+                            <button type="button" onClick={async () => {
+                              setSaving(true)
+                              try {
+                                const res = await authFetch(`${API_URL}/api/jobs/services/${svc.svc_id}/details`, {
+                                  method: 'PUT',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({
+                                    cargo_type: svc.cargo_type || null,
+                                    package_quantity: svc.package_quantity || null,
+                                    package_unit: svc.package_unit || null,
+                                    origin_address: svc.origin_address || null,
+                                    dest_address: svc.dest_address || null,
+                                    scheduled_date: svc.scheduled_date || null,
+                                    scheduled_time: svc.scheduled_time || null,
+                                    invoice_numbers: svc.invoice_numbers || null,
+                                  })
+                                })
+                                const result = await res.json()
+                                if (result.success) {
+                                  setSavedField(`details-${svc.svc_id}`)
+                                  setTimeout(() => setSavedField(null), 2000)
+                                } else { alert(result.message || 'Lỗi khi lưu') }
+                              } catch (e) { alert('Lỗi khi lưu chi tiết') }
+                              finally { setSaving(false) }
+                            }} disabled={saving} style={{ padding: '6px 12px', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '12px' }}>
+                              {saving ? '...' : '✓'} Lưu chi tiết
+                            </button>
+                            {savedField === `details-${svc.svc_id}` && (
+                              <span style={{ marginLeft: '8px', color: '#10B981', fontSize: '12px', fontWeight: 'bold' }}>Da luu</span>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        /* Read-only service details */
+                        <>
+                          {svc.cargo_type && <div><strong>Hàng:</strong> {svc.cargo_type}</div>}
+                          {svc.package_quantity && <div><strong>Số kiện:</strong> {svc.package_quantity} {svc.package_unit || 'pallet'}</div>}
+                          {svc.origin_address && <div><strong>Điểm đi:</strong> {svc.origin_address}</div>}
+                          {svc.dest_address && <div><strong>Điểm đến:</strong> {svc.dest_address}</div>}
+                          {svc.scheduled_date && <div><strong>Ngày:</strong> {svc.scheduled_date}</div>}
+                          {svc.scheduled_time && <div><strong>Giờ:</strong> {svc.scheduled_time}</div>}
+                          {svc.invoice_numbers && <div><strong>Invoice:</strong> {svc.invoice_numbers}</div>}
+                        </>
+                      )}
 
                       {/* Ghi chú / Yêu cầu đặc biệt - Editable */}
                       {editMode ? (
@@ -1520,6 +1616,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                             selectedPrice={svc.buying_price}
                             quantity={svc.buying_qty || 1}
                             vendorId={svc.vendor_id}
+                            onSearch={(text) => fetchQuotationsForService(svc, text)}
                             onQuantityChange={(qty) => {
                               setServices(prev => prev.map(s =>
                                 s.svc_id === svc.svc_id
@@ -1648,6 +1745,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                             selectedRateId={svc.selling_rate_id}
                             selectedPrice={svc.selling_price}
                             quantity={svc.selling_qty || 1}
+                            onSearch={(text) => fetchQuotationsForService(svc, text)}
                             onQuantityChange={(qty) => {
                               setServices(prev => prev.map(s =>
                                 s.svc_id === svc.svc_id
