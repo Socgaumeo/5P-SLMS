@@ -633,7 +633,6 @@ def get_selling_rates_summary():
         ).eq('is_active', True)
         all_data = fetch_all_with_pagination(query)
 
-        # Group by customer
         cust_map = {}
         for r in all_data:
             cid = r['customer_id']
@@ -646,6 +645,7 @@ def get_selling_rates_summary():
                     'rate_count': 0,
                     'service_types': set(),
                     'vehicle_types': set(),
+                    'routes_count': set(),
                     'effective_date': r.get('effective_date'),
                 }
             cust_map[cid]['rate_count'] += 1
@@ -653,11 +653,17 @@ def get_selling_rates_summary():
                 cust_map[cid]['service_types'].add(r['service_type_code'])
             if r.get('vehicle_type'):
                 cust_map[cid]['vehicle_types'].add(r['vehicle_type'])
+            # Count unique routes
+            orig = r.get('origin_province', '')
+            dest = r.get('destination_province', '')
+            if orig and dest:
+                cust_map[cid]['routes_count'].add(f"{orig}→{dest}")
 
         summary = []
         for v in cust_map.values():
             v['service_types'] = sorted(list(v['service_types']))
             v['vehicle_types'] = sorted(list(v['vehicle_types']))
+            v['routes_count'] = len(v['routes_count'])
             summary.append(v)
 
         summary.sort(key=lambda x: x['customer_name'] or '')
@@ -667,12 +673,29 @@ def get_selling_rates_summary():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# Vehicle type sort order for matrix display (small → large)
+VEHICLE_SORT_ORDER = {
+    'Truck 1.25T': 1, 'Truck 2.5T': 2, 'Truck 3.5T': 3,
+    'Truck 5T': 4, 'Truck 7T-8T': 5, 'Truck 8T': 5,
+    'Truck 9T-10T': 6, 'Truck 10T': 6, 'Truck 15T': 7,
+    "CONT 20''": 10, "CONT 40''": 11,
+}
+
+# Keywords that identify surcharge rates (not route-based)
+SURCHARGE_KEYWORDS = ['chờ giờ', 'lưu ca', 'huỷ', 'hủy', 'phụ phí', 'phụ thu',
+                       'cao tốc', 'đường cấm', 'nâng hạ', 'bốc xếp']
+
+
+def _is_surcharge(rate: dict) -> bool:
+    """Check if a rate is a surcharge (not a route rate)"""
+    notes = (rate.get('notes') or '').lower()
+    return any(kw in notes for kw in SURCHARGE_KEYWORDS)
+
+
 @router.get("/selling-rates/customer/{customer_id}")
-def get_customer_rates_detail(
-    customer_id: int,
-    service_type_code: Optional[str] = Query(None),
-):
-    """Get detailed selling rates for a customer, grouped by service type"""
+def get_customer_rates_detail(customer_id: int):
+    """Get selling rates for a customer in Excel-like matrix format.
+    Returns routes grouped by service type, with vehicle types as columns."""
     try:
         client = get_supabase()
 
@@ -686,27 +709,76 @@ def get_customer_rates_detail(
         query = client.table('customer_rates').select('*').eq(
             'customer_id', customer_id
         ).eq('is_active', True)
-        if service_type_code:
-            query = query.eq('service_type_code', service_type_code)
+        all_rates = fetch_all_with_pagination(query.order('price'))
 
-        all_rates = fetch_all_with_pagination(query.order('service_type_code').order('price'))
-
-        # Group by service_type_code
-        svc_map = {}
+        # Separate surcharges from route rates
+        surcharges = []
+        route_rates = []
         for r in all_rates:
-            svc = r.get('service_type_code') or 'OTHER'
-            if svc not in svc_map:
-                svc_map[svc] = []
-            svc_map[svc].append(r)
+            if _is_surcharge(r):
+                surcharges.append(r)
+            else:
+                route_rates.append(r)
 
-        # Available service types for filter
-        svc_types = sorted(svc_map.keys())
+        # Group route rates by service_type → route → vehicle_type (matrix)
+        svc_map = {}
+        all_vehicle_types = set()
+        for r in route_rates:
+            svc = r.get('service_type_code') or 'OTHER'
+            orig = r.get('origin_province') or ''
+            dest = r.get('destination_province') or ''
+            route_key = f"{orig} → {dest}" if orig and dest else (r.get('notes') or f"Rate #{r['id']}")
+            vt = r.get('vehicle_type') or '-'
+            all_vehicle_types.add(vt)
+
+            if svc not in svc_map:
+                svc_map[svc] = {}
+            if route_key not in svc_map[svc]:
+                svc_map[svc][route_key] = {'prices': {}, 'notes': r.get('notes'), 'unit': r.get('unit')}
+            svc_map[svc][route_key]['prices'][vt] = {
+                'price': r.get('price', 0),
+                'id': r['id'],
+                'unit': r.get('unit'),
+            }
+
+        # Sort vehicle types by size
+        sorted_vt = sorted(all_vehicle_types,
+                           key=lambda x: VEHICLE_SORT_ORDER.get(x, 50))
+
+        # Build structured response per service type
+        service_groups = []
+        for svc_code, routes in sorted(svc_map.items()):
+            route_rows = []
+            for route_name, route_data in sorted(routes.items()):
+                route_rows.append({
+                    'route': route_name,
+                    'notes': route_data.get('notes'),
+                    'prices': route_data['prices'],  # {vehicle_type: {price, id, unit}}
+                })
+            service_groups.append({
+                'service_type': svc_code,
+                'vehicle_types': sorted_vt,
+                'routes': route_rows,
+                'route_count': len(route_rows),
+            })
+
+        # Surcharges grouped by vehicle type too
+        surcharge_data = []
+        for s in surcharges:
+            surcharge_data.append({
+                'id': s['id'],
+                'notes': s.get('notes') or '-',
+                'vehicle_type': s.get('vehicle_type'),
+                'price': s.get('price', 0),
+                'unit': s.get('unit'),
+            })
 
         return {
             "customer": customer,
-            "service_groups": svc_map,
-            "service_types": svc_types,
-            "total": len(all_rates)
+            "service_groups": service_groups,
+            "vehicle_types": sorted_vt,
+            "surcharges": surcharge_data,
+            "total": len(all_rates),
         }
     except HTTPException:
         raise
