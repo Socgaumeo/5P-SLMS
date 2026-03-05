@@ -553,6 +553,20 @@
   font-size: 0.75rem;
 }
 
+/* Editable price cells in selling rates matrix */
+.editable-price {
+  color: #059669;
+  font-weight: 600;
+  font-family: 'SF Mono', 'Consolas', monospace;
+  border-bottom: 1px dashed transparent;
+  transition: all 0.15s;
+}
+
+td:hover .editable-price {
+  color: #2563eb;
+  border-bottom-color: #2563eb;
+}
+
 /* Info Box */
 .info-box {
   background: #f8fafc;

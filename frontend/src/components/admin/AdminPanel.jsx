@@ -2084,7 +2084,7 @@ function SellingRatesTab() {
                     <table className="rates-matrix" style={{ width: '100%', fontSize: '13px' }}>
                       <thead>
                         <tr>
-                          <th style={{ textAlign: 'left', minWidth: '60px', padding: '8px 10px' }}>STT</th>
+                          <th style={{ textAlign: 'left', minWidth: '50px', padding: '8px 10px' }}>STT</th>
                           <th style={{ textAlign: 'left', minWidth: '200px', padding: '8px 10px' }}>Tuyến đường</th>
                           {group.vehicle_types.map(vt => (
                             <th key={vt} style={{ textAlign: 'right', minWidth: '100px', padding: '8px 10px', whiteSpace: 'nowrap' }}>{vt}</th>
@@ -2092,20 +2092,49 @@ function SellingRatesTab() {
                         </tr>
                       </thead>
                       <tbody>
-                        {group.routes.map((row, idx) => (
-                          <tr key={idx}>
-                            <td style={{ padding: '6px 10px', color: '#64748b' }}>{idx + 1}</td>
-                            <td style={{ padding: '6px 10px', fontWeight: 500 }}>{row.route}</td>
-                            {group.vehicle_types.map(vt => {
-                              const cell = row.prices[vt]
-                              return (
-                                <td key={vt} style={{ textAlign: 'right', padding: '6px 10px' }}>
-                                  {cell ? formatCurrency(cell.price) : <span style={{ color: '#cbd5e1' }}>-</span>}
-                                </td>
-                              )
-                            })}
-                          </tr>
-                        ))}
+                        {group.routes.map((row, idx) => {
+                          // Parse origin/destination from route string
+                          const parts = row.route.split(' → ')
+                          const origin = parts[0] || ''
+                          const dest = parts[1] || ''
+                          return (
+                            <tr key={idx}>
+                              <td style={{ padding: '6px 10px', color: '#64748b' }}>{idx + 1}</td>
+                              <td style={{ padding: '6px 10px', fontWeight: 500 }}>{row.route}</td>
+                              {group.vehicle_types.map(vt => {
+                                const cell = row.prices[vt]
+                                return (
+                                  <td
+                                    key={vt}
+                                    style={{
+                                      textAlign: 'right', padding: '6px 10px',
+                                      cursor: cell ? 'pointer' : 'default',
+                                      position: 'relative',
+                                    }}
+                                    title={cell ? 'Bấm để sửa' : ''}
+                                    onClick={() => cell && handleEdit({
+                                      id: cell.id,
+                                      customer_id: selectedCustomer.customer_id,
+                                      service_type_code: group.service_type,
+                                      origin_province: origin,
+                                      destination_province: dest,
+                                      vehicle_type: vt,
+                                      price: cell.price,
+                                      unit: cell.unit || 'TRIP',
+                                      notes: row.notes || '',
+                                    })}
+                                  >
+                                    {cell ? (
+                                      <span className="editable-price">{formatCurrency(cell.price)}</span>
+                                    ) : (
+                                      <span style={{ color: '#cbd5e1' }}>-</span>
+                                    )}
+                                  </td>
+                                )
+                              })}
+                            </tr>
+                          )
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -2126,6 +2155,7 @@ function SellingRatesTab() {
                       <th style={{ textAlign: 'left', padding: '8px 10px' }}>Loại xe</th>
                       <th style={{ textAlign: 'right', padding: '8px 10px' }}>Đơn giá</th>
                       <th style={{ textAlign: 'left', padding: '8px 10px' }}>ĐVT</th>
+                      <th style={{ textAlign: 'center', padding: '8px 10px', width: '80px' }}></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -2135,6 +2165,16 @@ function SellingRatesTab() {
                         <td style={{ padding: '6px 10px' }}>{s.vehicle_type || 'Tất cả'}</td>
                         <td style={{ textAlign: 'right', padding: '6px 10px' }}>{formatCurrency(s.price)}</td>
                         <td style={{ padding: '6px 10px' }}>{s.unit || 'TRIP'}</td>
+                        <td style={{ textAlign: 'center', padding: '6px 10px' }}>
+                          <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
+                            <button className="btn-icon" title="Sửa" onClick={() => handleEdit({
+                              id: s.id, customer_id: selectedCustomer.customer_id,
+                              notes: s.notes, vehicle_type: s.vehicle_type,
+                              price: s.price, unit: s.unit,
+                            })}>✏️</button>
+                            <button className="btn-icon danger" title="Xoá" onClick={() => handleDelete(s.id)}>🗑️</button>
+                          </div>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
