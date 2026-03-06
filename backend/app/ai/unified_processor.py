@@ -298,8 +298,9 @@ class UnifiedProcessor:
         action = intent_names.get(state.intent, state.intent)
         lines = [f"✅ Xác nhận {action}:"]
 
+        skip_keys = {"vehicles", "rates", "bookings"}
         for key, value in state.entities.items():
-            if value and not key.startswith("_") and key != "vehicles":
+            if value and not key.startswith("_") and key not in skip_keys:
                 label = field_labels.get(key, key)
                 lines.append(f"• {label}: {value}")
 
@@ -312,6 +313,22 @@ class UnifiedProcessor:
                 if v.get('driver_name'):
                     v_info += f" - {v.get('driver_name')}"
                 lines.append(v_info)
+
+        # Handle multiple rates (quotation)
+        rates = state.entities.get("rates", [])
+        if rates and len(rates) > 0:
+            lines.append(f"• 💰 Báo giá ({len(rates)} loại xe):")
+            for r in rates:
+                vt = r.get("vehicle_type", "?")
+                p = r.get("price", 0)
+                try:
+                    if isinstance(p, (int, float)):
+                        p = float(p)
+                    else:
+                        p = float(str(p).replace(",", "").strip())
+                    lines.append(f"  - {vt}: {p:,.0f} VND")
+                except (ValueError, TypeError):
+                    lines.append(f"  - {vt}: {p}")
 
         lines.append("\nGõ 'ok' để xác nhận hoặc sửa thông tin.")
         return "\n".join(lines)
@@ -796,46 +813,75 @@ class UnifiedProcessor:
         return "\n".join(lines)
 
     async def _execute_create_quotation(self, state, client, api_base):
-        """Create a quotation (buying or selling rate) via direct DB insert."""
+        """Create quotation(s) (buying or selling rate) via direct DB insert.
+        Supports multiple rates when AI returns 'rates' array."""
         from datetime import date as date_type
         entities = state.entities
         quote_type = entities.get("quote_type", "buying").lower()
+        db = get_supabase()
 
-        # Lookup vendor/customer by name via direct DB query
+        # Lookup vendor/customer
         vendor_id = None
         customer_id = None
-        db = get_supabase()
 
         if quote_type == "buying" and entities.get("vendor_name"):
             result = db.table('vendors').select('vendor_id, short_name, company_name').eq('is_active', True).execute()
+            name_lower = entities["vendor_name"].lower()
             for v in result.data or []:
-                name_lower = entities["vendor_name"].lower()
                 if name_lower in (v.get("short_name") or "").lower() or \
                    name_lower in (v.get("company_name") or "").lower():
                     vendor_id = v.get("vendor_id")
                     break
-
         elif quote_type == "selling" and entities.get("customer_name"):
             result = db.table('customers').select('customer_id, short_name, company_name, customer_code').eq('is_active', True).execute()
+            name_lower = entities["customer_name"].lower()
             for c in result.data or []:
-                name_lower = entities["customer_name"].lower()
                 if name_lower in (c.get("short_name") or "").lower() or \
                    name_lower in (c.get("company_name") or "").lower() or \
                    name_lower in (c.get("customer_code") or "").lower():
                     customer_id = c.get("customer_id")
                     break
 
-        # Validate price
-        price = entities.get("price")
-        if not price:
-            return {"success": False, "response": "Thiếu giá (price). Vui lòng cung cấp giá báo giá."}
+        # Determine table and owner
+        if quote_type == "buying":
+            if not vendor_id:
+                return {"success": False, "response": f"Không tìm thấy NCC '{entities.get('vendor_name')}'. Vui lòng tạo NCC trước."}
+            table = 'vendor_rates'
+            owner_field, owner_id = 'vendor_id', vendor_id
+        else:
+            if not customer_id:
+                return {"success": False, "response": f"Không tìm thấy KH '{entities.get('customer_name')}'. Vui lòng tạo KH trước."}
+            table = 'customer_rates'
+            owner_field, owner_id = 'customer_id', customer_id
 
-        # Build insert data
-        insert_data = {
-            'price': price,
+        # Build rate items: support multiple rates or single rate
+        rates_list = entities.get("rates", [])
+        if not rates_list:
+            # Single rate mode - build from flat entities
+            price = entities.get("price")
+            if not price:
+                return {"success": False, "response": "Thiếu giá (price). Vui lòng cung cấp giá báo giá."}
+            rates_list = [{"vehicle_type": entities.get("vehicle_type"), "price": price}]
+
+        # Validate all rates have price
+        for r in rates_list:
+            if not r.get("price"):
+                return {"success": False, "response": f"Thiếu giá cho loại xe {r.get('vehicle_type', '?')}. Vui lòng cung cấp đầy đủ giá."}
+            # Parse price: handle int, float, or string like "450,000"
+            try:
+                p = r["price"]
+                if isinstance(p, (int, float)):
+                    r["price"] = float(p)
+                else:
+                    # String: remove comma separators, keep as number
+                    r["price"] = float(str(p).replace(",", "").strip())
+            except (ValueError, TypeError):
+                return {"success": False, "response": f"Giá không hợp lệ: {r.get('price')}"}
+
+        # Common fields for all rates
+        base_data = {
             'currency': entities.get("currency", "VND"),
             'unit': entities.get("unit", "TRIP"),
-            'vehicle_type': entities.get("vehicle_type"),
             'origin_province': entities.get("origin_province"),
             'destination_province': entities.get("destination_province"),
             'notes': entities.get("sub_route") or entities.get("notes"),
@@ -843,37 +889,43 @@ class UnifiedProcessor:
             'is_active': True,
             'effective_date': date_type.today().isoformat(),
             'service_type_code': entities.get("service_type_code"),
+            owner_field: owner_id,
         }
-        # Remove None values
-        insert_data = {k: v for k, v in insert_data.items() if v is not None}
+        # Remove None values from base
+        base_data = {k: v for k, v in base_data.items() if v is not None}
 
-        if quote_type == "buying":
-            if not vendor_id:
-                return {"success": False, "response": f"Không tìm thấy NCC '{entities.get('vendor_name')}'. Vui lòng tạo NCC trước."}
-            insert_data["vendor_id"] = vendor_id
-            table = 'vendor_rates'
-        else:
-            if not customer_id:
-                return {"success": False, "response": f"Không tìm thấy KH '{entities.get('customer_name')}'. Vui lòng tạo KH trước."}
-            insert_data["customer_id"] = customer_id
-            table = 'customer_rates'
+        # Insert all rates
+        created = 0
+        errors = []
+        for rate_item in rates_list:
+            insert_data = {**base_data, 'price': rate_item["price"]}
+            if rate_item.get("vehicle_type"):
+                insert_data["vehicle_type"] = rate_item["vehicle_type"]
+            try:
+                result = db.table(table).insert(insert_data).execute()
+                if result.data:
+                    created += 1
+            except Exception as e:
+                logger.error(f"[UNIFIED] Rate insert failed: {e}")
+                errors.append(f"{rate_item.get('vehicle_type', '?')}: {e}")
 
-        try:
-            result = db.table(table).insert(insert_data).execute()
-            if result.data:
-                label = "mua" if quote_type == "buying" else "bán"
-                route = ""
-                if entities.get("origin_province") and entities.get("destination_province"):
-                    route = f" {entities['origin_province']}→{entities['destination_province']}"
-                price = entities.get("price", 0)
-                return {
-                    "success": True,
-                    "response": f"✅ Đã tạo báo giá {label}{route} | {price:,.0f} VND thành công!"
-                }
-            return {"success": False, "response": "Lỗi tạo báo giá: không có dữ liệu trả về"}
-        except Exception as e:
-            logger.error(f"[UNIFIED] Direct DB insert failed: {e}")
-            return {"success": False, "response": f"Lỗi tạo báo giá: {str(e)}"}
+        if created == 0:
+            return {"success": False, "response": f"Lỗi tạo báo giá: {'; '.join(errors)}"}
+
+        label = "mua" if quote_type == "buying" else "bán"
+        route = ""
+        if entities.get("origin_province") and entities.get("destination_province"):
+            route = f" {entities['origin_province']}→{entities['destination_province']}"
+
+        if len(rates_list) == 1:
+            p = rates_list[0]["price"]
+            return {"success": True, "response": f"✅ Đã tạo báo giá {label}{route} | {p:,.0f} VND thành công!"}
+
+        details = ", ".join(f"{r.get('vehicle_type', '?')}: {r['price']:,.0f}" for r in rates_list[:created])
+        msg = f"✅ Đã tạo {created}/{len(rates_list)} báo giá {label}{route}\n{details}"
+        if errors:
+            msg += f"\n⚠️ Lỗi: {'; '.join(errors)}"
+        return {"success": True, "response": msg}
 
     async def _execute_create_entity(self, state, client, api_base):
         """Create customer or vendor via admin API."""

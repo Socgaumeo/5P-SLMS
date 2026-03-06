@@ -583,10 +583,13 @@ class ConversationManager:
                                 customer_id = c.get("customer_id")
                                 break
 
-                # Create the rate
+                # Create the rate - validate price first
+                price = entities.get("price")
+                if not price:
+                    return {"success": False, "message": "Thiếu giá (price). Vui lòng cung cấp giá báo giá."}
                 endpoint = "buying-rates" if quote_type == "buying" else "selling-rates"
                 payload = {
-                    "price": entities.get("price"),
+                    "price": price,
                     "currency": entities.get("currency", "VND"),
                     "unit": entities.get("unit", "TRIP"),
                     "vehicle_type": entities.get("vehicle_type"),

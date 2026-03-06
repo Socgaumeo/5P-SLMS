@@ -98,6 +98,7 @@ Trả về JSON với cấu trúc:
     // Tất cả thông tin đã trích xuất được
     // Với nhiều xe: "vehicles": [{"license_plate": "...", "vehicle_type": "...", "driver_name": "...", "driver_phone": "..."}]
     // Với NHIỀU BOOKING: "bookings": [{"customer_code": "...", "booking_date": "...", "pickup_address": "...", "delivery_address": "...", "cargo_type": "...", "package_quantity": 10, "package_unit": "kiện", "invoice_numbers": "INV001"}]
+    // Với NHIỀU BÁO GIÁ (nhiều loại xe): "rates": [{"vehicle_type": "1.25T", "price": 450000}, {"vehicle_type": "2.5T", "price": 500000}]
   },
   "missing_fields": ["field1", "field2"],  // Các trường còn thiếu quan trọng
   "response": "Câu trả lời cho user bằng tiếng Việt",
@@ -142,7 +143,7 @@ Trả về JSON với cấu trúc:
 
 **Quotation (Báo giá):**
 - quote_type: "buying" (mua vào/chi phí) hoặc "selling" (bán ra/doanh thu)
-- price: Đơn giá (số tiền)
+- price: Đơn giá (số tiền) - BẮT BUỘC, phải là số > 0
 - origin_province: Tỉnh/TP đi
 - destination_province: Tỉnh/TP đến
 - vehicle_type: Loại xe (1.25T, 2.5T, 5T, 10T...)
@@ -151,6 +152,8 @@ Trả về JSON với cấu trúc:
 - currency: Tiền tệ (VND, USD)
 - unit: Đơn vị (TRIP, KG, CBM, CONT...)
 - rate_type: Loại hàng (STANDARD, FROZEN, DANGEROUS...)
+- rates: Danh sách báo giá khi có NHIỀU loại xe/giá khác nhau. VD: [{"vehicle_type": "1.25T", "price": 450000}, {"vehicle_type": "2.5T", "price": 500000}]
+  Khi user gửi nhiều giá cho nhiều loại xe, PHẢI dùng "rates" array thay vì "price" + "vehicle_type" đơn lẻ.
 
 **Status:**
 - new_status: COMPLETED, IN_TRANSIT, DISPATCHED, CANCELLED...
