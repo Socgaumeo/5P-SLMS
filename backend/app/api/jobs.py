@@ -141,7 +141,9 @@ async def create_job(request: JobCreateFromChatRequest, req: Request):
         logger.info(f"Creating job from entities: {entities}")
         
         # Parse booking date (smart parser handles multiple formats: dd.mm.yyyy, yyyy-mm-dd, etc.)
-        booking_date_str = entities.get('booking_date') or enriched.get('booking_date')
+        # Accept both booking_date and scheduled_date as aliases
+        booking_date_str = (entities.get('booking_date') or entities.get('scheduled_date') or 
+                           enriched.get('booking_date') or enriched.get('scheduled_date'))
         if booking_date_str:
             parsed = parse_date(booking_date_str)
             booking_date = parsed if parsed else date.today()
@@ -149,7 +151,9 @@ async def create_job(request: JobCreateFromChatRequest, req: Request):
             booking_date = date.today()
 
         # Parse pickup time (smart parser handles: 11:00, 11h00, 11 giờ 30, etc.)
-        pickup_time_str = entities.get('pickup_time') or enriched.get('pickup_time')
+        # Accept both pickup_time and scheduled_time as aliases
+        pickup_time_str = (entities.get('pickup_time') or entities.get('scheduled_time') or
+                          enriched.get('pickup_time') or enriched.get('scheduled_time'))
         pickup_time = parse_time(pickup_time_str) if pickup_time_str else None
         
         # Handle invoice numbers - AI may return 'invoices' or 'invoice_numbers'
@@ -198,13 +202,13 @@ async def create_job(request: JobCreateFromChatRequest, req: Request):
                 (entities.get('services') or [None])[0] or entities.get('service_type') or enriched.get('service_type')
             ),
             
-            # Structured cargo data (single item)
+            # Structured cargo data (single item) — check both entities and enriched_data
             'cargo_type': entities.get('cargo_type') or enriched.get('cargo_type'),
             # Parse package_quantity - handle both int and string formats like "9 cartons, 1 pallet"
-            'package_quantity': parse_package_quantity(entities.get('package_quantity'))[0],
-            'package_description': parse_package_quantity(entities.get('package_quantity'))[1],  # Keep original text
-            'package_unit': entities.get('package_unit'),
-            'weight_kg': entities.get('weight_kg'),
+            'package_quantity': parse_package_quantity(entities.get('package_quantity') or enriched.get('package_quantity'))[0],
+            'package_description': parse_package_quantity(entities.get('package_quantity') or enriched.get('package_quantity'))[1],
+            'package_unit': entities.get('package_unit') or enriched.get('package_unit'),
+            'weight_kg': entities.get('weight_kg') or enriched.get('weight_kg'),
             'dimension_length_cm': entities.get('dimension_length_cm'),
             'dimension_width_cm': entities.get('dimension_width_cm'),
             'dimension_height_cm': entities.get('dimension_height_cm'),

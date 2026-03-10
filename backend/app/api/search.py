@@ -95,33 +95,32 @@ def search_vehicles(
 ):
     """
     Search vehicles by license plate or driver name.
+    Vehicles are stored in the drivers table (license_plate + vehicle_type columns).
     """
     try:
         search_term = f"%{q}%"
         
         if vendor_id:
             db.execute("""
-                SELECT v.vehicle_id as id, v.license_plate, 
-                       v.vehicle_type, v.vendor_id,
-                       d.driver_name, d.phone as driver_phone
-                FROM vehicles v
-                LEFT JOIN drivers d ON v.vehicle_id = d.vehicle_id AND d.is_active = true
-                WHERE v.is_active = true
-                  AND v.vendor_id = %s
-                  AND (v.license_plate ILIKE %s OR d.driver_name ILIKE %s)
-                ORDER BY v.license_plate
+                SELECT d.driver_id as id, d.license_plate, 
+                       d.vehicle_type, d.vendor_id,
+                       d.full_name as driver_name, d.phone as driver_phone
+                FROM drivers d
+                WHERE d.is_active = true
+                  AND d.vendor_id = %s
+                  AND (d.license_plate ILIKE %s OR d.full_name ILIKE %s)
+                ORDER BY d.license_plate
                 LIMIT %s
             """, (vendor_id, search_term, search_term, limit))
         else:
             db.execute("""
-                SELECT v.vehicle_id as id, v.license_plate, 
-                       v.vehicle_type, v.vendor_id,
-                       d.driver_name, d.phone as driver_phone
-                FROM vehicles v
-                LEFT JOIN drivers d ON v.vehicle_id = d.vehicle_id AND d.is_active = true
-                WHERE v.is_active = true
-                  AND (v.license_plate ILIKE %s OR d.driver_name ILIKE %s)
-                ORDER BY v.license_plate
+                SELECT d.driver_id as id, d.license_plate, 
+                       d.vehicle_type, d.vendor_id,
+                       d.full_name as driver_name, d.phone as driver_phone
+                FROM drivers d
+                WHERE d.is_active = true
+                  AND (d.license_plate ILIKE %s OR d.full_name ILIKE %s)
+                ORDER BY d.license_plate
                 LIMIT %s
             """, (search_term, search_term, limit))
         
@@ -195,25 +194,25 @@ def search_drivers(
 
         if vendor_id:
             db.execute("""
-                SELECT driver_id as id, driver_name as name,
-                       phone, cccd, vendor_id
+                SELECT driver_id as id, full_name as name,
+                       phone, id_card as cccd, vendor_id, license_plate
                 FROM drivers
                 WHERE is_active = true
                   AND vendor_id = %s
-                  AND (driver_name ILIKE %s OR phone ILIKE %s)
-                ORDER BY driver_name
+                  AND (full_name ILIKE %s OR phone ILIKE %s OR license_plate ILIKE %s)
+                ORDER BY full_name
                 LIMIT %s
-            """, (vendor_id, search_term, search_term, limit))
+            """, (vendor_id, search_term, search_term, search_term, limit))
         else:
             db.execute("""
-                SELECT driver_id as id, driver_name as name,
-                       phone, cccd, vendor_id
+                SELECT driver_id as id, full_name as name,
+                       phone, id_card as cccd, vendor_id, license_plate
                 FROM drivers
                 WHERE is_active = true
-                  AND (driver_name ILIKE %s OR phone ILIKE %s)
-                ORDER BY driver_name
+                  AND (full_name ILIKE %s OR phone ILIKE %s OR license_plate ILIKE %s)
+                ORDER BY full_name
                 LIMIT %s
-            """, (search_term, search_term, limit))
+            """, (search_term, search_term, search_term, limit))
 
         results = db.fetchall()
 

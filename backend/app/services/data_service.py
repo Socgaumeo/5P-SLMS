@@ -495,22 +495,30 @@ class DataService:
             license_plate = vehicle_data.get("license_plate", "").replace(" ", "").replace(".", "")
             driver_phone = vehicle_data.get("driver_phone", "").replace(" ", "").replace("-", "")
 
-            # Auto-lookup by license plate
+            driver_id = None
+
+            # Auto-lookup by license plate in drivers table
             if license_plate:
-                result = self.client.table('vehicles').select('vendor_id').ilike(
-                    'plate_number', f'%{license_plate}%'
-                ).limit(1).execute()
-                if result.data and result.data[0].get('vendor_id'):
-                    vendor_id = result.data[0]['vendor_id']
-                    logger.info(f"Auto-found vendor {vendor_id} by license plate")
+                result = self.client.table('drivers').select('driver_id, vendor_id').ilike(
+                    'license_plate', f'%{license_plate}%'
+                ).eq('is_active', True).limit(1).execute()
+                if result.data:
+                    if result.data[0].get('vendor_id'):
+                        vendor_id = result.data[0]['vendor_id']
+                    if result.data[0].get('driver_id'):
+                        driver_id = result.data[0]['driver_id']
+                    logger.info(f"Auto-found driver {driver_id}, vendor {vendor_id} by license plate")
 
             # Auto-lookup by driver phone
             if driver_phone and not vendor_id:
-                result = self.client.table('drivers').select('vendor_id').ilike(
+                result = self.client.table('drivers').select('driver_id, vendor_id').ilike(
                     'phone', f'%{driver_phone}%'
-                ).limit(1).execute()
-                if result.data and result.data[0].get('vendor_id'):
-                    vendor_id = result.data[0]['vendor_id']
+                ).eq('is_active', True).limit(1).execute()
+                if result.data:
+                    if result.data[0].get('vendor_id'):
+                        vendor_id = result.data[0]['vendor_id']
+                    if not driver_id and result.data[0].get('driver_id'):
+                        driver_id = result.data[0]['driver_id']
 
             # Manual vendor name search
             if vendor_name and not vendor_id:
@@ -568,6 +576,8 @@ class DataService:
             }
             if vendor_id:
                 update_data['vendor_id'] = vendor_id
+            if driver_id:
+                update_data['driver_id'] = driver_id
 
             self.client.table('job_services').update(update_data).eq('job_id', job_id).execute()
 
