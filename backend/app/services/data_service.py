@@ -358,7 +358,8 @@ class DataService:
                 'customer_id': job_data.get("customer_id"),
                 'description': description.strip(),
                 'etd': etd_date,
-                'status_code': 'PENDING'
+                'status_code': 'PENDING',
+                'created_by': user_id
             }).execute()
 
             job = job_result.data[0]
@@ -572,7 +573,8 @@ class DataService:
 
             # Update job status
             job_result = self.client.table('jobs').update({
-                'status_code': 'DISPATCHED'
+                'status_code': 'DISPATCHED',
+                'updated_by': user_id
             }).eq('job_id', job_id).execute()
 
             job = job_result.data[0]

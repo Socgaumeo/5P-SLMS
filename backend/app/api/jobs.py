@@ -755,27 +755,30 @@ async def get_recent_jobs(limit: int = 10, status: Optional[str] = None):
         client = get_supabase()
         # Fetch jobs with customer info (created_by join added when column exists)
         query = client.table('jobs').select(
-            'job_id, job_no, status_code, etd, created_at, customer_id, created_by, '
+            'job_id, job_no, status_code, etd, created_at, customer_id, created_by, updated_by, '
             'customers(customer_code, short_name)'
         )
         if status:
             query = query.eq('status_code', status)
         result = query.order('created_at', desc=True).limit(limit).execute()
 
-        # Get user info for created_by if any jobs have it
+        # Get user info for created_by and updated_by if any jobs have them
         creator_ids = [r.get('created_by') for r in result.data if r.get('created_by')]
-        creator_map = {}
-        if creator_ids:
+        updater_ids = [r.get('updated_by') for r in result.data if r.get('updated_by')]
+        all_user_ids = list(set(creator_ids + updater_ids))
+        user_map = {}
+        if all_user_ids:
             users_result = client.table('users').select(
                 'user_id, user_code, full_name'
-            ).in_('user_id', list(set(creator_ids))).execute()
+            ).in_('user_id', all_user_ids).execute()
             for u in users_result.data:
-                creator_map[u['user_id']] = {'user_code': u['user_code'], 'full_name': u['full_name']}
+                user_map[u['user_id']] = {'user_code': u['user_code'], 'full_name': u['full_name']}
 
         jobs = []
         for row in result.data:
             customer = row.get('customers') or {}
-            creator = creator_map.get(row.get('created_by'), {})
+            creator = user_map.get(row.get('created_by'), {})
+            updater = user_map.get(row.get('updated_by'), {})
             jobs.append({
                 'job_id': row['job_id'],
                 'job_no': row['job_no'],
@@ -788,6 +791,9 @@ async def get_recent_jobs(limit: int = 10, status: Optional[str] = None):
                 'created_by': row.get('created_by'),
                 'creator_code': creator.get('user_code'),
                 'creator_name': creator.get('full_name'),
+                'updated_by': row.get('updated_by'),
+                'updater_code': updater.get('user_code'),
+                'updater_name': updater.get('full_name'),
             })
 
         # Get service types for each job
@@ -1128,10 +1134,14 @@ async def update_job_info(request: Request):
             valid_statuses = ["PENDING", "CONFIRMED", "DISPATCHED", "IN_TRANSIT", "ASSIGNED", "COMPLETED", "CANCELLED"]
             if new_status.upper() in valid_statuses:
                 # Update job status
-                client.table('jobs').update({
+                job_update = {
                     'status_code': new_status.upper(),
                     'updated_at': datetime.now().isoformat()
-                }).eq('job_id', job_id).execute()
+                }
+                update_user_id = entities.get("user_id")
+                if update_user_id:
+                    job_update['updated_by'] = update_user_id
+                client.table('jobs').update(job_update).eq('job_id', job_id).execute()
 
                 # Also update all job_services status to keep in sync
                 client.table('job_services').update({

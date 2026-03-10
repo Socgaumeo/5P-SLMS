@@ -1075,6 +1075,14 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                 <span className="detail-value">{job.created_at?.split('T')[0]}</span>
               </div>
               <div className="detail-item">
+                <span className="detail-label">Người tạo:</span>
+                <span className="detail-value">{job.creator_name || job.created_by || '-'}</span>
+              </div>
+              <div className="detail-item">
+                <span className="detail-label">Cập nhật bởi:</span>
+                <span className="detail-value">{job.updater_name || job.updated_by || '-'}</span>
+              </div>
+              <div className="detail-item">
                 <span className="detail-label">Ngày thực hiện:</span>
                 <span className="detail-value">{job.scheduled_date || job.etd || '-'}</span>
               </div>
@@ -2855,6 +2863,7 @@ function MainDashboard() {
                       <th>Customer</th>
                       <th>Type</th>
                       <th>Date</th>
+                      <th>Người tạo</th>
                       <th>Status</th>
                     </tr>
                   </thead>
@@ -2865,10 +2874,11 @@ function MainDashboard() {
                         <td>{job.customer_code || job.customer_name}</td>
                         <td><span className="job-type">{getServiceIcon(job.service_type)} {job.service_type?.replace(/_/g, ' ')}</span></td>
                         <td>{job.etd || job.created_at?.split('T')[0]}</td>
+                        <td>{job.creator_name || '-'}</td>
                         <td><StatusBadge status={job.status_code || 'PENDING'} /></td>
                       </tr>
                     )) : (
-                      <tr><td colSpan="5" className="no-data">No recent jobs</td></tr>
+                      <tr><td colSpan="6" className="no-data">No recent jobs</td></tr>
                     )}
                   </tbody>
                 </table>
@@ -2979,6 +2989,7 @@ function MainDashboard() {
                     <th>Customer</th>
                     <th>Service Type</th>
                     <th>Date</th>
+                    <th>Người tạo</th>
                     <th>Status</th>
                     <th>Actions</th>
                   </tr>
@@ -2990,13 +3001,14 @@ function MainDashboard() {
                       <td>{job.customer_code || job.customer_name}</td>
                       <td>{getServiceIcon(job.service_type)} {job.service_type}</td>
                       <td>{job.etd || job.created_at?.split('T')[0]}</td>
+                      <td>{job.creator_name || '-'}</td>
                       <td><StatusBadge status={job.status_code || 'PENDING'} /></td>
                       <td>
                         <button className="action-btn" onClick={(e) => { e.stopPropagation(); handleViewJob(job); }}>View</button>
                       </td>
                     </tr>
                   )) : (
-                    <tr><td colSpan="6" className="no-data">No jobs found</td></tr>
+                    <tr><td colSpan="7" className="no-data">No jobs found</td></tr>
                   )}
                 </tbody>
               </table>
