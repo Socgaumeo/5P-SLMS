@@ -863,21 +863,28 @@ async def get_job_details(job_id: int):
             'status_display': job_row.get('status_code')
         }
 
-        # Get all services with vendor/employee details
+        # Get all services with vendor/employee/driver details
         svc_result = client.table('job_services').select(
-            '*, vendors(short_name, company_name), employees(full_name)'
+            '*, vendors(short_name, company_name), employees(full_name), drivers(full_name, phone, id_card, license_plate, vehicle_type, date_of_birth)'
         ).eq('job_id', job_id).order('svc_id').execute()
 
         services = []
         for row in svc_result.data:
             vendor = row.pop('vendors', {}) or {}
             employee = row.pop('employees', {}) or {}
+            driver = row.pop('drivers', {}) or {}
             svc = {
                 **row,
                 'vendor_name': vendor.get('short_name'),
                 'vendor_full_name': vendor.get('company_name'),
                 'employee_name': employee.get('full_name'),
-                'service_type_name': row.get('service_type_code')
+                'service_type_name': row.get('service_type_code'),
+                # Driver info from drivers table (linked via driver_id)
+                'db_driver_name': driver.get('full_name'),
+                'db_driver_phone': driver.get('phone'),
+                'db_driver_id_card': driver.get('id_card'),
+                'db_driver_license_plate': driver.get('license_plate'),
+                'db_driver_vehicle_type': driver.get('vehicle_type'),
             }
 
             # Parse vendor_text_input for vehicle info

@@ -485,7 +485,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
             name: data.job.customer_name || jobCustomer.name
           })
         }
-        // Parse vendor_text_input to extract vehicle info
+        // Parse vendor_text_input to extract vehicle info, with fallback to drivers table
         const processedServices = (data.services || []).map(svc => {
           // If license_plate is already set, use it
           if (svc.license_plate) return svc
@@ -499,23 +499,33 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                 return {
                   ...svc,
                   license_plate: firstVehicle.license_plate,
-                  driver_name: firstVehicle.driver_name,
-                  driver_phone: firstVehicle.driver_phone,
-                  driver_id_card: firstVehicle.driver_id_card,
+                  driver_name: firstVehicle.driver_name || svc.db_driver_name,
+                  driver_phone: firstVehicle.driver_phone || svc.db_driver_phone,
+                  driver_id_card: firstVehicle.driver_id_card || svc.db_driver_id_card,
                   vehicles: parsed
                 }
               } else if (parsed.license_plate) {
                 return {
                   ...svc,
                   license_plate: parsed.license_plate,
-                  driver_name: parsed.driver_name,
-                  driver_phone: parsed.driver_phone,
-                  driver_id_card: parsed.driver_id_card,
+                  driver_name: parsed.driver_name || svc.db_driver_name,
+                  driver_phone: parsed.driver_phone || svc.db_driver_phone,
+                  driver_id_card: parsed.driver_id_card || svc.db_driver_id_card,
                   vehicles: [parsed]
                 }
               }
             } catch (e) {
               console.log('Could not parse vendor_text_input:', e)
+            }
+          }
+          // Fallback: use driver info from drivers table (linked via driver_id)
+          if (svc.db_driver_name || svc.db_driver_license_plate) {
+            return {
+              ...svc,
+              license_plate: svc.db_driver_license_plate || svc.license_plate,
+              driver_name: svc.db_driver_name,
+              driver_phone: svc.db_driver_phone,
+              driver_id_card: svc.db_driver_id_card,
             }
           }
           return svc
