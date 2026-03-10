@@ -487,7 +487,15 @@ function JobDetailModal({ job, onClose, onUpdate }) {
         }
         // Parse vendor_text_input to extract vehicle info, with fallback to drivers table
         const processedServices = (data.services || []).map(svc => {
-          // If license_plate is already set, use it
+          // If license_plate is already set but driver_name missing, apply db fallback
+          if (svc.license_plate && !svc.driver_name && svc.db_driver_name) {
+            return {
+              ...svc,
+              driver_name: svc.db_driver_name,
+              driver_phone: svc.db_driver_phone || svc.driver_phone,
+              driver_id_card: svc.db_driver_id_card || svc.driver_id_card,
+            }
+          }
           if (svc.license_plate) return svc
 
           // Otherwise, try to parse vendor_text_input
