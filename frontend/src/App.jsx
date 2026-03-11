@@ -1292,7 +1292,15 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                             <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Số kiện</label>
                             <div style={{ display: 'flex', gap: '4px' }}>
                               <input type="text" value={svc.package_quantity || ''} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, package_quantity: e.target.value } : s))} placeholder="38" style={{ width: '60px', padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px' }} />
-                              <input type="text" value={svc.package_unit || ''} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, package_unit: e.target.value } : s))} placeholder="pallet" style={{ flex: 1, padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px' }} />
+                              <select value={svc.package_unit || 'kiện'} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, package_unit: e.target.value } : s))} style={{ flex: 1, padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px', background: 'var(--bg-primary)' }}>
+                                <option value="kiện">Kiện</option>
+                                <option value="thùng">Thùng</option>
+                                <option value="carton">Carton</option>
+                                <option value="pallet">Pallet</option>
+                                <option value="box">Box</option>
+                                <option value="plt">Plt</option>
+                                <option value="container">Container</option>
+                              </select>
                             </div>
                           </div>
                           <div>
@@ -2404,7 +2412,10 @@ function JobCreateForm({ onClose, onSuccess }) {
                   <select name="package_unit" value={formData.package_unit} onChange={handleInputChange}>
                     <option value="kiện">Kiện</option>
                     <option value="thùng">Thùng</option>
+                    <option value="carton">Carton</option>
                     <option value="pallet">Pallet</option>
+                    <option value="box">Box</option>
+                    <option value="plt">Plt</option>
                     <option value="container">Container</option>
                   </select>
                 </div>
