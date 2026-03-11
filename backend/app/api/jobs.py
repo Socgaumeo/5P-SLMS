@@ -273,34 +273,58 @@ async def create_job(request: JobCreateFromChatRequest, req: Request):
         
         logger.info(f"Job data to create: {job_data}")
         
-        # --- DUPLICATE CHECK ---
+        # --- DUPLICATE CHECK (strict: match cargo details, not just route) ---
         warnings = []
         if customer_id and booking_date:
             try:
                 client = get_supabase()
-                dup_check = client.table('jobs').select('job_id, job_no, status_code').eq(
+                dup_check = client.table('jobs').select('job_id, job_no').eq(
                     'customer_id', customer_id
                 ).eq('etd', str(booking_date)).neq(
                     'status_code', 'CANCELLED'
                 ).execute()
                 
                 if dup_check.data:
-                    pickup = job_data.get('pickup_address', '')
-                    delivery = job_data.get('delivery_address', '')
+                    new_inv = str(invoice_numbers or '').strip().lower()
+                    new_qty = job_data.get('package_quantity')
+                    new_weight = job_data.get('weight_kg')
+                    new_cargo = str(job_data.get('cargo_type') or '').strip().lower()
+                    
                     for dup in dup_check.data:
-                        # Check same route by looking at existing job details
                         dup_detail = client.table('job_services').select('service_details').eq(
                             'job_id', dup['job_id']
                         ).limit(1).execute()
-                        if dup_detail.data:
-                            dd = dup_detail.data[0].get('service_details') or {}
-                            if isinstance(dd, str):
-                                dd = json.loads(dd)
-                            dup_pickup = dd.get('pickup_address', '')
-                            dup_delivery = dd.get('delivery_address', '')
-                            if (pickup and delivery and dup_pickup and dup_delivery and
-                                pickup.lower() in dup_pickup.lower() or dup_pickup.lower() in pickup.lower()):
-                                warnings.append(f"⚠️ Có thể trùng với {dup['job_no']} (cùng khách, cùng ngày, tuyến tương tự)")
+                        if not dup_detail.data:
+                            continue
+                        dd = dup_detail.data[0].get('service_details') or {}
+                        if isinstance(dd, str):
+                            dd = json.loads(dd)
+                        
+                        # Match score: need at least 2 matching fields
+                        match_score = 0
+                        
+                        # Invoice/bill number match (strongest signal)
+                        dup_inv = str(dd.get('invoice_numbers') or '').strip().lower()
+                        if new_inv and dup_inv and new_inv == dup_inv:
+                            match_score += 3  # Strong match
+                        
+                        # Package quantity match
+                        dup_qty = dd.get('package_quantity')
+                        if new_qty and dup_qty and int(new_qty) == int(dup_qty):
+                            match_score += 1
+                        
+                        # Weight match
+                        dup_weight = dd.get('weight_kg')
+                        if new_weight and dup_weight and abs(float(new_weight) - float(dup_weight)) < 1:
+                            match_score += 1
+                        
+                        # Cargo description match
+                        dup_cargo = str(dd.get('cargo_type') or '').strip().lower()
+                        if new_cargo and dup_cargo and (new_cargo == dup_cargo or new_cargo in dup_cargo or dup_cargo in new_cargo):
+                            match_score += 1
+                        
+                        if match_score >= 2:
+                            warnings.append(f"⚠️ Có thể trùng với {dup['job_no']} (cùng khách, cùng ngày, trùng thông tin hàng)")
             except Exception as e:
                 logger.warning(f"Duplicate check failed: {e}")
         
