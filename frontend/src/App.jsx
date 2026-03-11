@@ -1102,7 +1102,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
               </div>
               <div className="detail-item">
                 <span className="detail-label">Ngày thực hiện:</span>
-                <span className="detail-value">{job.scheduled_date || job.etd || '-'}</span>
+                <span className="detail-value">{job.scheduled_date || job.etd || '-'}{job.scheduled_time ? ` • ${job.scheduled_time.slice(0,5)}` : ''}</span>
               </div>
               <div className="detail-item">
                 <span className="detail-label">Status:</span>
