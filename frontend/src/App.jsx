@@ -1292,14 +1292,52 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                             <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Số kiện</label>
                             <div style={{ display: 'flex', gap: '4px' }}>
                               <input type="text" value={svc.package_quantity || ''} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, package_quantity: e.target.value } : s))} placeholder="38" style={{ width: '60px', padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px' }} />
-                              <select value={svc.package_unit || 'kiện'} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, package_unit: e.target.value } : s))} style={{ flex: 1, padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px', background: 'var(--bg-primary)' }}>
-                                <option value="kiện">Kiện</option>
-                                <option value="thùng">Thùng</option>
-                                <option value="carton">Carton</option>
-                                <option value="pallet">Pallet</option>
-                                <option value="box">Box</option>
-                                <option value="plt">Plt</option>
-                                <option value="container">Container</option>
+                              <select value={svc.package_unit || 'Package (Kiện, gói)'} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, package_unit: e.target.value } : s))} style={{ flex: 1, padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px', background: 'var(--bg-primary)' }}>
+                                <optgroup label="Phổ biến">
+                                  <option value="Carton (Thùng carton)">Carton (Thùng carton)</option>
+                                  <option value="Pallet & Package">Pallet & Package</option>
+                                  <option value="Box (Hộp)">Box (Hộp)</option>
+                                  <option value="Package (Kiện, gói)">Package (Kiện, gói)</option>
+                                  <option value="Case (Thùng)">Case (Thùng)</option>
+                                  <option value="Bundle (Gói)">Bundle (Gói)</option>
+                                  <option value="Roll(Cuộn)">Roll (Cuộn)</option>
+                                  <option value="Container">Container</option>
+                                  <option value="Piece">Piece</option>
+                                </optgroup>
+                                <optgroup label="Tất cả">
+                                  <option value="Bag (Túi)">Bag (Túi)</option>
+                                  <option value="Bale,compressed (Gói dạng nén)">Bale, compressed (Gói dạng nén)</option>
+                                  <option value="Bale,non-compressed (Gói không nén)">Bale, non-compressed (Gói không nén)</option>
+                                  <option value="Bar (Thanh)">Bar (Thanh)</option>
+                                  <option value="Barrel (Thùng)">Barrel (Thùng)</option>
+                                  <option value="Basket (Giỏ)">Basket (Giỏ)</option>
+                                  <option value="Cage (Lồng)">Cage (Lồng)</option>
+                                  <option value="Can, cylindrical (Hộp hình trụ)">Can, cylindrical (Hộp hình trụ)</option>
+                                  <option value="Can, rectangular (Thùng, hình hộp chữ nhật)">Can, rectangular (Thùng HCN)</option>
+                                  <option value="Carboy, non-protected (Chai, không được bảo vệ)">Carboy, non-protected</option>
+                                  <option value="Carboy, protected (Chai đựng axit)">Carboy, protected</option>
+                                  <option value="Cask (Thùng tô nô)">Cask (Thùng tô nô)</option>
+                                  <option value="Coil (Cuốn)">Coil (Cuốn)</option>
+                                  <option value="Crate (Giỏ)">Crate (Giỏ)</option>
+                                  <option value="Cylinder (Xylanh)">Cylinder (Xylanh)</option>
+                                  <option value="Drum (Thùng)">Drum (Thùng)</option>
+                                  <option value="Keg (Thùng đựng cá mòi muối)">Keg</option>
+                                  <option value="Log (Khúc gỗ)">Log (Khúc gỗ)</option>
+                                  <option value="Logs, in bundle/bunch/truss">Logs, in bundle/bunch/truss</option>
+                                  <option value="MST">MST</option>
+                                  <option value="Mat (Thảm)">Mat (Thảm)</option>
+                                  <option value="Net (Cuộn)">Net (Cuộn)</option>
+                                  <option value="Packet (Gói)">Packet (Gói)</option>
+                                  <option value="Pail (Thùng đựng nước)">Pail (Thùng đựng nước)</option>
+                                  <option value="Parcel (Lô, bưu kiện, gói hàng)">Parcel (Bưu kiện)</option>
+                                  <option value="Pen (Lồng)">Pen (Lồng)</option>
+                                  <option value="Pipe (ống)">Pipe (Ống)</option>
+                                  <option value="Plate (Đĩa)">Plate (Đĩa)</option>
+                                  <option value="Tank (Thùng, két, bể chứa hình trụ)">Tank (Bể chứa)</option>
+                                  <option value="Tray (Khay)">Tray (Khay)</option>
+                                  <option value="Unpacked or unpackaged (Hàng rời, không đóng gói)">Unpacked (Hàng rời)</option>
+                                  <option value="Other (Loại khác)">Other (Loại khác)</option>
+                                </optgroup>
                               </select>
                             </div>
                           </div>
@@ -2263,7 +2301,7 @@ function JobCreateForm({ onClose, onSuccess }) {
     service_type: 'TRUCKING_DOM',
     cargo_type: '',
     package_quantity: '',
-    package_unit: 'kiện',
+    package_unit: 'Package (Kiện, gói)',
     weight_kg: '',
     pickup_address: '',
     delivery_address: '',
@@ -2410,13 +2448,51 @@ function JobCreateForm({ onClose, onSuccess }) {
                 <div className="form-group">
                   <label>Đơn vị</label>
                   <select name="package_unit" value={formData.package_unit} onChange={handleInputChange}>
-                    <option value="kiện">Kiện</option>
-                    <option value="thùng">Thùng</option>
-                    <option value="carton">Carton</option>
-                    <option value="pallet">Pallet</option>
-                    <option value="box">Box</option>
-                    <option value="plt">Plt</option>
-                    <option value="container">Container</option>
+                    <optgroup label="Phổ biến">
+                      <option value="Carton (Thùng carton)">Carton (Thùng carton)</option>
+                      <option value="Pallet & Package">Pallet & Package</option>
+                      <option value="Box (Hộp)">Box (Hộp)</option>
+                      <option value="Package (Kiện, gói)">Package (Kiện, gói)</option>
+                      <option value="Case (Thùng)">Case (Thùng)</option>
+                      <option value="Bundle (Gói)">Bundle (Gói)</option>
+                      <option value="Roll(Cuộn)">Roll (Cuộn)</option>
+                      <option value="Container">Container</option>
+                      <option value="Piece">Piece</option>
+                    </optgroup>
+                    <optgroup label="Tất cả">
+                      <option value="Bag (Túi)">Bag (Túi)</option>
+                      <option value="Bale,compressed (Gói dạng nén)">Bale, compressed</option>
+                      <option value="Bale,non-compressed (Gói không nén)">Bale, non-compressed</option>
+                      <option value="Bar (Thanh)">Bar (Thanh)</option>
+                      <option value="Barrel (Thùng)">Barrel (Thùng)</option>
+                      <option value="Basket (Giỏ)">Basket (Giỏ)</option>
+                      <option value="Cage (Lồng)">Cage (Lồng)</option>
+                      <option value="Can, cylindrical (Hộp hình trụ)">Can, cylindrical</option>
+                      <option value="Can, rectangular (Thùng, hình hộp chữ nhật)">Can, rectangular</option>
+                      <option value="Carboy, non-protected (Chai, không được bảo vệ)">Carboy, non-protected</option>
+                      <option value="Carboy, protected (Chai đựng axit)">Carboy, protected</option>
+                      <option value="Cask (Thùng tô nô)">Cask (Thùng tô nô)</option>
+                      <option value="Coil (Cuốn)">Coil (Cuốn)</option>
+                      <option value="Crate (Giỏ)">Crate (Giỏ)</option>
+                      <option value="Cylinder (Xylanh)">Cylinder (Xylanh)</option>
+                      <option value="Drum (Thùng)">Drum (Thùng)</option>
+                      <option value="Keg (Thùng đựng cá mòi muối)">Keg</option>
+                      <option value="Log (Khúc gỗ)">Log (Khúc gỗ)</option>
+                      <option value="Logs, in bundle/bunch/truss">Logs, in bundle</option>
+                      <option value="MST">MST</option>
+                      <option value="Mat (Thảm)">Mat (Thảm)</option>
+                      <option value="Net (Cuộn)">Net (Cuộn)</option>
+                      <option value="Packet (Gói)">Packet (Gói)</option>
+                      <option value="Pail (Thùng đựng nước)">Pail</option>
+                      <option value="Parcel (Lô, bưu kiện, gói hàng)">Parcel (Bưu kiện)</option>
+                      <option value="Pen (Lồng)">Pen (Lồng)</option>
+                      <option value="Pipe (ống)">Pipe (Ống)</option>
+                      <option value="Plate (Đĩa)">Plate (Đĩa)</option>
+                      <option value="Tank (Thùng, két, bể chứa hình trụ)">Tank (Bể chứa)</option>
+                      <option value="Tray (Khay)">Tray (Khay)</option>
+                      <option value="Unpacked or unpackaged (Hàng rời, không đóng gói)">Unpacked (Hàng rời)</option>
+                      <option value="Other (Loại khác)">Other (Loại khác)</option>
+                    </optgroup>
                   </select>
                 </div>
                 <div className="form-group">
