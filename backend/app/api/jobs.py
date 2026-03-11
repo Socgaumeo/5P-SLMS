@@ -265,21 +265,146 @@ async def create_job(request: JobCreateFromChatRequest, req: Request):
             
             # Vendor
             'vendor_code': entities.get('vendor_code'),
+            
+            # Pricing
+            'selling_price': enriched.get('selling_price') or entities.get('selling_price'),
+            'buying_price': enriched.get('buying_price') or entities.get('buying_price'),
         }
         
         logger.info(f"Job data to create: {job_data}")
+        
+        # --- DUPLICATE CHECK ---
+        warnings = []
+        if customer_id and booking_date:
+            try:
+                client = get_supabase()
+                dup_check = client.table('jobs').select('job_id, job_no, status_code').eq(
+                    'customer_id', customer_id
+                ).eq('etd', str(booking_date)).neq(
+                    'status_code', 'CANCELLED'
+                ).execute()
+                
+                if dup_check.data:
+                    pickup = job_data.get('pickup_address', '')
+                    delivery = job_data.get('delivery_address', '')
+                    for dup in dup_check.data:
+                        # Check same route by looking at existing job details
+                        dup_detail = client.table('job_services').select('service_details').eq(
+                            'job_id', dup['job_id']
+                        ).limit(1).execute()
+                        if dup_detail.data:
+                            dd = dup_detail.data[0].get('service_details') or {}
+                            if isinstance(dd, str):
+                                dd = json.loads(dd)
+                            dup_pickup = dd.get('pickup_address', '')
+                            dup_delivery = dd.get('delivery_address', '')
+                            if (pickup and delivery and dup_pickup and dup_delivery and
+                                pickup.lower() in dup_pickup.lower() or dup_pickup.lower() in pickup.lower()):
+                                warnings.append(f"⚠️ Có thể trùng với {dup['job_no']} (cùng khách, cùng ngày, tuyến tương tự)")
+            except Exception as e:
+                logger.warning(f"Duplicate check failed: {e}")
+        
+        # --- PRICE ANOMALY CHECK ---
+        selling_price = job_data.get('selling_price')
+        buying_price = job_data.get('buying_price')
+        if customer_id and (selling_price or buying_price):
+            try:
+                client = get_supabase()
+                # Get recent jobs for same customer (last 30 days)
+                from datetime import timedelta
+                cutoff = (booking_date - timedelta(days=60)).isoformat()
+                recent = client.table('jobs').select('job_id').eq(
+                    'customer_id', customer_id
+                ).gte('etd', cutoff).neq('status_code', 'CANCELLED').limit(20).execute()
+                
+                if recent.data:
+                    recent_ids = [r['job_id'] for r in recent.data]
+                    prices = []
+                    for rid in recent_ids[:10]:
+                        svc_r = client.table('job_services').select('service_details').eq('job_id', rid).limit(1).execute()
+                        if svc_r.data:
+                            sd = svc_r.data[0].get('service_details') or {}
+                            if isinstance(sd, str):
+                                sd = json.loads(sd)
+                            sp = sd.get('selling_price') or sd.get('total_revenue')
+                            bp = sd.get('buying_price') or sd.get('total_cost')
+                            if sp: prices.append({'sell': float(sp), 'buy': float(bp) if bp else 0})
+                    
+                    if prices:
+                        avg_sell = sum(p['sell'] for p in prices) / len(prices)
+                        avg_buy = sum(p['buy'] for p in prices) / len(prices)
+                        
+                        if selling_price and avg_sell > 0:
+                            diff_pct = abs(selling_price - avg_sell) / avg_sell * 100
+                            if diff_pct > 30:
+                                warnings.append(f"⚠️ Giá bán {selling_price:,.0f} chênh {diff_pct:.0f}% so với TB gần đây ({avg_sell:,.0f})")
+                        
+                        if buying_price and avg_buy > 0:
+                            diff_pct = abs(buying_price - avg_buy) / avg_buy * 100
+                            if diff_pct > 30:
+                                warnings.append(f"⚠️ Giá mua {buying_price:,.0f} chênh {diff_pct:.0f}% so với TB gần đây ({avg_buy:,.0f})")
+            except Exception as e:
+                logger.warning(f"Price check failed: {e}")
         
         # Create job in database (pass user_id for created_by tracking)
         job = await data_service.create_job(job_data, user_id=user_id)
         
         logger.info(f"Job created: {job}")
         
+        # --- AUTO-SAVE PRICING to service_details ---
+        if job.get("id") and (selling_price or buying_price):
+            try:
+                client = get_supabase()
+                svc_result = client.table('job_services').select('svc_id, service_details').eq(
+                    'job_id', job['id']
+                ).limit(1).execute()
+                
+                if svc_result.data:
+                    svc = svc_result.data[0]
+                    details = svc.get('service_details') or {}
+                    if isinstance(details, str):
+                        details = json.loads(details)
+                    
+                    if selling_price:
+                        details['selling_price'] = selling_price
+                    if buying_price:
+                        details['buying_price'] = buying_price
+                    
+                    total_cost = (buying_price or 0) + sum(
+                        float(x.get('amount', 0)) for x in (details.get('extra_costs') or [])
+                    )
+                    total_revenue = (selling_price or 0) + sum(
+                        float(x.get('amount', 0)) for x in (details.get('extra_revenues') or [])
+                    )
+                    details['total_cost'] = total_cost
+                    details['total_revenue'] = total_revenue
+                    
+                    client.table('job_services').update({
+                        'service_details': json.dumps(details, ensure_ascii=False)
+                    }).eq('svc_id', svc['svc_id']).execute()
+                    
+                    # Update job totals
+                    profit = total_revenue - total_cost
+                    client.table('jobs').update({
+                        'total_revenue': total_revenue,
+                        'total_cost': total_cost,
+                        'profit': profit
+                    }).eq('job_id', job['id']).execute()
+                    
+                    logger.info(f"Auto-saved pricing for job {job['id']}: sell={selling_price}, buy={buying_price}")
+            except Exception as e:
+                logger.warning(f"Auto-save pricing failed (job still created): {e}")
+        
+        msg = "Job đã được tạo thành công!"
+        if warnings:
+            msg += "\n" + "\n".join(warnings)
+        
         return JobResponse(
             success=True,
             job_id=job.get("id"),
             job_number=job.get("job_number"),
             status="PENDING",
-            message="Job đã được tạo thành công!"
+            message=msg
         )
         
     except Exception as e:
