@@ -2426,7 +2426,9 @@ async def update_service_details(svc_id: int, request: Request):
             'cargo_type', 'package_quantity', 'package_unit',
             'origin_address', 'dest_address',
             'scheduled_date', 'scheduled_time',
-            'invoice_numbers'
+            'invoice_numbers', 'employee_id',
+            'service_type_code', 'weight_kg', 'volume_cbm',
+            'bl_awb_no', 'co_no'
         }
         update_data = {k: v for k, v in body.items() if k in allowed}
 
