@@ -7,7 +7,7 @@ Categories and Service Codes:
 - TRUCKING: TRUCKING_DOM (domestic), TRUCKING_LONG
 - BORDER: BORDER_IMP (border import by road from China)
 - AIR: AIR_IMP, AIR_EXP
-- SEA: SEA_IMP, SEA_EXP
+- SEA: SEA_IMP, SEA_EXP, SEA_DOM
 - WAREHOUSE: WHS_STORAGE, WHS_HANDLE, WHS_VAS
 - CUSTOMS: CUS_IMPORT, CUS_EXPORT, CUS_TRANSIT, CUS_CO
 - PACKING: SVC_PACK, SVC_FUMI, SVC_VACUUM, SVC_SHRINK, SVC_LASHING_TRUCK, SVC_LASHING_CONT, SVC_LASHING_FR
@@ -44,7 +44,7 @@ VALID_SERVICE_CODES = {
     # Air freight
     "AIR_IMP", "AIR_EXP",
     # Sea freight
-    "SEA_IMP", "SEA_EXP",
+    "SEA_IMP", "SEA_EXP", "SEA_DOM",
     # Warehouse
     "WHS_STORAGE", "WHS_HANDLE", "WHS_VAS",
     # Customs
@@ -236,6 +236,7 @@ SPECIFIC_SERVICE_PATTERNS = {
     # Sea freight sub-types
     "SEA_IMP": ["sea import", "nhập đường biển", "nhap duong bien"],
     "SEA_EXP": ["sea export", "xuất đường biển", "xuat duong bien"],
+    "SEA_DOM": ["sea domestic", "đường biển nội địa", "duong bien noi dia", "vận tải biển nội địa", "coastal", "ven biển", "nội địa đường biển"],
 }
 
 
@@ -339,7 +340,7 @@ def _get_specific_code(category: str, specific_matches: dict, text: str = None) 
         "TRUCKING": ["TRUCKING_DOM"],
         "BORDER": ["BORDER_IMP"],
         "AIR": ["AIR_EXP", "AIR_IMP"],
-        "SEA": ["SEA_EXP", "SEA_IMP"],
+        "SEA": ["SEA_DOM", "SEA_EXP", "SEA_IMP"],
         "WAREHOUSE": ["WHS_HANDLE", "WHS_STORAGE"],
     }
 
@@ -532,6 +533,7 @@ def simplify_service_code(code: str) -> str:
         # Sea freight
         "SEA_IMP": "SEA_IMPORT",
         "SEA_EXP": "SEA_EXPORT",
+        "SEA_DOM": "SEA_DOMESTIC",
         # Packing
         "SVC_PACK": "PACKING",
         "SVC_FUMI": "FUMIGATION",
@@ -583,6 +585,7 @@ def get_category_for_code(code: str) -> Optional[str]:
         # Sea freight
         "SEA_IMP": "SEA",
         "SEA_EXP": "SEA",
+        "SEA_DOM": "SEA",
         # Warehouse
         "WHS_STORAGE": "WAREHOUSE",
         "WHS_HANDLE": "WAREHOUSE",

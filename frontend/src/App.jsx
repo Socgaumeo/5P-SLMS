@@ -379,6 +379,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
     // Sea Freight
     SEA_IMP: 'Đường biển - Nhập',
     SEA_EXP: 'Đường biển - Xuất',
+    SEA_DOM: 'Đường biển - Nội địa',
     // Warehouse
     WHS_STORAGE: 'Lưu kho',
     WHS_HANDLE: 'Bốc xếp',
@@ -415,7 +416,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
 
   // Service type category helpers
   const isTransportService = (serviceType) => {
-    return ['TRUCKING_DOM', 'BORDER_IMP', 'AIR_IMP', 'AIR_EXP', 'SEA_IMP', 'SEA_EXP'].includes(serviceType)
+    return ['TRUCKING_DOM', 'BORDER_IMP', 'AIR_IMP', 'AIR_EXP', 'SEA_IMP', 'SEA_EXP', 'SEA_DOM'].includes(serviceType)
   }
 
   const isWarehouseService = (serviceType) => {
@@ -2069,6 +2070,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                           <optgroup label="🚢 Đường biển">
                             <option value="SEA_IMP">Đường biển - Nhập</option>
                             <option value="SEA_EXP">Đường biển - Xuất</option>
+                            <option value="SEA_DOM">Đường biển - Nội địa</option>
                           </optgroup>
                           <optgroup label="🏭 Kho bãi">
                             <option value="WHS_STORAGE">Lưu kho</option>
@@ -2546,6 +2548,7 @@ function JobCreateForm({ onClose, onSuccess }) {
                         <optgroup label="🚢 Đường biển">
                           <option value="SEA_IMP">Đường biển - Nhập</option>
                           <option value="SEA_EXP">Đường biển - Xuất</option>
+                            <option value="SEA_DOM">Đường biển - Nội địa</option>
                         </optgroup>
                         <optgroup label="🏭 Kho bãi">
                           <option value="WHS_STORAGE">Lưu kho</option>
@@ -2814,7 +2817,7 @@ function MainDashboard() {
       // Air Freight
       air: '✈️', AIR_IMP: '✈️', AIR_EXP: '✈️',
       // Sea Freight
-      sea: '🚢', SEA_IMP: '🚢', SEA_EXP: '🚢',
+      sea: '🚢', SEA_IMP: '🚢', SEA_EXP: '🚢', SEA_DOM: '🚢',
       // Warehouse
       warehouse: '🏭', WHS_STORAGE: '🏭', WHS_VAS: '✨',
       handling: '📥', WHS_HANDLE: '📥',
