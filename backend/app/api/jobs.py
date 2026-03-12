@@ -138,6 +138,23 @@ async def create_job(request: JobCreateFromChatRequest, req: Request):
         entities = request.entities
         enriched = request.enriched_data or {}
         
+        # If user_id or user_code provided in enriched_data (e.g., from chat bot),
+        # use it instead of default admin (1)
+        if not current_user:
+            if enriched.get('user_id'):
+                user_id = enriched['user_id']
+            elif enriched.get('user_code'):
+                # Lookup user_id from user_code
+                try:
+                    user_result = data_service.supabase.table('employees').select(
+                        'user_id'
+                    ).eq('user_code', enriched['user_code']).execute()
+                    if user_result.data:
+                        user_id = user_result.data[0]['user_id']
+                        logger.info(f"Resolved user_code '{enriched['user_code']}' to user_id {user_id}")
+                except Exception as e:
+                    logger.warning(f"Failed to resolve user_code: {e}")
+        
         logger.info(f"Creating job from entities: {entities}")
         
         # Parse booking date (smart parser handles multiple formats: dd.mm.yyyy, yyyy-mm-dd, etc.)
@@ -373,7 +390,9 @@ async def create_job(request: JobCreateFromChatRequest, req: Request):
         # Create job in database (pass user_id for created_by tracking)
         job = await data_service.create_job(job_data, user_id=user_id)
         
-        logger.info(f"Job created: {job}")
+        # Log job creation source (chat bot vs web UI)
+        source = "chat" if enriched.get('user_code') or enriched.get('created_by') else "api"
+        logger.info(f"Job created: {job} | source={source} | user_id={user_id} | user_code={enriched.get('user_code', 'N/A')}")
         
         # --- AUTO-SAVE PRICING to service_details ---
         if job.get("id") and (selling_price or buying_price):
