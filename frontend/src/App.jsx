@@ -1664,7 +1664,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                               {/* Base cost (buying_price) */}
                               {svc.buying_price > 0 && (
                                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
-                                  <span>📥 Chi phí vận chuyển</span>
+                                  <span>📥 Chi phí cơ bản</span>
                                   <span style={{ color: '#EF4444' }}><b>{formatPrice(svc.buying_price)}</b></span>
                                 </div>
                               )}
@@ -1680,7 +1680,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                               {/* Base revenue (selling_price) */}
                               {svc.selling_price > 0 && (
                                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
-                                  <span>📤 Doanh thu vận chuyển</span>
+                                  <span>📤 Doanh thu cơ bản</span>
                                   <span style={{ color: '#10B981' }}><b>{formatPrice(svc.selling_price)}</b></span>
                                 </div>
                               )}
