@@ -1669,7 +1669,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                               )}
                               {(svc.extra_costs || []).map((cost, idx) => (
                                 <div key={`vc-${idx}`} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
-                                  <span>📥 {cost.name}{cost.vendor && <span style={{ color: '#6B7280' }}> ({cost.vendor})</span>}</span>
+                                  <span>📥 {cost.name || cost.description || 'Phụ phí'}{cost.vendor && <span style={{ color: '#6B7280' }}> ({cost.vendor})</span>}</span>
                                   <span style={{ color: '#EF4444' }}>
                                     {cost.unit_price ? `${cost.qty || 1} ${cost.unit || 'ca'} × ${formatPrice(cost.unit_price)} = ` : ''}
                                     <b>{formatPrice(cost.amount || ((cost.qty || 1) * (cost.unit_price || 0)))}</b>
@@ -1685,7 +1685,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                               )}
                               {(svc.extra_revenues || []).map((rev, idx) => (
                                 <div key={`vr-${idx}`} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
-                                  <span>📤 {rev.name}</span>
+                                  <span>📤 {rev.name || rev.description || 'Phụ thu'}</span>
                                   <span style={{ color: '#10B981' }}>
                                     {rev.unit_price ? `${rev.qty || 1} ${rev.unit || 'chuyến'} × ${formatPrice(rev.unit_price)} = ` : ''}
                                     <b>{formatPrice(rev.amount || ((rev.qty || 1) * (rev.unit_price || 0)))}</b>

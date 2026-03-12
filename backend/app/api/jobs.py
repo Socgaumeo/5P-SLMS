@@ -2286,8 +2286,15 @@ async def update_service_quotations(svc_id: int, request: ServiceQuotationReques
         current_details['buying_price'] = request.buying_price
         current_details['selling_rate_id'] = request.selling_rate_id
         current_details['selling_price'] = request.selling_price
-        current_details['extra_costs'] = request.extra_costs or []
-        current_details['extra_revenues'] = request.extra_revenues or []
+        # Normalize field names: description → name (frontend expects 'name')
+        def normalize_extras(items):
+            for item in (items or []):
+                if 'description' in item and 'name' not in item:
+                    item['name'] = item.pop('description')
+            return items or []
+        
+        current_details['extra_costs'] = normalize_extras(request.extra_costs)
+        current_details['extra_revenues'] = normalize_extras(request.extra_revenues)
 
         # Calculate total costs and revenues (including extras)
         total_cost = (request.buying_price or 0) + sum(
