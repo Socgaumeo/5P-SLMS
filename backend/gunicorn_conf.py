@@ -1,7 +1,8 @@
 """Gunicorn production config for FastAPI with Uvicorn workers"""
 import os
 
-bind = "0.0.0.0:8000"
+port = os.environ.get("PORT", "8000")
+bind = f"0.0.0.0:{port}"
 
 # IMPORTANT: Default to 1 worker because conversation state is stored in-memory
 # per worker. Multiple workers = different state dicts = context loss between requests.
