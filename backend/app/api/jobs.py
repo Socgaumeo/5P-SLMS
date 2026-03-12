@@ -2255,8 +2255,8 @@ class ServiceQuotationRequest(BaseModel):
     buying_price: Optional[float] = None
     selling_rate_id: Optional[int] = None
     selling_price: Optional[float] = None
-    extra_costs: Optional[list] = None  # [{name: str, amount: float}, ...]
-    extra_revenues: Optional[list] = None  # [{name: str, amount: float}, ...]
+    extra_costs: Optional[list] = None  # [{name, amount, unit_price?, quantity?, unit?, currency?, exchange_rate?}, ...]
+    extra_revenues: Optional[list] = None  # [{name, amount, unit_price?, quantity?, unit?, currency?, exchange_rate?}, ...]
 
 
 @router.put("/services/{svc_id}/quotations")
@@ -2286,12 +2286,22 @@ async def update_service_quotations(svc_id: int, request: ServiceQuotationReques
         current_details['buying_price'] = request.buying_price
         current_details['selling_rate_id'] = request.selling_rate_id
         current_details['selling_price'] = request.selling_price
-        # Normalize field names: description → name (frontend expects 'name')
+        # Normalize field names and enrich extra items
+        EXTRA_FIELDS = ['name', 'amount', 'unit_price', 'quantity', 'unit', 'currency', 'exchange_rate']
         def normalize_extras(items):
+            result = []
             for item in (items or []):
                 if 'description' in item and 'name' not in item:
                     item['name'] = item.pop('description')
-            return items or []
+                # Auto-calculate amount from unit_price × quantity × exchange_rate if not provided
+                if item.get('unit_price') and item.get('quantity') and not item.get('amount'):
+                    rate = item.get('exchange_rate', 1)
+                    item['amount'] = round(item['unit_price'] * item['quantity'] * rate)
+                # Keep only known fields + amount
+                clean = {k: item[k] for k in EXTRA_FIELDS if k in item and item[k] is not None}
+                if 'amount' in clean:
+                    result.append(clean)
+            return result
         
         current_details['extra_costs'] = normalize_extras(request.extra_costs)
         current_details['extra_revenues'] = normalize_extras(request.extra_revenues)
