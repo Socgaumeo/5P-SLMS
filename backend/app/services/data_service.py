@@ -319,18 +319,21 @@ class DataService:
             # Determine service type and prefix
             service_type = job_data.get("service_type_code", "TRUCKING_SHORT")
 
-            if service_type.startswith("WHS"):
-                prefix = "WHS"
-            elif service_type.startswith("CUS"):
-                prefix = "CUS"
-            elif service_type.startswith("SVC"):
-                prefix = "PKG"
-            elif service_type.startswith("SEA"):
-                prefix = "SEA"
-            elif service_type.startswith("AIR"):
-                prefix = "AIR"
-            else:
-                prefix = "TRK"
+            prefix_map = {
+                "SEA_DOM": "SD",
+                "SEA_IMP": "SI",
+                "SEA_EXP": "SE",
+                "AIR_IMP": "AI",
+                "AIR_EXP": "AE",
+                "AIR_DOM": "AD",
+                "WHS": "WHS",
+                "CUS": "CC",
+                "SVC": "PKG",
+            }
+            prefix = next(
+                (v for k, v in prefix_map.items() if service_type.startswith(k)),
+                "TRK"
+            )
 
             # Generate job number
             today = date.today()
