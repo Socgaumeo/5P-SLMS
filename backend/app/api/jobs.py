@@ -2430,7 +2430,9 @@ async def update_service_details(svc_id: int, request: Request):
             'scheduled_date', 'scheduled_time',
             'invoice_numbers', 'employee_id', 'vendor_id', 'driver_id',
             'service_type_code', 'weight_kg', 'volume_cbm',
-            'bl_awb_no', 'co_no'
+            'bl_awb_no', 'co_no',
+            'route', 'chargeable_weight_kg', 'quotation_no',
+            'seller_name', 'buyer_name', 'declaration_no', 'customs_status'
         }
         update_data = {k: v for k, v in body.items() if k in allowed}
 

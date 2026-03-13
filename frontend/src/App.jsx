@@ -1343,13 +1343,54 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                             </div>
                           </div>
                           <div>
-                            <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Điểm đi</label>
-                            <input type="text" value={svc.origin_address || ''} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, origin_address: e.target.value } : s))} placeholder="VD: Binh Duong" style={{ width: '100%', padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px' }} />
+                            <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{(svc.service_type_code || '').startsWith('AIR_') ? 'AOL' : 'Điểm đi'}</label>
+                            <input type="text" value={svc.origin_address || ''} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, origin_address: e.target.value } : s))} placeholder={(svc.service_type_code || '').startsWith('AIR_') ? 'Airport of Loading' : 'VD: Binh Duong'} style={{ width: '100%', padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px' }} />
                           </div>
                           <div>
-                            <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Điểm đến</label>
-                            <input type="text" value={svc.dest_address || ''} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, dest_address: e.target.value } : s))} placeholder="VD: KCN Song Cong" style={{ width: '100%', padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px' }} />
+                            <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{(svc.service_type_code || '').startsWith('AIR_') ? 'AOD' : 'Điểm đến'}</label>
+                            <input type="text" value={svc.dest_address || ''} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, dest_address: e.target.value } : s))} placeholder={(svc.service_type_code || '').startsWith('AIR_') ? 'Airport of Discharge' : 'VD: KCN Song Cong'} style={{ width: '100%', padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px' }} />
                           </div>
+                          {(svc.service_type_code || '').startsWith('AIR_') && (
+                            <>
+                              <div>
+                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Route</label>
+                                <input type="text" value={svc.route || ''} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, route: e.target.value } : s))} placeholder="e.g. HAN-BKK" style={{ width: '100%', padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px' }} />
+                              </div>
+                              <div>
+                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Shipper</label>
+                                <input type="text" value={svc.seller_name || ''} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, seller_name: e.target.value } : s))} placeholder="Shipper name" style={{ width: '100%', padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px' }} />
+                              </div>
+                              <div>
+                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Consignee</label>
+                                <input type="text" value={svc.buyer_name || ''} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, buyer_name: e.target.value } : s))} placeholder="Consignee name" style={{ width: '100%', padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px' }} />
+                              </div>
+                              <div>
+                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Quotation No.</label>
+                                <input type="text" value={svc.quotation_no || ''} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, quotation_no: e.target.value } : s))} placeholder="QT-2026-001" style={{ width: '100%', padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px' }} />
+                              </div>
+                              <div>
+                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>CD No.</label>
+                                <input type="text" value={svc.declaration_no || ''} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, declaration_no: e.target.value } : s))} placeholder="Custom Declaration No." style={{ width: '100%', padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px' }} />
+                              </div>
+                              <div>
+                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>CW (kg)</label>
+                                <input type="number" value={svc.chargeable_weight_kg || ''} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, chargeable_weight_kg: e.target.value } : s))} placeholder="Chargeable weight" style={{ width: '100%', padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px' }} />
+                              </div>
+                              <div>
+                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>GW (kg)</label>
+                                <input type="number" value={svc.weight_kg || ''} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, weight_kg: e.target.value } : s))} placeholder="Gross weight" style={{ width: '100%', padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px' }} />
+                              </div>
+                              <div>
+                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Customs Channel</label>
+                                <select value={svc.customs_status || ''} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, customs_status: e.target.value } : s))} style={{ width: '100%', padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px', background: 'var(--bg-primary)' }}>
+                                  <option value="">-- Select channel --</option>
+                                  <option value="green">Green</option>
+                                  <option value="yellow">Yellow</option>
+                                  <option value="red">Red</option>
+                                </select>
+                              </div>
+                            </>
+                          )}
                           <div>
                             <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Ngày</label>
                             <input type="date" value={svc.scheduled_date || ''} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, scheduled_date: e.target.value } : s))} style={{ width: '100%', padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px' }} />
@@ -1359,7 +1400,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                             <input type="time" value={(svc.scheduled_time || '').slice(0, 5)} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, scheduled_time: e.target.value } : s))} style={{ width: '100%', padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px' }} />
                           </div>
                           <div style={{ gridColumn: '1 / -1' }}>
-                            <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Invoice</label>
+                            <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{(svc.service_type_code || '').startsWith('AIR_') ? "Customer's Invoice" : 'Invoice'}</label>
                             <input type="text" value={svc.invoice_numbers || ''} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, invoice_numbers: e.target.value } : s))} placeholder="VD: INV-001, INV-002" style={{ width: '100%', padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px' }} />
                           </div>
                           {/* Dynamic extra info fields */}
@@ -1404,6 +1445,13 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                     scheduled_time: svc.scheduled_time || null,
                                     invoice_numbers: svc.invoice_numbers || null,
                                     extra_info: (svc.extra_info || []).filter(i => i.label || i.value),
+                                    route: svc.route || null,
+                                    chargeable_weight_kg: svc.chargeable_weight_kg ? parseFloat(svc.chargeable_weight_kg) : null,
+                                    quotation_no: svc.quotation_no || null,
+                                    seller_name: svc.seller_name || null,
+                                    buyer_name: svc.buyer_name || null,
+                                    declaration_no: svc.declaration_no || null,
+                                    customs_status: svc.customs_status || null,
                                   })
                                 })
                                 const result = await res.json()
@@ -1426,11 +1474,21 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                         <>
                           {svc.cargo_type && <div><strong>Hàng:</strong> {svc.cargo_type}</div>}
                           {svc.package_quantity && <div><strong>Số kiện:</strong> {svc.package_quantity} {svc.package_unit || 'pallet'}</div>}
-                          {svc.origin_address && <div><strong>Điểm đi:</strong> {svc.origin_address}</div>}
-                          {svc.dest_address && <div><strong>Điểm đến:</strong> {svc.dest_address}</div>}
+                          {svc.origin_address && <div><strong>{(svc.service_type_code || '').startsWith('AIR_') ? 'AOL' : 'Điểm đi'}:</strong> {svc.origin_address}</div>}
+                          {svc.dest_address && <div><strong>{(svc.service_type_code || '').startsWith('AIR_') ? 'AOD' : 'Điểm đến'}:</strong> {svc.dest_address}</div>}
+                          {(svc.service_type_code || '').startsWith('AIR_') && (<>
+                            {svc.route && <div><strong>Route:</strong> {svc.route}</div>}
+                            {svc.seller_name && <div><strong>Shipper:</strong> {svc.seller_name}</div>}
+                            {svc.buyer_name && <div><strong>Consignee:</strong> {svc.buyer_name}</div>}
+                            {svc.quotation_no && <div><strong>Quotation No.:</strong> {svc.quotation_no}</div>}
+                            {svc.declaration_no && <div><strong>CD No.:</strong> {svc.declaration_no}</div>}
+                            {svc.chargeable_weight_kg && <div><strong>CW (kg):</strong> {svc.chargeable_weight_kg}</div>}
+                            {svc.weight_kg && <div><strong>GW (kg):</strong> {svc.weight_kg}</div>}
+                            {svc.customs_status && <div><strong>Customs Channel:</strong> {svc.customs_status.charAt(0).toUpperCase() + svc.customs_status.slice(1)}</div>}
+                          </>)}
                           {svc.scheduled_date && <div><strong>Ngày:</strong> {svc.scheduled_date}</div>}
                           {svc.scheduled_time && <div><strong>Giờ:</strong> {svc.scheduled_time}</div>}
-                          {svc.invoice_numbers && <div><strong>Invoice:</strong> {svc.invoice_numbers}</div>}
+                          {svc.invoice_numbers && <div><strong>{(svc.service_type_code || '').startsWith('AIR_') ? "Customer's Invoice" : 'Invoice'}:</strong> {svc.invoice_numbers}</div>}
                           {(svc.extra_info || []).map((info, idx) => (
                             info.label && info.value ? <div key={idx}><strong>{info.label}:</strong> {info.value}</div> : null
                           ))}
