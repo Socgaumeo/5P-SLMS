@@ -325,6 +325,10 @@ class DataService:
                 prefix = "CUS"
             elif service_type.startswith("SVC"):
                 prefix = "PKG"
+            elif service_type.startswith("SEA"):
+                prefix = "SEA"
+            elif service_type.startswith("AIR"):
+                prefix = "AIR"
             else:
                 prefix = "TRK"
 
