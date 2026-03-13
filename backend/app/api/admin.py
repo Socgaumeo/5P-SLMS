@@ -323,7 +323,7 @@ def create_vendor(data: VendorCreate):
         client = get_supabase()
         insert_data = {
             'vendor_code': data.vendor_code.upper(),
-            'vendor_name': data.vendor_name,
+            'company_name': data.vendor_name,
             'short_name': data.short_name,
             'address': data.address,
             'phone': data.phone,
