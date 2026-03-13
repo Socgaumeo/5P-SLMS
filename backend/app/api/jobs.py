@@ -144,14 +144,16 @@ async def create_job(request: JobCreateFromChatRequest, req: Request):
             if enriched.get('user_id'):
                 user_id = enriched['user_id']
             elif enriched.get('user_code'):
-                # Lookup user_id from user_code
+                # Lookup user_id from users table (NOT employees)
                 try:
-                    user_result = data_service.supabase.table('employees').select(
+                    user_result = data_service.supabase.table('users').select(
                         'user_id'
                     ).eq('user_code', enriched['user_code']).execute()
                     if user_result.data:
                         user_id = user_result.data[0]['user_id']
                         logger.info(f"Resolved user_code '{enriched['user_code']}' to user_id {user_id}")
+                    else:
+                        logger.warning(f"user_code '{enriched['user_code']}' not found in users table")
                 except Exception as e:
                     logger.warning(f"Failed to resolve user_code: {e}")
         
