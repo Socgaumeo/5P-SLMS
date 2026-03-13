@@ -2470,7 +2470,7 @@ async def lookup_vendors(search: Optional[str] = Query(None)):
     try:
         client = get_supabase()
         query = client.table('vendors').select(
-            'vendor_id, vendor_code, short_name, company_name'
+            'vendor_id, vendor_code, short_name, company_name, country, currency, contact_person'
         ).eq('is_active', True)
 
         if search:

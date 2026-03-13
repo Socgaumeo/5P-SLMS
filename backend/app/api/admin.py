@@ -68,6 +68,13 @@ class VendorCreate(BaseModel):
     phone: Optional[str] = None
     email: Optional[str] = None
     tax_code: Optional[str] = None
+    country: Optional[str] = "VN"
+    bank_name: Optional[str] = None
+    bank_account: Optional[str] = None
+    bank_swift: Optional[str] = None
+    bank_address: Optional[str] = None
+    currency: Optional[str] = "VND"
+    contact_person: Optional[str] = None
     is_active: bool = True
 
 
@@ -78,6 +85,13 @@ class VendorUpdate(BaseModel):
     phone: Optional[str] = None
     email: Optional[str] = None
     tax_code: Optional[str] = None
+    country: Optional[str] = None
+    bank_name: Optional[str] = None
+    bank_account: Optional[str] = None
+    bank_swift: Optional[str] = None
+    bank_address: Optional[str] = None
+    currency: Optional[str] = None
+    contact_person: Optional[str] = None
     is_active: Optional[bool] = None
 
 
@@ -307,7 +321,7 @@ def create_vendor(data: VendorCreate):
     """Create new vendor"""
     try:
         client = get_supabase()
-        result = client.table('vendors').insert({
+        insert_data = {
             'vendor_code': data.vendor_code.upper(),
             'vendor_name': data.vendor_name,
             'short_name': data.short_name,
@@ -315,8 +329,18 @@ def create_vendor(data: VendorCreate):
             'phone': data.phone,
             'email': data.email,
             'tax_code': data.tax_code,
-            'is_active': data.is_active
-        }).execute()
+            'country': data.country,
+            'bank_name': data.bank_name,
+            'bank_account': data.bank_account,
+            'bank_swift': data.bank_swift,
+            'bank_address': data.bank_address,
+            'currency': data.currency,
+            'contact_person': data.contact_person,
+            'is_active': data.is_active,
+        }
+        # Remove None values to let DB defaults apply
+        insert_data = {k: v for k, v in insert_data.items() if v is not None}
+        result = client.table('vendors').insert(insert_data).execute()
 
         return {"data": result.data[0], "message": "Vendor created"}
     except Exception as e:
