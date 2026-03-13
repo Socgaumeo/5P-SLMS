@@ -2257,8 +2257,8 @@ class ServiceQuotationRequest(BaseModel):
     buying_price: Optional[float] = None
     selling_rate_id: Optional[int] = None
     selling_price: Optional[float] = None
-    extra_costs: Optional[list] = None  # [{name: str, amount: float}, ...]
-    extra_revenues: Optional[list] = None  # [{name: str, amount: float}, ...]
+    extra_costs: Optional[list] = None  # [{name, amount, vendor?, unit_price?, quantity?, unit?, currency?, exchange_rate?}, ...]
+    extra_revenues: Optional[list] = None  # [{name, amount, vendor?, unit_price?, quantity?, unit?, currency?, exchange_rate?}, ...]
 
 
 @router.put("/services/{svc_id}/quotations")
