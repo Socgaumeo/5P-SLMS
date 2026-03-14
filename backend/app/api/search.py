@@ -4,7 +4,8 @@ Search API endpoints for customers, vendors, and vehicles.
 Uses raw SQL queries via DatabaseSession.
 """
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException
+from pydantic import BaseModel
 from typing import Optional
 import logging
 
@@ -13,6 +14,73 @@ from app.db.session import get_db, DatabaseSession
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/search", tags=["Search"])
+
+
+# ============================================================
+# CREATE MODELS (operator-level, no admin auth)
+# ============================================================
+
+class CreateCustomerRequest(BaseModel):
+    customer_code: str
+    company_name: str
+    short_name: Optional[str] = None
+    address: Optional[str] = None
+    contact_phone: Optional[str] = None
+    contact_email: Optional[str] = None
+    tax_code: Optional[str] = None
+
+class CreateVendorRequest(BaseModel):
+    vendor_code: str
+    company_name: str
+    short_name: Optional[str] = None
+    address: Optional[str] = None
+    contact_phone: Optional[str] = None
+    contact_email: Optional[str] = None
+    tax_code: Optional[str] = None
+
+
+@router.post("/customers/create")
+def create_customer(data: CreateCustomerRequest, db: DatabaseSession = Depends(get_db)):
+    """Create new customer (operator-level access)"""
+    try:
+        db.execute("""
+            INSERT INTO customers (customer_code, company_name, short_name, address,
+                                   contact_phone, contact_email, tax_code, is_active)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, true)
+            RETURNING customer_id, customer_code, company_name, short_name
+        """, (data.customer_code.upper(), data.company_name,
+              data.short_name or data.customer_code.upper(),
+              data.address, data.contact_phone, data.contact_email, data.tax_code))
+        result = db.fetchone()
+        db.commit()
+        return {"data": dict(result), "message": "Customer created"}
+    except Exception as e:
+        logger.error(f"Create customer error: {e}")
+        if "duplicate" in str(e).lower() or "unique" in str(e).lower():
+            raise HTTPException(status_code=400, detail=f"Customer code {data.customer_code} already exists")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/vendors/create")
+def create_vendor(data: CreateVendorRequest, db: DatabaseSession = Depends(get_db)):
+    """Create new vendor (operator-level access)"""
+    try:
+        db.execute("""
+            INSERT INTO vendors (vendor_code, company_name, short_name, address,
+                                 contact_phone, contact_email, tax_code, is_active)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, true)
+            RETURNING vendor_id, vendor_code, company_name, short_name
+        """, (data.vendor_code.upper(), data.company_name,
+              data.short_name or data.vendor_code.upper(),
+              data.address, data.contact_phone, data.contact_email, data.tax_code))
+        result = db.fetchone()
+        db.commit()
+        return {"data": dict(result), "message": "Vendor created"}
+    except Exception as e:
+        logger.error(f"Create vendor error: {e}")
+        if "duplicate" in str(e).lower() or "unique" in str(e).lower():
+            raise HTTPException(status_code=400, detail=f"Vendor code {data.vendor_code} already exists")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/customers")
