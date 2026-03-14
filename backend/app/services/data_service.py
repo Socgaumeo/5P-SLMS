@@ -335,14 +335,26 @@ class DataService:
                 "TRK"
             )
 
-            # Generate job number
+            # Generate job number — query MAX existing to avoid duplicates
             today = date.today()
-            count_result = self.client.table('jobs').select(
-                'job_id', count='exact'
-            ).gte('created_at', today.isoformat()).ilike('job_no', f'{prefix}%').execute()
+            date_part = today.strftime('%d%m')
+            pattern = f"{prefix}-{date_part}-%"
+            max_result = self.client.table('jobs').select(
+                'job_no'
+            ).ilike('job_no', pattern).execute()
 
-            next_num = (count_result.count or 0) + 1
-            job_no = f"{prefix}-{today.strftime('%d%m')}-{next_num:04d}"
+            next_num = 1
+            if max_result.data:
+                seq_nums = []
+                for row in max_result.data:
+                    try:
+                        seq_nums.append(int(row['job_no'].rsplit('-', 1)[-1]))
+                    except (ValueError, IndexError):
+                        pass
+                if seq_nums:
+                    next_num = max(seq_nums) + 1
+
+            job_no = f"{prefix}-{date_part}-{next_num:04d}"
 
             # Build description
             dims = ""

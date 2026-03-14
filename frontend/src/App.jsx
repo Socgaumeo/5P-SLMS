@@ -363,6 +363,11 @@ function JobDetailModal({ job, onClose, onUpdate }) {
     driver_phone: '',
     notes: ''
   })
+  // Job number edit state
+  const [editingJobNo, setEditingJobNo] = useState(false)
+  const [jobNoValue, setJobNoValue] = useState(job?.job_no || '')
+  const [savingJobNo, setSavingJobNo] = useState(false)
+
   // Quotation state for per-service pricing
   const [quotations, setQuotations] = useState({}) // {svc_id: {buying: [], selling: []}}
   const [standardRates, setStandardRates] = useState([]) // Standard cost items from master_cost_items
@@ -771,6 +776,32 @@ function JobDetailModal({ job, onClose, onUpdate }) {
     }
   }
 
+  const handleSaveJobNo = async () => {
+    const trimmed = jobNoValue.trim()
+    if (!trimmed) return alert('Mã job không được để trống')
+    setSavingJobNo(true)
+    try {
+      const res = await authFetch(`${API_URL}/api/jobs/${job.job_id}/job-number`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ job_no: trimmed })
+      })
+      const result = await res.json()
+      if (result.success) {
+        setEditingJobNo(false)
+        job.job_no = trimmed // update local reference so title refreshes
+        onUpdate && onUpdate()
+      } else {
+        alert(result.message || 'Không thể cập nhật mã job')
+      }
+    } catch (e) {
+      console.error('Save job_no error:', e)
+      alert('Lỗi khi lưu mã job')
+    } finally {
+      setSavingJobNo(false)
+    }
+  }
+
   // Update individual service status
   const handleUpdateServiceStatus = async (svc_id, newStatus) => {
     setSaving(true)
@@ -946,7 +977,34 @@ function JobDetailModal({ job, onClose, onUpdate }) {
       <div className="modal-content large" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <div>
-            <h2 className="modal-title">📋 {job.job_no}</h2>
+            {editingJobNo ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '20px' }}>📋</span>
+                <input
+                  type="text"
+                  value={jobNoValue}
+                  onChange={e => setJobNoValue(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') handleSaveJobNo(); if (e.key === 'Escape') setEditingJobNo(false) }}
+                  autoFocus
+                  style={{ fontSize: '18px', fontWeight: 700, padding: '4px 8px', borderRadius: '6px', border: '1px solid var(--border)', width: '180px' }}
+                />
+                <button onClick={handleSaveJobNo} disabled={savingJobNo} style={{ padding: '4px 10px', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '13px' }}>
+                  {savingJobNo ? '...' : '✓'}
+                </button>
+                <button onClick={() => { setEditingJobNo(false); setJobNoValue(job.job_no) }} style={{ padding: '4px 10px', background: '#6B7280', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '13px' }}>
+                  ✕
+                </button>
+              </div>
+            ) : (
+              <h2 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                📋 {jobNoValue || job.job_no}
+                <button
+                  title="Sửa mã job"
+                  onClick={() => { setJobNoValue(job.job_no); setEditingJobNo(true) }}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '14px', opacity: 0.6, padding: '2px 4px' }}
+                >✏️</button>
+              </h2>
+            )}
             <p className="modal-subtitle">{job.customer || job.customer_name || job.customer_code}</p>
           </div>
           <StatusBadge status={jobStatus} />

@@ -1923,6 +1923,59 @@ class StatusUpdateRequest(BaseModel):
     status_code: str
 
 
+class JobNumberUpdateRequest(BaseModel):
+    job_no: str
+
+
+@router.put("/{job_id}/job-number")
+async def update_job_number(job_id: int, request: JobNumberUpdateRequest):
+    """
+    Update job_no for a job. No admin auth required (operators can use this).
+    Validates format loosely: must be non-empty string.
+    """
+    try:
+        client = get_supabase()
+
+        new_job_no = request.job_no.strip()
+        if not new_job_no:
+            return {"success": False, "message": "job_no không được để trống"}
+
+        # Check job exists
+        job_result = client.table('jobs').select(
+            'job_id, job_no'
+        ).eq('job_id', job_id).limit(1).execute()
+
+        if not job_result.data:
+            raise HTTPException(404, f"Job {job_id} not found")
+
+        old_job_no = job_result.data[0]['job_no']
+
+        # Check uniqueness (avoid duplicate job_no)
+        dup_result = client.table('jobs').select('job_id').eq('job_no', new_job_no).neq('job_id', job_id).limit(1).execute()
+        if dup_result.data:
+            return {"success": False, "message": f"Mã job '{new_job_no}' đã tồn tại"}
+
+        client.table('jobs').update({
+            'job_no': new_job_no,
+            'updated_at': datetime.now().isoformat()
+        }).eq('job_id', job_id).execute()
+
+        logger.info(f"Job {job_id} job_no updated: {old_job_no} -> {new_job_no}")
+
+        return {
+            "success": True,
+            "job_id": job_id,
+            "job_no": new_job_no,
+            "message": f"Đã cập nhật mã job thành {new_job_no}"
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating job_no: {e}")
+        return {"success": False, "message": str(e)}
+
+
 @router.put("/{job_id}/status")
 async def update_job_status(job_id: int, request: StatusUpdateRequest):
     """
