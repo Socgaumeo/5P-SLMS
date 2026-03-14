@@ -18,7 +18,7 @@ from app.core.config import settings
 from app.api.dependencies import get_current_user, require_manager_or_admin
 from app.middleware.security_headers import SecurityHeadersMiddleware
 from app.middleware.rate_limiter import limiter
-from app.api import chat, jobs, health, excel_import, search, admin, auth, users, audit, rate_file_upload
+from app.api import chat, jobs, health, excel_import, search, admin, auth, users, audit, rate_file_upload, rates
 from app.api.exports import meiko_customer_export_template as meiko_export
 from app.api.exports import customer_export_template_registry as customer_exports
 
@@ -77,6 +77,7 @@ app.include_router(audit.router, tags=["Audit"])
 app.include_router(meiko_export.router, prefix="/api/jobs", tags=["MEIKO Export"])
 app.include_router(customer_exports.router, prefix="/api/exports", tags=["Customer Exports"])
 app.include_router(rate_file_upload.router, tags=["Rate File Upload"])
+app.include_router(rates.router)
 
 
 @app.get("/")
