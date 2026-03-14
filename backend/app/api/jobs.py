@@ -21,6 +21,25 @@ import re
 logger = logging.getLogger(__name__)
 
 
+SEA_DOM_FIELDS = [
+    'container_seal', 'qty', 'gross_weight_kg', 'vessel', 'route',
+    'pol', 'pod', 'place_of_delivery', 'shipper', 'consignee'
+]
+
+
+def validate_sea_dom_fields(details: dict) -> list:
+    """Return list of missing SEA_DOM fields (warn, don't block)."""
+    return [f for f in SEA_DOM_FIELDS if not details.get(f)]
+
+
+def is_sea_dom_service(service_type_code: str) -> bool:
+    """Check if service type is SEA_DOM or SD prefix."""
+    if not service_type_code:
+        return False
+    code = str(service_type_code).upper()
+    return code == 'SEA_DOM' or code.startswith('SD')
+
+
 def parse_package_quantity(value) -> tuple:
     """
     Parse package_quantity from various formats.
@@ -396,8 +415,21 @@ async def create_job(request: JobCreateFromChatRequest, req: Request):
         source = "chat" if enriched.get('user_code') or enriched.get('created_by') else "api"
         logger.info(f"Job created: {job} | source={source} | user_id={user_id} | user_code={enriched.get('user_code', 'N/A')}")
         
-        # --- AUTO-SAVE PRICING to service_details ---
-        if job.get("id") and (selling_price or buying_price):
+        # --- AUTO-SAVE PRICING + SEA_DOM FIELDS to service_details ---
+        service_type_code_for_check = normalize_service_code(
+            (entities.get('services') or [None])[0] or entities.get('service_type') or enriched.get('service_type')
+        ) or ''
+        sea_dom_data = {}
+        if is_sea_dom_service(service_type_code_for_check):
+            for f in SEA_DOM_FIELDS:
+                val = entities.get(f) or enriched.get(f)
+                if val is not None:
+                    sea_dom_data[f] = val
+            missing = [f for f in SEA_DOM_FIELDS if not sea_dom_data.get(f)]
+            if missing:
+                warnings.append(f"⚠️ SEA_DOM: Thiếu các trường: {', '.join(missing)}")
+
+        if job.get("id") and (selling_price or buying_price or sea_dom_data):
             try:
                 client = get_supabase()
                 svc_result = client.table('job_services').select('svc_id, service_details').eq(
@@ -414,6 +446,10 @@ async def create_job(request: JobCreateFromChatRequest, req: Request):
                         details['selling_price'] = selling_price
                     if buying_price:
                         details['buying_price'] = buying_price
+                    
+                    # Merge SEA_DOM fields
+                    if sea_dom_data:
+                        details.update(sea_dom_data)
                     
                     total_cost = (buying_price or 0) + sum(
                         float(x.get('amount', 0)) for x in (details.get('extra_costs') or [])
@@ -1124,6 +1160,11 @@ async def get_job_details(job_id: int):
                             svc['total_cost'] = details['total_cost']
                         if details.get('total_revenue') is not None:
                             svc['total_revenue'] = details['total_revenue']
+
+                        # Extract SEA_DOM specific fields
+                        for sea_field in SEA_DOM_FIELDS:
+                            if details.get(sea_field) is not None:
+                                svc[sea_field] = details[sea_field]
                 except Exception as e:
                     logger.error(f"Error parsing service_details for svc {svc.get('svc_id')}: {e}")
 
@@ -2436,9 +2477,10 @@ async def update_service_details(svc_id: int, request: Request):
         }
         update_data = {k: v for k, v in body.items() if k in allowed}
 
-        # Store extra_info in service_details JSONB
-        if 'extra_info' in body:
-            # Merge extra_info into existing service_details
+        # Store extra_info and/or SEA_DOM fields in service_details JSONB
+        jsonb_fields = {k: body[k] for k in SEA_DOM_FIELDS if k in body}
+        needs_jsonb = 'extra_info' in body or jsonb_fields
+        if needs_jsonb:
             svc_row = client.table('job_services').select('service_details').eq('svc_id', svc_id).limit(1).execute()
             existing = svc_row.data[0].get('service_details') or {} if svc_row.data else {}
             if isinstance(existing, str):
@@ -2446,7 +2488,10 @@ async def update_service_details(svc_id: int, request: Request):
                     existing = json.loads(existing)
                 except Exception:
                     existing = {}
-            existing['extra_info'] = body['extra_info']
+            if 'extra_info' in body:
+                existing['extra_info'] = body['extra_info']
+            if jsonb_fields:
+                existing.update(jsonb_fields)
             update_data['service_details'] = json.dumps(existing, ensure_ascii=False)
 
         if not update_data:
@@ -2458,6 +2503,66 @@ async def update_service_details(svc_id: int, request: Request):
         return {"success": True, "svc_id": svc_id}
     except Exception as e:
         logger.error(f"Error updating service details: {e}")
+        return {"success": False, "message": str(e)}
+
+
+@router.put("/services/{svc_id}/sea-dom-details")
+async def update_sea_dom_details(svc_id: int, request: Request):
+    """
+    Update SEA_DOM specific fields in service_details JSONB.
+    Merges the 10 SEA_DOM fields into existing service_details without overwriting other fields.
+    """
+    try:
+        client = get_supabase()
+        body = await request.json()
+
+        # Only accept SEA_DOM fields
+        sea_dom_updates = {k: v for k, v in body.items() if k in SEA_DOM_FIELDS}
+
+        if not sea_dom_updates:
+            return {"success": False, "message": "No valid SEA_DOM fields provided"}
+
+        # Fetch existing service_details to merge
+        svc_row = client.table('job_services').select(
+            'svc_id, service_type_code, service_details'
+        ).eq('svc_id', svc_id).limit(1).execute()
+
+        if not svc_row.data:
+            return {"success": False, "message": f"Service {svc_id} not found"}
+
+        svc = svc_row.data[0]
+
+        # Warn if not a SEA_DOM service (but don't block)
+        if not is_sea_dom_service(svc.get('service_type_code', '')):
+            logger.warning(f"Updating SEA_DOM fields on non-SEA_DOM service {svc_id} ({svc.get('service_type_code')})")
+
+        existing = svc.get('service_details') or {}
+        if isinstance(existing, str):
+            try:
+                existing = json.loads(existing)
+            except Exception:
+                existing = {}
+
+        # Merge SEA_DOM fields (preserve all other fields)
+        existing.update(sea_dom_updates)
+
+        # Validate and log warnings for missing fields
+        missing = validate_sea_dom_fields(existing)
+        if missing:
+            logger.warning(f"SEA_DOM service {svc_id} still missing fields: {missing}")
+
+        client.table('job_services').update({
+            'service_details': json.dumps(existing, ensure_ascii=False),
+            'updated_at': datetime.now().isoformat()
+        }).eq('svc_id', svc_id).execute()
+
+        result = {"success": True, "svc_id": svc_id, "updated_fields": list(sea_dom_updates.keys())}
+        if missing:
+            result["warnings"] = [f"Thiếu các trường SEA_DOM: {', '.join(missing)}"]
+        return result
+
+    except Exception as e:
+        logger.error(f"Error updating SEA_DOM details for svc {svc_id}: {e}")
         return {"success": False, "message": str(e)}
 
 

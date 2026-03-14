@@ -1391,6 +1391,54 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                               </div>
                             </>
                           )}
+                          {/* SEA_DOM specific fields */}
+                          {(svc.service_type_code === 'SEA_DOM' || (svc.service_type_code || '').startsWith('SD')) && (
+                            <>
+                              <div style={{ gridColumn: '1 / -1', marginTop: '6px', marginBottom: '2px' }}>
+                                <span style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--primary)', borderBottom: '1px solid var(--border)', display: 'block', paddingBottom: '4px' }}>🚢 Thông tin SEA DOM</span>
+                              </div>
+                              <div>
+                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Container/Seal</label>
+                                <input type="text" value={svc.container_seal || ''} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, container_seal: e.target.value } : s))} placeholder="VD: MSCU1234567/SL001" style={{ width: '100%', padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px' }} />
+                              </div>
+                              <div>
+                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Số lượng</label>
+                                <input type="number" value={svc.qty || ''} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, qty: e.target.value } : s))} placeholder="0" style={{ width: '100%', padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px' }} />
+                              </div>
+                              <div>
+                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Gross Weight (kg)</label>
+                                <input type="number" step="0.01" value={svc.gross_weight_kg || ''} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, gross_weight_kg: e.target.value } : s))} placeholder="0.00" style={{ width: '100%', padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px' }} />
+                              </div>
+                              <div>
+                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Vessel</label>
+                                <input type="text" value={svc.vessel || ''} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, vessel: e.target.value } : s))} placeholder="Tên tàu" style={{ width: '100%', padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px' }} />
+                              </div>
+                              <div>
+                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Tuyến</label>
+                                <input type="text" value={svc.route || ''} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, route: e.target.value } : s))} placeholder="VD: HCM-HAN" style={{ width: '100%', padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px' }} />
+                              </div>
+                              <div>
+                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>POL</label>
+                                <input type="text" value={svc.pol || ''} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, pol: e.target.value } : s))} placeholder="Port of Loading" style={{ width: '100%', padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px' }} />
+                              </div>
+                              <div>
+                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>POD</label>
+                                <input type="text" value={svc.pod || ''} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, pod: e.target.value } : s))} placeholder="Port of Discharge" style={{ width: '100%', padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px' }} />
+                              </div>
+                              <div>
+                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Place of Delivery</label>
+                                <input type="text" value={svc.place_of_delivery || ''} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, place_of_delivery: e.target.value } : s))} placeholder="Nơi giao hàng" style={{ width: '100%', padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px' }} />
+                              </div>
+                              <div>
+                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Shipper</label>
+                                <input type="text" value={svc.shipper || ''} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, shipper: e.target.value } : s))} placeholder="Tên shipper" style={{ width: '100%', padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px' }} />
+                              </div>
+                              <div>
+                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Consignee</label>
+                                <input type="text" value={svc.consignee || ''} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, consignee: e.target.value } : s))} placeholder="Tên consignee" style={{ width: '100%', padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px' }} />
+                              </div>
+                            </>
+                          )}
                           <div>
                             <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Ngày</label>
                             <input type="date" value={svc.scheduled_date || ''} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, scheduled_date: e.target.value } : s))} style={{ width: '100%', padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px' }} />
@@ -1432,33 +1480,58 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                             <button type="button" onClick={async () => {
                               setSaving(true)
                               try {
+                                const isSeaDom = svc.service_type_code === 'SEA_DOM' || (svc.service_type_code || '').startsWith('SD')
+                                const detailsPayload = {
+                                  cargo_type: svc.cargo_type || null,
+                                  package_quantity: svc.package_quantity || null,
+                                  package_unit: svc.package_unit || null,
+                                  origin_address: svc.origin_address || null,
+                                  dest_address: svc.dest_address || null,
+                                  scheduled_date: svc.scheduled_date || null,
+                                  scheduled_time: svc.scheduled_time || null,
+                                  invoice_numbers: svc.invoice_numbers || null,
+                                  extra_info: (svc.extra_info || []).filter(i => i.label || i.value),
+                                  route: isSeaDom ? null : (svc.route || null),
+                                  chargeable_weight_kg: svc.chargeable_weight_kg ? parseFloat(svc.chargeable_weight_kg) : null,
+                                  quotation_no: svc.quotation_no || null,
+                                  seller_name: svc.seller_name || null,
+                                  buyer_name: svc.buyer_name || null,
+                                  declaration_no: svc.declaration_no || null,
+                                  customs_status: svc.customs_status || null,
+                                }
                                 const res = await authFetch(`${API_URL}/api/jobs/services/${svc.svc_id}/details`, {
                                   method: 'PUT',
                                   headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify({
-                                    cargo_type: svc.cargo_type || null,
-                                    package_quantity: svc.package_quantity || null,
-                                    package_unit: svc.package_unit || null,
-                                    origin_address: svc.origin_address || null,
-                                    dest_address: svc.dest_address || null,
-                                    scheduled_date: svc.scheduled_date || null,
-                                    scheduled_time: svc.scheduled_time || null,
-                                    invoice_numbers: svc.invoice_numbers || null,
-                                    extra_info: (svc.extra_info || []).filter(i => i.label || i.value),
-                                    route: svc.route || null,
-                                    chargeable_weight_kg: svc.chargeable_weight_kg ? parseFloat(svc.chargeable_weight_kg) : null,
-                                    quotation_no: svc.quotation_no || null,
-                                    seller_name: svc.seller_name || null,
-                                    buyer_name: svc.buyer_name || null,
-                                    declaration_no: svc.declaration_no || null,
-                                    customs_status: svc.customs_status || null,
-                                  })
+                                  body: JSON.stringify(detailsPayload)
                                 })
                                 const result = await res.json()
-                                if (result.success) {
-                                  setSavedField(`details-${svc.svc_id}`)
-                                  setTimeout(() => setSavedField(null), 2000)
-                                } else { alert(result.message || 'Lỗi khi lưu') }
+                                if (!result.success) { alert(result.message || 'Lỗi khi lưu'); return }
+
+                                // For SEA_DOM: also save specialized fields via sea-dom-details endpoint
+                                if (isSeaDom) {
+                                  const seaDomPayload = {
+                                    container_seal: svc.container_seal || null,
+                                    qty: svc.qty ? parseInt(svc.qty) : null,
+                                    gross_weight_kg: svc.gross_weight_kg ? parseFloat(svc.gross_weight_kg) : null,
+                                    vessel: svc.vessel || null,
+                                    route: svc.route || null,
+                                    pol: svc.pol || null,
+                                    pod: svc.pod || null,
+                                    place_of_delivery: svc.place_of_delivery || null,
+                                    shipper: svc.shipper || null,
+                                    consignee: svc.consignee || null,
+                                  }
+                                  const seaDomRes = await authFetch(`${API_URL}/api/jobs/services/${svc.svc_id}/sea-dom-details`, {
+                                    method: 'PUT',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify(seaDomPayload)
+                                  })
+                                  const seaDomResult = await seaDomRes.json()
+                                  if (!seaDomResult.success) { alert(seaDomResult.message || 'Lỗi khi lưu SEA DOM'); return }
+                                }
+
+                                setSavedField(`details-${svc.svc_id}`)
+                                setTimeout(() => setSavedField(null), 2000)
                               } catch (e) { alert('Lỗi khi lưu chi tiết') }
                               finally { setSaving(false) }
                             }} disabled={saving} style={{ padding: '6px 12px', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '12px' }}>
@@ -1485,6 +1558,18 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                             {svc.chargeable_weight_kg && <div><strong>CW (kg):</strong> {svc.chargeable_weight_kg}</div>}
                             {svc.weight_kg && <div><strong>GW (kg):</strong> {svc.weight_kg}</div>}
                             {svc.customs_status && <div><strong>Customs Channel:</strong> {svc.customs_status.charAt(0).toUpperCase() + svc.customs_status.slice(1)}</div>}
+                          </>)}
+                          {(svc.service_type_code === 'SEA_DOM' || (svc.service_type_code || '').startsWith('SD')) && (<>
+                            {svc.container_seal && <div><strong>Container/Seal:</strong> {svc.container_seal}</div>}
+                            {svc.qty != null && <div><strong>Số lượng:</strong> {svc.qty}</div>}
+                            {svc.gross_weight_kg != null && <div><strong>Gross Weight:</strong> {svc.gross_weight_kg} kg</div>}
+                            {svc.vessel && <div><strong>Vessel:</strong> {svc.vessel}</div>}
+                            {svc.route && <div><strong>Tuyến:</strong> {svc.route}</div>}
+                            {svc.pol && <div><strong>POL:</strong> {svc.pol}</div>}
+                            {svc.pod && <div><strong>POD:</strong> {svc.pod}</div>}
+                            {svc.place_of_delivery && <div><strong>Place of Delivery:</strong> {svc.place_of_delivery}</div>}
+                            {svc.shipper && <div><strong>Shipper:</strong> {svc.shipper}</div>}
+                            {svc.consignee && <div><strong>Consignee:</strong> {svc.consignee}</div>}
                           </>)}
                           {svc.scheduled_date && <div><strong>Ngày:</strong> {svc.scheduled_date}</div>}
                           {svc.scheduled_time && <div><strong>Giờ:</strong> {svc.scheduled_time}</div>}
