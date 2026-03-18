@@ -1432,55 +1432,15 @@ async def update_job_info(request: Request):
 # Dashboard stats endpoint - mounted at /api/dashboard/stats in main.py
 async def get_dashboard_stats():
     """
-    Get dashboard statistics
+    Get dashboard statistics via PostgreSQL RPC (fast, single query)
     """
     try:
         client = get_supabase()
-        today = date.today().isoformat()
+        result = client.rpc('get_dashboard_stats').execute()
+        stats = result.data if result.data else {}
 
-        # Jobs today - count jobs created today
-        jobs_result = client.table('jobs').select(
-            'job_id', count='exact'
-        ).gte('created_at', f'{today}T00:00:00').execute()
-        jobs_today = jobs_result.count or 0
-
-        # Active trucking (includes domestic + border imports)
-        trucking_result = client.table('job_services').select(
-            'svc_id', count='exact'
-        ).in_('service_type_code', ['TRUCKING_DOM', 'BORDER_IMP']).not_.in_(
-            'status_code', ['COMPLETED', 'CANCELLED']
-        ).execute()
-        trucking_active = trucking_result.count or 0
-
-        # In storage (warehouse)
-        warehouse_result = client.table('job_services').select(
-            'svc_id', count='exact'
-        ).in_('service_type_code', ['WHS_STORAGE', 'WHS_HANDLE']).not_.in_(
-            'status_code', ['COMPLETED', 'CANCELLED']
-        ).execute()
-        warehouse_count = warehouse_result.count or 0
-
-        # Status counts for chart - fetch all and group in Python
-        status_result = client.table('job_services').select('status_code').execute()
-        status_counts = {}
-        for row in status_result.data:
-            status = row.get('status_code') or 'PENDING'
-            status_counts[status] = status_counts.get(status, 0) + 1
-
-        # Revenue - sum from job_services.service_details JSONB + jobs.total_revenue
-        # Source 1: jobs.total_revenue (populated by job_costs trigger)
-        revenue_result = client.table('jobs').select('total_revenue').execute()
-        jobs_revenue = sum(
-            float(r.get('total_revenue') or 0) for r in revenue_result.data
-        )
-        # Source 2: job_services.service_details JSONB (populated by quotation system)
-        svc_result = client.table('job_services').select('service_details').execute()
-        svc_revenue = 0
-        for svc in svc_result.data:
-            details = svc.get('service_details') or {}
-            svc_revenue += float(details.get('total_revenue') or details.get('selling_price') or 0)
-        revenue_total = max(jobs_revenue, svc_revenue)
-        # Format: 1.2B, 500M, 50K, or raw number
+        # Format revenue
+        revenue_total = float(stats.get('revenue_total') or 0)
         if revenue_total >= 1_000_000_000:
             revenue_mtd = f"{revenue_total / 1_000_000_000:.1f}B"
         elif revenue_total >= 1_000_000:
@@ -1491,19 +1451,21 @@ async def get_dashboard_stats():
             revenue_mtd = f"{int(revenue_total)}"
 
         return {
-            "jobs_today": jobs_today,
-            "trucking": trucking_active,
-            "warehouse": warehouse_count,
+            "jobs_today": stats.get('jobs_today', 0),
+            "trucking": stats.get('trucking', 0),
+            "sea": stats.get('sea', 0),
+            "air": stats.get('air', 0),
             "revenue": revenue_mtd,
-            "status_counts": status_counts
+            "status_counts": stats.get('status_counts', {})
         }
 
     except Exception as e:
-        logger.error(f"Error fetching stats: {e}")
+        logger.error(f"Error fetching dashboard stats: {e}")
         return {
             "jobs_today": 0,
             "trucking": 0,
-            "warehouse": 0,
+            "sea": 0,
+            "air": 0,
             "revenue": "0",
             "status_counts": {}
         }

@@ -2880,7 +2880,7 @@ function MainDashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [chatOpen, setChatOpen] = useState(false)
   const [activeNav, setActiveNav] = useState('dashboard')
-  const [stats, setStats] = useState({ jobs_today: 0, trucking: 0, warehouse: 0, revenue: '0', status_counts: {} })
+  const [stats, setStats] = useState({ jobs_today: 0, trucking: 0, sea: 0, air: 0, revenue: '0', status_counts: {} })
   const [recentJobs, setRecentJobs] = useState([])
   const [serviceData, setServiceData] = useState([])
   const [loading, setLoading] = useState(true)
@@ -3131,9 +3131,9 @@ function MainDashboard() {
           <div className="dashboard-content">
             <div className="stats-grid">
               <StatsCard icon="📋" label="Jobs Today" value={stats.jobs_today || 0} color={theme.primary} />
-              <StatsCard icon="🚚" label="Active Trucking" value={stats.trucking || 0} color={theme.accent} />
-              <StatsCard icon="🏭" label="In Storage" value={stats.warehouse || 0} color="#8B5CF6" />
-              <StatsCard icon="📈" label="Doanh thu" value={stats.revenue || '0'} color={theme.success} />
+              <StatsCard icon="🚚" label="Trucking" value={stats.trucking || 0} color={theme.accent} />
+              <StatsCard icon="🚢" label="Sea" value={stats.sea || 0} color="#8B5CF6" />
+              <StatsCard icon="✈️" label="Air" value={stats.air || 0} color="#F59E0B" />
             </div>
 
             <div className="dashboard-grid">
