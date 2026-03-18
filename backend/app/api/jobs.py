@@ -2482,7 +2482,7 @@ async def update_service_details(svc_id: int, request: Request):
         # Whitelist of editable columns
         allowed = {
             'cargo_type', 'package_quantity', 'package_unit',
-            'origin_address', 'dest_address',
+            'origin_address', 'dest_address', 'destination_address',
             'scheduled_date', 'scheduled_time',
             'invoice_numbers', 'employee_id', 'vendor_id', 'driver_id',
             'service_type_code', 'weight_kg', 'volume_cbm',
@@ -2491,6 +2491,9 @@ async def update_service_details(svc_id: int, request: Request):
             'seller_name', 'buyer_name', 'declaration_no', 'customs_status'
         }
         update_data = {k: v for k, v in body.items() if k in allowed}
+        # Map alias: destination_address → dest_address (DB column)
+        if 'destination_address' in update_data:
+            update_data['dest_address'] = update_data.pop('destination_address')
 
         # Store extra_info and/or SEA_DOM fields in service_details JSONB
         jsonb_fields = {k: body[k] for k in SEA_DOM_FIELDS if k in body}
