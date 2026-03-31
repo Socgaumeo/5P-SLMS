@@ -152,7 +152,7 @@ def create_border_import_sheet(ws, services: List[Dict], jobs_map: Dict) -> Dict
             str(svc.get('scheduled_date') or details.get('start_date') or ''),
             str(details.get('end_date') or ''),
             details.get('declaration_number', ''),
-            details.get('invoice_number', ''),
+            job.get('invoice_number') or details.get('invoice_number', ''),
             ', '.join(china_plates),
             ', '.join(vn_plates),
             details.get('route') or f"{svc.get('origin_address', '')} → {svc.get('dest_address', '')}",
@@ -274,7 +274,7 @@ def create_trucking_sheet(ws, services: List[Dict], jobs_map: Dict, customer_nam
             'Vận tải nội địa',
             str(svc.get('scheduled_date') or ''),
             customer_name,
-            details.get('invoice_number', ''),
+            job.get('invoice_number') or details.get('invoice_number', ''),
             ', '.join(plates),
             details.get('route') or f"{svc.get('origin_address', '')} → {svc.get('dest_address', '')}",
             details.get('province', ''),
@@ -435,7 +435,7 @@ def export_meiko_template(
 
         # Get all jobs and services
         db.execute(f"""
-            SELECT j.job_id, j.job_no, j.status_code, j.etd, j.created_at
+            SELECT j.job_id, j.job_no, j.status_code, j.etd, j.created_at, j.invoice_number
             FROM jobs j
             WHERE j.customer_id = %s {date_filter}
             ORDER BY j.created_at DESC
