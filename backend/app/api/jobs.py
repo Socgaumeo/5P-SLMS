@@ -271,7 +271,7 @@ async def create_job(request: JobCreateFromChatRequest, req: Request):
             'storage_end_date': entities.get('storage_end_date'),
             
             # Customs-specific
-            'declaration_no': entities.get('declaration_no'),
+            'cd_no': entities.get('cd_no'),
             'declaration_datetime': entities.get('declaration_datetime'),
             'loai_hinh': entities.get('loai_hinh'),
             'customs_type': entities.get('customs_type'),
@@ -1726,7 +1726,7 @@ async def export_services_excel(
                     'customer_code': customer.get('customer_code'),
                     'customer_name': customer.get('short_name'),
                     'scheduled_date': row.get('scheduled_date'),
-                    'so_to_khai': row.get('declaration_no'),
+                    'so_to_khai': row.get('cd_no'),
                     'ngay_to_khai': row.get('declaration_datetime'),
                     'loai_hinh': row.get('loai_hinh'),
                     'loai_hai_quan': row.get('customs_type'),
@@ -2488,7 +2488,7 @@ async def update_service_details(svc_id: int, request: Request):
             'service_type_code', 'weight_kg', 'volume_cbm',
             'bl_awb_no', 'co_no',
             'route', 'chargeable_weight_kg', 'quotation_no',
-            'seller_name', 'buyer_name', 'declaration_no', 'customs_status'
+            'seller_name', 'buyer_name', 'cd_no', 'customs_status'
         }
         update_data = {k: v for k, v in body.items() if k in allowed}
         # Map alias: destination_address → dest_address (DB column)

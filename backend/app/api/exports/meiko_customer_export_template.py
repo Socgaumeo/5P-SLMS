@@ -151,7 +151,7 @@ def create_border_import_sheet(ws, services: List[Dict], jobs_map: Dict) -> Dict
             'Nhập khẩu đường bộ',
             str(svc.get('scheduled_date') or details.get('start_date') or ''),
             str(details.get('end_date') or ''),
-            details.get('declaration_number', ''),
+            details.get('cd_no', ''),
             job.get('invoice_number') or details.get('invoice_number', ''),
             ', '.join(china_plates),
             ', '.join(vn_plates),

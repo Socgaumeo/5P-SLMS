@@ -473,7 +473,7 @@ class DataService:
                     'special_requirements': job_data.get("special_requirements"),
                     'storage_start_date': storage_start,
                     'storage_end_date': storage_end,
-                    'declaration_no': job_data.get("declaration_no"),
+                    'cd_no': job_data.get("cd_no"),
                     'loai_hinh': job_data.get("loai_hinh"),
                     'customs_type': job_data.get("customs_type"),
                     'customs_port': job_data.get("customs_port"),
