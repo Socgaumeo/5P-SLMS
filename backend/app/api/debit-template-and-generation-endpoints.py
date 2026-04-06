@@ -59,19 +59,16 @@ SERVICE_TYPE_MAP = {
 @router.get("/jobs-for-export")
 async def list_jobs_for_debit_export(
     customer_id: int = Query(...),
-    month: str = Query(..., description="YYYY-MM"),
+    date_from: str = Query(..., description="YYYY-MM-DD"),
+    date_to: str = Query(..., description="YYYY-MM-DD"),
     template_id: Optional[str] = Query(None),
     current_user: dict = Depends(get_current_user),
 ):
-    """List jobs for debit export, filtered by customer + month + template service type."""
-    import calendar
-
+    """List jobs for debit export, filtered by customer + date range + template service type."""
     try:
         client = get_supabase()
-        year, mon = month.split('-')
-        last_day = calendar.monthrange(int(year), int(mon))[1]
-        start = f"{year}-{mon}-01T00:00:00"
-        end = f"{year}-{mon}-{last_day}T23:59:59"
+        start = f"{date_from}T00:00:00"
+        end = f"{date_to}T23:59:59"
 
         query = client.table('jobs').select(
             'job_id, job_no, status_code, created_at, total_revenue, total_cost'

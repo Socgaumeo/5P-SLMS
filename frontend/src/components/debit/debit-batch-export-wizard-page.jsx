@@ -1,7 +1,7 @@
 // frontend/src/components/debit/debit-batch-export-wizard-page.jsx
 /**
  * Batch debit note export wizard page.
- * Steps: select month → customer → template → preview jobs → generate ZIP.
+ * Steps: select dateFrom → customer → template → preview jobs → generate ZIP.
  * Accessible via NavItem "Xuất Debit" in sidebar.
  */
 
@@ -9,10 +9,15 @@ import { useState, useEffect } from 'react'
 import { authFetch, API_URL } from '../../utils/auth-fetch'
 
 export default function DebitBatchExportWizardPage() {
-  // Wizard state
-  const [month, setMonth] = useState(() => {
+  // Wizard state — date range instead of just dateFrom
+  const [dateFrom, setDateFrom] = useState(() => {
     const now = new Date()
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
+  })
+  const [dateTo, setDateTo] = useState(() => {
+    const now = new Date()
+    const last = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+    return `${last.getFullYear()}-${String(last.getMonth() + 1).padStart(2, '0')}-${String(last.getDate()).padStart(2, '0')}`
   })
   const [customerId, setCustomerId] = useState('')
   const [templateId, setTemplateId] = useState('')
@@ -37,44 +42,47 @@ export default function DebitBatchExportWizardPage() {
   useEffect(() => {
     if (!customerId) { setTemplates([]); setTemplateId(''); return }
     authFetch(`${API_URL}/api/debit/templates?customer_id=${customerId}`)
-      .then((r) => r.json())
+      .then((r) => { if (!r.ok) throw new Error('fetch failed'); return r.json() })
       .then((d) => {
         const list = d.data || []
         setTemplates(list)
         if (list.length === 1) setTemplateId(list[0].id)
         else setTemplateId('')
       })
-      .catch(() => setTemplates([]))
+      .catch(() => { setTemplates([]); setTemplateId('') })
   }, [customerId])
 
-  // Fetch preview jobs when month + customer + template selected
+  // Fetch preview jobs when date range + customer + template selected
   useEffect(() => {
-    if (!customerId || !month) { setPreviewJobs([]); return }
+    if (!customerId || !dateFrom || !dateTo) { setPreviewJobs([]); return }
     setLoadingJobs(true)
-    const params = new URLSearchParams({ customer_id: customerId, month })
+    const params = new URLSearchParams({ customer_id: customerId, date_from: dateFrom, date_to: dateTo })
     if (templateId) params.append('template_id', templateId)
     authFetch(`${API_URL}/api/debit/jobs-for-export?${params}`)
-      .then((r) => r.json())
+      .then((r) => { if (!r.ok) throw new Error('fetch failed'); return r.json() })
       .then((d) => setPreviewJobs(d.jobs || d.data || []))
       .catch(() => setPreviewJobs([]))
       .finally(() => setLoadingJobs(false))
-  }, [customerId, month, templateId])
+  }, [customerId, dateFrom, dateTo, templateId])
 
   const handleGenerate = async () => {
-    if (!templateId || !customerId || !month) return
+    if (!templateId || previewJobs.length === 0) return
     setGenerating(true)
     setError('')
 
     try {
-      const res = await authFetch(`${API_URL}/api/debit/batch-generate`, {
+      // Send job_ids directly — no re-query needed
+      const jobIds = previewJobs.map((j) => j.job_id)
+      const res = await authFetch(`${API_URL}/api/debit/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ template_id: templateId, customer_id: parseInt(customerId), month }),
+        body: JSON.stringify({ template_id: templateId, job_ids: jobIds }),
       })
 
       if (!res.ok) {
-        const data = await res.json()
-        throw new Error(data.detail || 'Generation failed')
+        let msg = 'Generation failed'
+        try { const data = await res.json(); msg = data.detail || msg } catch {}
+        throw new Error(msg)
       }
 
       // Download ZIP
@@ -82,7 +90,7 @@ export default function DebitBatchExportWizardPage() {
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `debit_${month}.zip`
+      a.download = `debit_${dateFrom}_${dateTo}.xlsx`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
@@ -100,11 +108,15 @@ export default function DebitBatchExportWizardPage() {
     <div className="debit-export-page">
       <h2 style={{ marginBottom: '20px' }}>Xuất Debit Notes</h2>
 
-      {/* Step 1 + 2: Month + Customer */}
+      {/* Step 1 + 2: Date Range + Customer */}
       <div className="debit-wizard-row">
         <div className="debit-wizard-step">
-          <label className="debit-step-label">1. Chọn tháng</label>
-          <input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="doc-filter-input" />
+          <label className="debit-step-label">1. Từ ngày</label>
+          <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="doc-filter-input" />
+        </div>
+        <div className="debit-wizard-step">
+          <label className="debit-step-label">Đến ngày</label>
+          <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="doc-filter-input" />
         </div>
 
         <div className="debit-wizard-step">
@@ -131,16 +143,16 @@ export default function DebitBatchExportWizardPage() {
       </div>
 
       {/* Step 4: Preview Jobs */}
-      {customerId && month && (
+      {customerId && dateFrom && (
         <div style={{ marginTop: '20px' }}>
           <h3 style={{ marginBottom: '10px' }}>
-            Jobs của {selectedCustomer?.short_name || selectedCustomer?.company_name || '...'} tháng {month}
+            Jobs của {selectedCustomer?.short_name || selectedCustomer?.company_name || '...'} ({dateFrom} → {dateTo})
           </h3>
 
           {loadingJobs ? (
             <div className="loading-state">Đang tải...</div>
           ) : previewJobs.length === 0 ? (
-            <div className="empty-state">Không có job nào trong tháng này</div>
+            <div className="empty-state">Không có job nào trong khoảng thời gian này</div>
           ) : (
             <table className="admin-table">
               <thead>
@@ -175,7 +187,7 @@ export default function DebitBatchExportWizardPage() {
         <button
           className="btn-primary"
           onClick={handleGenerate}
-          disabled={!templateId || !customerId || !month || previewJobs.length === 0 || generating}
+          disabled={!templateId || !customerId || !dateFrom || previewJobs.length === 0 || generating}
           style={{ padding: '10px 24px', fontSize: '15px' }}
         >
           {generating ? '⏳ Đang tạo...' : `📝 Xuất Debit Notes (${previewJobs.length} jobs)`}
