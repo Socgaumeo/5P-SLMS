@@ -2269,3 +2269,114 @@ body {
   font-size: 16px;
   opacity: 0.9;
 }
+
+/* ========================================
+   DOCUMENT MANAGEMENT STYLES
+   ======================================== */
+
+.doc-upload-zone {
+  margin-bottom: 16px;
+}
+
+.doc-upload-controls {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.doc-type-select {
+  padding: 6px 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 13px;
+  background: white;
+}
+
+.doc-dropzone {
+  border: 2px dashed #cbd5e1;
+  border-radius: 8px;
+  padding: 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  color: #64748b;
+  font-size: 14px;
+}
+
+.doc-dropzone:hover,
+.doc-dropzone.drag-over {
+  border-color: #2563eb;
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.doc-dropzone.uploading {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.doc-upload-error {
+  color: #dc2626;
+  font-size: 13px;
+  margin-top: 6px;
+  padding: 6px 10px;
+  background: #fef2f2;
+  border-radius: 4px;
+}
+
+.doc-type-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.doc-filename {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.doc-list-table {
+  margin-top: 8px;
+}
+
+/* Document Management Page */
+.doc-management-page {
+  padding: 20px;
+}
+
+.doc-filter-bar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.doc-filter-input,
+.doc-filter-select {
+  padding: 7px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 13px;
+  background: white;
+}
+
+.doc-filter-select {
+  min-width: 160px;
+}
+
+.doc-total-count {
+  margin-left: auto;
+  font-size: 13px;
+  color: #64748b;
+  font-weight: 500;
+}

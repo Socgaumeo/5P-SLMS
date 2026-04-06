@@ -6,6 +6,9 @@ import { AuthProvider, useAuth } from './contexts/AuthContext'
 import LoginPage from './pages/LoginPage'
 import SearchBox from './components/SearchBox'
 import { authFetch, API_URL } from './utils/auth-fetch'
+import DocumentUploadZone from './components/documents/document-upload-zone'
+import DocumentListTable from './components/documents/document-list-table-with-download-delete'
+import DocumentManagementPage from './components/documents/document-management-page-with-filters'
 
 // Theme colors from 5P Vietnam logo
 const theme = {
@@ -2208,6 +2211,15 @@ function JobDetailModal({ job, onClose, onUpdate }) {
           </div>
         </div>
 
+        {/* ─── Chứng từ Section ─── */}
+        <div className="modal-body" style={{ borderTop: '1px solid #e2e8f0', paddingTop: '16px' }}>
+          <h3 style={{ marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            📄 Chứng từ
+          </h3>
+          <DocumentUploadZone jobId={job?.job_id} onUploadSuccess={() => setLoading(l => !l)} />
+          <DocumentListTable jobId={job?.job_id} refreshTrigger={loading} />
+        </div>
+
         <div className="modal-footer">
           <button className="btn-secondary" onClick={onClose}>Đóng</button>
           {editMode && <button className="btn-primary" disabled={saving} onClick={async () => { const ok = await handleSaveAllChanges(); if (ok !== false) { setEditMode(false); onUpdate && onUpdate(); } }}>{saving ? '⏳ Đang lưu...' : '✓ Lưu thay đổi'}</button>}
@@ -2781,6 +2793,7 @@ function MainDashboard() {
           <div className="nav-divider" />
           <div className="nav-section-title">MANAGEMENT</div>
           <NavItem icon="👥" label="Master Data" active={activeNav === 'master'} onClick={() => setActiveNav('master')} />
+          <NavItem icon="📄" label="Chứng từ" active={activeNav === 'documents'} onClick={() => setActiveNav('documents')} />
           <NavItem icon="💰" label="Financial" active={activeNav === 'financial'} onClick={() => setActiveNav('financial')} />
           <NavItem icon="📈" label="Reports" active={activeNav === 'reports'} onClick={() => setActiveNav('reports')} />
         </nav>
@@ -3006,6 +3019,9 @@ function MainDashboard() {
 
         {/* Master Data / Admin Panel */}
         {activeNav === 'master' && <AdminPanel />}
+
+        {/* Document Management Page */}
+        {activeNav === 'documents' && <DocumentManagementPage />}
       </main>
 
       {/* Floating AI Button */}
