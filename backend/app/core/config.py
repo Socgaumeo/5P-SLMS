@@ -33,6 +33,24 @@ class Settings(BaseSettings):
     # AI Conversation Mode
     AI_CONVERSATION_MODE: str = "unified"
 
+    # Telegram Bot Configuration
+    TELEGRAM_BOT_TOKEN: Optional[str] = None
+    TELEGRAM_DOC_BOT_TOKEN: Optional[str] = None  # Alias used in .env
+    TELEGRAM_WEBHOOK_SECRET: Optional[str] = None  # X-Telegram-Bot-Api-Secret-Token
+
+    @model_validator(mode='after')
+    def resolve_telegram_token(self):
+        """Support both TELEGRAM_BOT_TOKEN and TELEGRAM_DOC_BOT_TOKEN env vars"""
+        if not self.TELEGRAM_BOT_TOKEN and self.TELEGRAM_DOC_BOT_TOKEN:
+            self.TELEGRAM_BOT_TOKEN = self.TELEGRAM_DOC_BOT_TOKEN
+        return self
+    TELEGRAM_ALLOWED_CHAT_IDS: str = ""  # Comma-separated chat IDs (whitelist)
+    TELEGRAM_STORAGE_CHAT_ID: Optional[str] = None  # Private chat/channel for web upload storage
+
+    # Cloud Backup Configuration
+    CLOUD_BACKUP_ENABLED: bool = False
+    CLOUD_BACKUP_PROVIDER: str = ""  # 'gdrive', 'onedrive', or 'both'
+
     # Application
     DEBUG: bool = False
     SECRET_KEY: str = ""

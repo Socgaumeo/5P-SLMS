@@ -21,6 +21,8 @@ from app.middleware.rate_limiter import limiter
 from app.api import chat, jobs, health, excel_import, search, admin, auth, users, audit, rate_file_upload
 from app.api.exports import meiko_customer_export_template as meiko_export
 from app.api.exports import customer_export_template_registry as customer_exports
+import importlib
+telegram_webhook = importlib.import_module("app.api.telegram-webhook-handler")
 
 # Logging setup
 logging.basicConfig(level=logging.INFO)
@@ -77,6 +79,7 @@ app.include_router(audit.router, tags=["Audit"])
 app.include_router(meiko_export.router, prefix="/api/jobs", tags=["MEIKO Export"])
 app.include_router(customer_exports.router, prefix="/api/exports", tags=["Customer Exports"])
 app.include_router(rate_file_upload.router, tags=["Rate File Upload"])
+app.include_router(telegram_webhook.router, tags=["Telegram Webhook"])
 
 
 @app.get("/")
