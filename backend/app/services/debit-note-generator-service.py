@@ -20,6 +20,7 @@ from datetime import datetime
 from typing import List, Dict, Any, Optional, Tuple
 
 from openpyxl import load_workbook
+from openpyxl.cell.cell import MergedCell
 from openpyxl.utils import get_column_letter
 
 from app.db.supabase_client import get_supabase
@@ -93,23 +94,75 @@ def resolve_job_data(job_ids: List[int], customer_id: Optional[int] = None) -> D
     total_revenue = sum(float(j.get('total_revenue') or 0) for j in jobs)
     total_cost = sum(float(j.get('total_cost') or 0) for j in jobs)
 
-    # Build service line items
-    service_items = []
-    for idx, svc in enumerate(services, 1):
-        vendor = svc.get('vendors', {}) or {}
-        service_items.append({
+    # Build per-job detail rows (each job = 1 row in the debit note)
+    # Group services by job_id
+    svc_by_job = {}
+    for svc in services:
+        jid = svc['job_id']
+        if jid not in svc_by_job:
+            svc_by_job[jid] = []
+        svc_by_job[jid].append(svc)
+
+    jobs_detail = []
+    for idx, job in enumerate(jobs, 1):
+        jid = job['job_id']
+        job_svcs = svc_by_job.get(jid, [])
+        first_svc = job_svcs[0] if job_svcs else {}
+
+        revenue = float(job.get('total_revenue') or 0)
+        cost = float(job.get('total_cost') or 0)
+
+        jobs_detail.append({
             'stt': idx,
-            'service_type': svc.get('service_type_code', ''),
-            'service_description': svc.get('special_requirements', '') or svc.get('service_type_code', ''),
-            'scheduled_date': svc.get('scheduled_date', ''),
-            'origin': svc.get('origin_address', ''),
-            'destination': svc.get('dest_address', ''),
-            'vendor_name': vendor.get('short_name') or vendor.get('company_name', ''),
-            'license_plate': svc.get('license_plate', ''),
-            'driver_name': svc.get('driver_name', ''),
+            'job_no': job.get('job_no', ''),
+            'service_date': first_svc.get('scheduled_date') or job.get('booking_date', ''),
+            'declaration_date': first_svc.get('scheduled_date') or job.get('booking_date', ''),
+
+            # Locations
+            'origin': first_svc.get('origin_address', ''),
+            'destination': first_svc.get('dest_address', ''),
+            'route': f"{first_svc.get('origin_address', '')} → {first_svc.get('dest_address', '')}",
+            'pickup_location': first_svc.get('origin_address', ''),
+            'pickup_province': (first_svc.get('origin_address', '').split(',')[-1].strip() if first_svc.get('origin_address') else ''),
+            'delivery_location': first_svc.get('dest_address', ''),
+            'delivery_province': (first_svc.get('dest_address', '').split(',')[-1].strip() if first_svc.get('dest_address') else ''),
+
+            # Vehicle / transport
+            'license_plate': first_svc.get('license_plate', ''),
+            'vehicle_type': job.get('vehicle_type', ''),
+            'transport_type': first_svc.get('service_type_code', ''),
+
+            # Fees (from total_revenue as main amount)
+            'transport_fee': revenue,
+            'customs_fee': revenue,
+            'amount': revenue,
+            'total': revenue,
+            'unit_price': revenue,
             'quantity': 1,
-            'unit_price': 0,
-            'amount': 0,
+
+            # Placeholders for fees not yet in DB
+            'surcharge': 0,
+            'fuel_surcharge': 0,
+            'inspection_fee': 0,
+            'handling_fee': 0,
+            'expense_amount': 0,
+
+            # Document refs
+            'declaration_number': '',
+            'commercial_invoice': '',
+            'bill_of_lading': '',
+            'container_no': '',
+            'clearance_channel': '',
+            'co_number': '',
+            'co_form': '',
+            'co_date': '',
+            'invoice_number': '',
+            'invoice_ref': '',
+            'receipt_number': '',
+            'expense_description': '',
+            'note': '',
+            'notes': '',
+            'weight_kg': '',
         })
 
     # Build data dictionary
@@ -142,10 +195,13 @@ def resolve_job_data(job_ids: List[int], customer_id: Optional[int] = None) -> D
         'year': now.strftime('%Y'),
 
         # Service line items
-        'services': service_items,
+        'services': jobs_detail,
 
         # All jobs list
         'jobs': [{'job_no': j.get('job_no', ''), 'job_id': j.get('job_id')} for j in jobs],
+
+        # Per-job detail rows for column-based templates
+        'jobs_detail': jobs_detail,
     }
 
     return data
@@ -205,60 +261,139 @@ def _evaluate_formula(formula: str, data: dict) -> Any:
 def fill_template(wb, field_mapping: dict, data: dict) -> None:
     """
     Fill workbook cells according to field_mapping.
-    Handles single cells and table ranges.
-    """
-    ws = wb.active  # Use first sheet by default
 
+    Supports two mapping formats:
+    1. Column-based table (DAINESE style):
+       {sheet, columns: {A: {field, format}, B: ...}, data_start_row, totals}
+    2. Cell-ref based (simple):
+       {B2: {field, format}, D10: {field, format, formula}}
+    """
+    # Select sheet
+    sheet_name = field_mapping.get('sheet')
+    if sheet_name and sheet_name in wb.sheetnames:
+        ws = wb[sheet_name]
+    else:
+        ws = wb.active
+
+    # Detect mapping format
+    if 'columns' in field_mapping and 'data_start_row' in field_mapping:
+        _fill_column_based(ws, field_mapping, data)
+    else:
+        _fill_cell_based(ws, field_mapping, data)
+
+
+def _fill_column_based(ws, field_mapping: dict, data: dict) -> None:
+    """
+    Fill template using column-based mapping.
+    Each job becomes a row, columns map to job/service fields.
+    """
+    columns = field_mapping.get('columns', {})
+    start_row = field_mapping.get('data_start_row', 2)
+    totals_config = field_mapping.get('totals', {})
+
+    jobs = data.get('jobs_detail', [])
+    if not jobs:
+        return
+
+    # Copy formatting from first data row as reference
+    ref_row = start_row
+    ref_styles = {}
+    for col_letter in columns:
+        cell = ws[f"{col_letter}{ref_row}"]
+        ref_styles[col_letter] = {
+            'number_format': cell.number_format,
+            'font': cell.font.copy() if cell.font else None,
+            'alignment': cell.alignment.copy() if cell.alignment else None,
+            'border': cell.border.copy() if cell.border else None,
+        }
+
+    # Write each job as a row
+    for idx, job in enumerate(jobs):
+        row = start_row + idx
+
+        for col_letter, col_cfg in columns.items():
+            if not isinstance(col_cfg, dict):
+                continue
+
+            field = col_cfg.get('field', '')
+            fmt = col_cfg.get('format', 'text')
+            cell_ref = f"{col_letter}{row}"
+
+            # Resolve value from job data
+            if field == 'stt':
+                value = idx + 1
+            else:
+                value = job.get(field, '')
+
+            # Format value
+            formatted = _format_value(value, fmt)
+
+            try:
+                cell_obj = ws[cell_ref]
+                if isinstance(cell_obj, MergedCell):
+                    continue
+
+                cell_obj.value = formatted
+
+                # Apply stored formatting from reference row
+                style = ref_styles.get(col_letter, {})
+                if style.get('number_format'):
+                    cell_obj.number_format = style['number_format']
+                if style.get('font'):
+                    cell_obj.font = style['font']
+                if style.get('alignment'):
+                    cell_obj.alignment = style['alignment']
+                if style.get('border'):
+                    cell_obj.border = style['border']
+
+                # Override number format for currency
+                if fmt == 'currency':
+                    cell_obj.number_format = '#,##0'
+            except Exception as e:
+                logger.warning(f"Error writing {cell_ref}: {e}")
+
+    # Write totals row
+    if totals_config:
+        total_row = start_row + len(jobs)
+        for col_letter, agg_type in totals_config.items():
+            if not isinstance(agg_type, str):
+                continue
+            cell_ref = f"{col_letter}{total_row}"
+            cell_obj = ws[cell_ref]
+            if isinstance(cell_obj, MergedCell):
+                continue
+            if agg_type == 'sum':
+                cell_obj.value = f"=SUM({col_letter}{start_row}:{col_letter}{start_row + len(jobs) - 1})"
+                cell_obj.number_format = '#,##0'
+
+
+def _fill_cell_based(ws, field_mapping: dict, data: dict) -> None:
+    """Fill using simple cell_ref → field mapping."""
     for cell_ref, mapping in field_mapping.items():
-        # Table range (e.g., "A8:E50")
-        if ':' in cell_ref and mapping.get('format') == 'table':
-            _fill_table_range(ws, cell_ref, mapping, data)
+        if not isinstance(mapping, dict):
             continue
 
-        # Single cell
         field = mapping.get('field', '')
         fmt = mapping.get('format', 'text')
 
-        # Resolve value
         if mapping.get('formula'):
             value = _evaluate_formula(mapping['formula'], data)
         else:
             value = data.get(field, '')
 
-        # Format and write
         formatted = _format_value(value, fmt, mapping.get('date_format', 'DD/MM/YYYY'))
 
         try:
-            ws[cell_ref] = formatted
-            # Apply number format for currency
+            cell_obj = ws[cell_ref]
+            if isinstance(cell_obj, MergedCell):
+                continue
+            cell_obj.value = formatted
             if fmt == 'currency':
-                ws[cell_ref].number_format = '#,##0'
+                cell_obj.number_format = '#,##0'
             elif fmt == 'percentage':
-                ws[cell_ref].number_format = '0.00%'
+                cell_obj.number_format = '0.00%'
         except Exception as e:
             logger.warning(f"Error writing cell {cell_ref}: {e}")
-
-
-def _fill_table_range(ws, range_ref: str, mapping: dict, data: dict) -> None:
-    """Fill a table range with service line items."""
-    start_ref, end_ref = range_ref.split(':')
-
-    # Parse start row and columns
-    start_col = re.match(r'([A-Z]+)', start_ref).group(1)
-    start_row = int(re.search(r'(\d+)', start_ref).group(1))
-
-    columns = mapping.get('columns', {})
-    items = data.get(mapping.get('field', 'services'), [])
-
-    for idx, item in enumerate(items):
-        row = start_row + idx
-        for col_letter, field_name in columns.items():
-            cell = f"{col_letter}{row}"
-            value = item.get(field_name, '')
-            try:
-                ws[cell] = value
-            except Exception:
-                pass
 
 
 async def generate_single(template_id: str, job_ids: List[int]) -> Optional[str]:
