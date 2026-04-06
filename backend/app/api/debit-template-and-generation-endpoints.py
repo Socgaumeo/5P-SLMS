@@ -70,28 +70,36 @@ async def list_jobs_for_debit_export(
         start = f"{date_from}T00:00:00"
         end = f"{date_to}T23:59:59"
 
-        query = client.table('jobs').select(
-            'job_id, job_no, status_code, created_at, total_revenue, total_cost'
-        ).eq('customer_id', customer_id).gte('created_at', start).lte('created_at', end)
-
-        result = query.order('created_at').execute()
-        jobs = result.data or []
-
-        # Filter by service type if template selected
-        if template_id and jobs:
+        # Determine service type codes to filter by (needed for both date filter and type filter)
+        svc_codes = []
+        if template_id:
             tmpl = client.table('debit_templates').select('field_mapping').eq('id', template_id).limit(1).execute()
             if tmpl.data:
                 mapping = tmpl.data[0].get('field_mapping', {})
                 svc_type = mapping.get('service_type', '')
                 svc_codes = SERVICE_TYPE_MAP.get(svc_type, [])
 
-                if svc_codes:
-                    job_ids = [j['job_id'] for j in jobs]
-                    svcs = client.table('job_services').select(
-                        'job_id, service_type_code'
-                    ).in_('job_id', job_ids).in_('service_type_code', svc_codes).execute()
-                    matching_job_ids = set(s['job_id'] for s in (svcs.data or []))
-                    jobs = [j for j in jobs if j['job_id'] in matching_job_ids]
+        # Filter jobs by job_services.scheduled_date (not jobs.created_at)
+        if svc_codes:
+            svc_result = client.table('job_services').select(
+                'job_id, service_type_code, scheduled_date'
+            ).in_('service_type_code', svc_codes).gte('scheduled_date', start).lte('scheduled_date', end).execute()
+
+            matching_job_ids = list({s['job_id'] for s in (svc_result.data or [])})
+            if not matching_job_ids:
+                return {"jobs": [], "count": 0}
+
+            # Get job details for matching ids, filtered by customer
+            result = client.table('jobs').select(
+                'job_id, job_no, status_code, created_at, total_revenue, total_cost'
+            ).eq('customer_id', customer_id).in_('job_id', matching_job_ids).execute()
+        else:
+            # Fallback: filter by created_at when no service type filter
+            result = client.table('jobs').select(
+                'job_id, job_no, status_code, created_at, total_revenue, total_cost'
+            ).eq('customer_id', customer_id).gte('created_at', start).lte('created_at', end).execute()
+
+        jobs = result.data or []
 
         return {"jobs": jobs, "count": len(jobs)}
 
