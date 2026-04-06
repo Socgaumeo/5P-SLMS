@@ -9,6 +9,7 @@ import { authFetch, API_URL } from './utils/auth-fetch'
 import DocumentUploadZone from './components/documents/document-upload-zone'
 import DocumentListTable from './components/documents/document-list-table-with-download-delete'
 import DocumentManagementPage from './components/documents/document-management-page-with-filters'
+import DebitBatchExportWizardPage from './components/debit/debit-batch-export-wizard-page'
 
 // Theme colors from 5P Vietnam logo
 const theme = {
@@ -2794,6 +2795,7 @@ function MainDashboard() {
           <div className="nav-section-title">MANAGEMENT</div>
           <NavItem icon="👥" label="Master Data" active={activeNav === 'master'} onClick={() => setActiveNav('master')} />
           <NavItem icon="📄" label="Chứng từ" active={activeNav === 'documents'} onClick={() => setActiveNav('documents')} />
+          <NavItem icon="📝" label="Xuất Debit" active={activeNav === 'debit-export'} onClick={() => setActiveNav('debit-export')} />
           <NavItem icon="💰" label="Financial" active={activeNav === 'financial'} onClick={() => setActiveNav('financial')} />
           <NavItem icon="📈" label="Reports" active={activeNav === 'reports'} onClick={() => setActiveNav('reports')} />
         </nav>
@@ -3022,6 +3024,9 @@ function MainDashboard() {
 
         {/* Document Management Page */}
         {activeNav === 'documents' && <DocumentManagementPage />}
+
+        {/* Debit Batch Export Page */}
+        {activeNav === 'debit-export' && <DebitBatchExportWizardPage />}
       </main>
 
       {/* Floating AI Button */}

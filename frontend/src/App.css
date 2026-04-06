@@ -2380,3 +2380,26 @@ body {
   color: #64748b;
   font-weight: 500;
 }
+
+/* Debit Export Page */
+.debit-export-page {
+  padding: 20px;
+}
+
+.debit-wizard-row {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.debit-wizard-step {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.debit-step-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+}
