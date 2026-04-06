@@ -68,6 +68,9 @@ def _fill_column_based(ws, field_mapping: dict, data: dict, wb=None) -> None:
         row = start_row + idx
         _write_job_row(ws, row, idx, job, columns, row_formulas)
 
+    # Step: auto-widen text columns (C, E, etc.) based on content
+    _auto_widen_text_columns(ws, columns, start_row, n_jobs)
+
     # Step 4: update totals SUM formulas
     data_end = start_row + n_jobs - 1
     totals_row = data_end + totals_cfg.get('totals_row_offset', 1)
@@ -109,6 +112,8 @@ def _write_job_row(ws, row: int, idx: int, job: dict, columns: dict, row_formula
         try:
             cell = ws[f"{col_letter}{row}"]
             if not isinstance(cell, MergedCell):
+                # Ensure formula is written as formula, not text
+                cell.data_type = 'f'
                 cell.value = formula
         except Exception as e:
             logger.warning(f"Error writing formula {col_letter}{row}: {e}")
@@ -120,6 +125,7 @@ def _write_totals_row(ws, sum_cols: list, data_start: int, data_end: int, totals
         try:
             cell = ws[f"{col}{totals_row}"]
             if not isinstance(cell, MergedCell):
+                cell.data_type = 'f'
                 cell.value = f"=SUM({col}{data_start}:{col}{data_end})"
                 cell.number_format = '#,##0'
         except Exception as e:
@@ -143,6 +149,7 @@ def _write_post_totals(ws, post_totals: list, totals_row: int, data_start: int, 
         try:
             cell = ws[f"{col}{row_num}"]
             if not isinstance(cell, MergedCell):
+                cell.data_type = 'f'
                 cell.value = formula
         except Exception as e:
             logger.warning(f"Error writing post-totals {col}{row_num}: {e}")
@@ -152,40 +159,70 @@ def _update_purch_purchase_order(ws_ppo, ppo_cfg: dict, n_jobs: int) -> None:
     """
     Update PurchPurchaseOrder cross-sheet references for VAN_CHUYEN template.
 
-    Sheet has entries like F31=HĐ!H15, M31=HĐ!B15 for job 1.
-    For n_jobs > 1, insert rows and add refs for jobs 2..n.
+    Template has row 31 as reference (job 1) + row 32 (Price unit).
+    For n_jobs jobs: insert rows, write cross-sheet refs, add item descriptions.
     """
-    if n_jobs <= 1:
-        return
-
     first_ppo_row = ppo_cfg.get('first_data_row', 31)
-    row_step = ppo_cfg.get('row_step', 2)
+    row_step = ppo_cfg.get('row_step', 2)  # each job = 2 rows (data + "Price unit")
     hd_row_start = ppo_cfg.get('hd_row_start', 15)
-    col_map = ppo_cfg.get('col_map', {})  # PPO col → HĐ col
+    col_map = ppo_cfg.get('col_map', {})
+    hd_sheet = ppo_cfg.get('hd_sheet_name', 'HĐ')
 
-    for job_idx in range(1, n_jobs):
+    # Insert extra rows for jobs 2..n (job 1 already has rows 31-32)
+    if n_jobs > 1:
+        insert_at = first_ppo_row + row_step  # after row 32
+        ws_ppo.insert_rows(insert_at, (n_jobs - 1) * row_step)
+
+    # Write all job rows
+    for job_idx in range(n_jobs):
         ppo_row = first_ppo_row + (job_idx * row_step)
         hd_row = hd_row_start + job_idx
-        ws_ppo.insert_rows(ppo_row, row_step)
 
+        # Cross-sheet formulas
         for ppo_col, hd_col in col_map.items():
             try:
                 cell = ws_ppo[f"{ppo_col}{ppo_row}"]
                 if not isinstance(cell, MergedCell):
-                    cell.value = f"=HĐ!{hd_col}{hd_row}"
+                    cell.data_type = 'f'
+                    cell.value = f"={hd_sheet}!{hd_col}{hd_row}"
             except Exception as e:
-                logger.warning(f"PPO update error {ppo_col}{ppo_row}: {e}")
+                logger.warning(f"PPO ref error {ppo_col}{ppo_row}: {e}")
 
-        # Init standard PPO row fields
-        for col, val in [('A', job_idx + 1), ('I', 1), ('Q', 0)]:
-            try:
-                ws_ppo[f"{col}{ppo_row}"] = val
-            except Exception:
-                pass
+        # Standard fields
         try:
-            ws_ppo[f"R{ppo_row}"] = f"=P{ppo_row}"
+            ws_ppo[f"A{ppo_row}"] = job_idx + 1
+            ws_ppo[f"I{ppo_row}"] = 1
+            ws_ppo[f"L{ppo_row}"] = "Chuyến"
+            # Item description from HĐ pickup → delivery
+            ws_ppo[f"C{ppo_row}"] = f"=CONCATENATE(\"Cước vận chuyển \",{hd_sheet}!C{hd_row},\" - \",{hd_sheet}!E{hd_row})"
+            # Price unit row
+            ws_ppo[f"P{ppo_row + 1}"] = "Price unit 1.00"
         except Exception:
             pass
+
+
+# ─── Column width auto-fit ───────────────────────────────────────────────────
+
+def _auto_widen_text_columns(ws, columns: dict, start_row: int, n_jobs: int) -> None:
+    """Widen text columns to fit longest content (min 15, max 45 chars)."""
+    for col_letter, col_cfg in columns.items():
+        if not isinstance(col_cfg, dict):
+            continue
+        fmt = col_cfg.get('format', 'text')
+        if fmt not in ('text', 'date'):
+            continue
+
+        max_len = 12  # minimum width
+        for r in range(start_row, start_row + n_jobs):
+            cell = ws[f"{col_letter}{r}"]
+            if cell.value and not isinstance(cell, MergedCell):
+                val_len = len(str(cell.value))
+                if val_len > max_len:
+                    max_len = val_len
+
+        # Clamp between 15 and 45
+        width = min(max(max_len + 2, 15), 45)
+        ws.column_dimensions[col_letter].width = width
 
 
 # ─── Row style cloning helpers ────────────────────────────────────────────────
