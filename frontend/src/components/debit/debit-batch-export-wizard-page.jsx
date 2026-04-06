@@ -29,7 +29,7 @@ export default function DebitBatchExportWizardPage() {
   useEffect(() => {
     authFetch(`${API_URL}/api/customers`)
       .then((r) => r.json())
-      .then((d) => setCustomers(Array.isArray(d) ? d : d.data || []))
+      .then((d) => setCustomers(d.customers || d.data || (Array.isArray(d) ? d : [])))
       .catch(() => {})
   }, [])
 
