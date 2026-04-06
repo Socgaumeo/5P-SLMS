@@ -23,6 +23,7 @@ from app.api.exports import meiko_customer_export_template as meiko_export
 from app.api.exports import customer_export_template_registry as customer_exports
 import importlib
 telegram_webhook = importlib.import_module("app.api.telegram-webhook-handler")
+document_crud = importlib.import_module("app.api.document-crud-endpoints")
 
 # Logging setup
 logging.basicConfig(level=logging.INFO)
@@ -80,6 +81,7 @@ app.include_router(meiko_export.router, prefix="/api/jobs", tags=["MEIKO Export"
 app.include_router(customer_exports.router, prefix="/api/exports", tags=["Customer Exports"])
 app.include_router(rate_file_upload.router, tags=["Rate File Upload"])
 app.include_router(telegram_webhook.router, tags=["Telegram Webhook"])
+app.include_router(document_crud.router, tags=["Documents"])
 
 
 @app.get("/")
