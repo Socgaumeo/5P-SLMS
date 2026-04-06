@@ -317,16 +317,36 @@ async def generate_batch(template_id: str, customer_id: int, month: str) -> Opti
     # Get jobs for this customer + month
     year, mon = month.split('-')
     last_day = calendar.monthrange(int(year), int(mon))[1]
-    start_date = f"{year}-{mon}-01"
-    end_date = f"{year}-{mon}-{last_day}"
+    start = f"{year}-{mon}-01T00:00:00"
+    end = f"{year}-{mon}-{last_day}T23:59:59"
 
     jobs_result = client.table('jobs').select('job_id, job_no').eq(
         'customer_id', customer_id
-    ).gte('created_at', start_date).lte('created_at', end_date).execute()
+    ).gte('created_at', start).lte('created_at', end).execute()
 
     jobs = jobs_result.data or []
+
+    # Filter by service type if template has service_type mapping
+    field_mapping = template.get('field_mapping', {})
+    svc_type = field_mapping.get('service_type', '')
+    svc_type_map = {
+        "CO": ["CUS_SUBMITTED", "CUS_PROCESSING", "CUS_APPROVED"],
+        "SEA_AIR_IMPORT": ["SEA_IMP", "AIR_IMP"],
+        "DOM_CUSTOMS": ["BORDER_IMP", "CUS_SUBMITTED"],
+        "TRUCKING": ["TRUCKING_DOM", "TRUCKING_SHORT", "TRUCKING_LONG"],
+        "EXPORT": ["SEA_EXP", "AIR_EXP"],
+    }
+    svc_codes = svc_type_map.get(svc_type, [])
+    if svc_codes and jobs:
+        job_ids_all = [j['job_id'] for j in jobs]
+        svcs = client.table('job_services').select('job_id').in_(
+            'job_id', job_ids_all
+        ).in_('service_type_code', svc_codes).execute()
+        matching = set(s['job_id'] for s in (svcs.data or []))
+        jobs = [j for j in jobs if j['job_id'] in matching]
+
     if not jobs:
-        logger.info(f"No jobs found for customer {customer_id} in {month}")
+        logger.info(f"No jobs found for customer {customer_id} in {month} (svc_type={svc_type})")
         return None
 
     # Generate for all jobs together (single debit note with all jobs)

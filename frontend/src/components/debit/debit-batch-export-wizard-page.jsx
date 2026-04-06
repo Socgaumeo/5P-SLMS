@@ -47,17 +47,18 @@ export default function DebitBatchExportWizardPage() {
       .catch(() => setTemplates([]))
   }, [customerId])
 
-  // Fetch preview jobs when month + customer selected
+  // Fetch preview jobs when month + customer + template selected
   useEffect(() => {
     if (!customerId || !month) { setPreviewJobs([]); return }
     setLoadingJobs(true)
-    const params = new URLSearchParams({ customer_id: customerId, month, limit: '100' })
-    authFetch(`${API_URL}/api/jobs/recent?${params}`)
+    const params = new URLSearchParams({ customer_id: customerId, month })
+    if (templateId) params.append('template_id', templateId)
+    authFetch(`${API_URL}/api/debit/jobs-for-export?${params}`)
       .then((r) => r.json())
       .then((d) => setPreviewJobs(d.jobs || d.data || []))
       .catch(() => setPreviewJobs([]))
       .finally(() => setLoadingJobs(false))
-  }, [customerId, month])
+  }, [customerId, month, templateId])
 
   const handleGenerate = async () => {
     if (!templateId || !customerId || !month) return

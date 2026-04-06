@@ -44,6 +44,65 @@ class BatchGenerateRequest(BaseModel):
     month: str  # YYYY-MM
 
 
+# ─── JOB LISTING FOR DEBIT EXPORT ─────────────────────────────
+
+# Map template service_type to job service_type_codes
+SERVICE_TYPE_MAP = {
+    "CO": ["CUS_SUBMITTED", "CUS_PROCESSING", "CUS_APPROVED"],
+    "SEA_AIR_IMPORT": ["SEA_IMP", "AIR_IMP"],
+    "DOM_CUSTOMS": ["BORDER_IMP", "CUS_SUBMITTED"],
+    "TRUCKING": ["TRUCKING_DOM", "TRUCKING_SHORT", "TRUCKING_LONG"],
+    "EXPORT": ["SEA_EXP", "AIR_EXP"],
+}
+
+
+@router.get("/jobs-for-export")
+async def list_jobs_for_debit_export(
+    customer_id: int = Query(...),
+    month: str = Query(..., description="YYYY-MM"),
+    template_id: Optional[str] = Query(None),
+    current_user: dict = Depends(get_current_user),
+):
+    """List jobs for debit export, filtered by customer + month + template service type."""
+    import calendar
+
+    try:
+        client = get_supabase()
+        year, mon = month.split('-')
+        last_day = calendar.monthrange(int(year), int(mon))[1]
+        start = f"{year}-{mon}-01T00:00:00"
+        end = f"{year}-{mon}-{last_day}T23:59:59"
+
+        query = client.table('jobs').select(
+            'job_id, job_no, status_code, created_at, total_revenue, total_cost'
+        ).eq('customer_id', customer_id).gte('created_at', start).lte('created_at', end)
+
+        result = query.order('created_at').execute()
+        jobs = result.data or []
+
+        # Filter by service type if template selected
+        if template_id and jobs:
+            tmpl = client.table('debit_templates').select('field_mapping').eq('id', template_id).limit(1).execute()
+            if tmpl.data:
+                mapping = tmpl.data[0].get('field_mapping', {})
+                svc_type = mapping.get('service_type', '')
+                svc_codes = SERVICE_TYPE_MAP.get(svc_type, [])
+
+                if svc_codes:
+                    job_ids = [j['job_id'] for j in jobs]
+                    svcs = client.table('job_services').select(
+                        'job_id, service_type_code'
+                    ).in_('job_id', job_ids).in_('service_type_code', svc_codes).execute()
+                    matching_job_ids = set(s['job_id'] for s in (svcs.data or []))
+                    jobs = [j for j in jobs if j['job_id'] in matching_job_ids]
+
+        return {"jobs": jobs, "count": len(jobs)}
+
+    except Exception as e:
+        logger.error(f"Jobs for export error: {e}")
+        raise HTTPException(500, str(e))
+
+
 # ─── TEMPLATE CRUD ────────────────────────────────────────────
 
 @router.get("/templates")
