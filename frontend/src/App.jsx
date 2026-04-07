@@ -1677,8 +1677,11 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                           {svc.bl_awb_no && <div><strong>BL/AWB:</strong> {svc.bl_awb_no}</div>}
                           {svc.co_no && <div><strong>CO:</strong> {svc.co_no}</div>}
                           {svc.invoice_numbers && <div><strong>Invoice:</strong> {svc.invoice_numbers}</div>}
-                          {svc.cargo_type && <div><strong>Hàng:</strong> {svc.cargo_type}</div>}
-                          {svc.package_quantity && <div><strong>Số kiện:</strong> {svc.package_quantity} {svc.package_unit || 'pallet'}</div>}
+                          {svc.cargo_type && <div><strong>Loại hàng:</strong> {svc.cargo_type}</div>}
+                          {(svc.package_quantity || svc.volume_cbm) && (
+                            <div><strong>Số lượng:</strong> {svc.package_quantity || svc.volume_cbm} {svc.package_unit || ''}{svc.weight_kg ? ` • ${svc.weight_kg} kg` : ''}</div>
+                          )}
+                          {svc.container_seal && <div><strong>Container:</strong> {svc.container_seal}</div>}
                           {svc.origin_address && <div><strong>{(svc.service_type_code || '').startsWith('AIR_') ? 'AOL' : 'Điểm đi'}:</strong> {svc.origin_address}</div>}
                           {svc.dest_address && <div><strong>{(svc.service_type_code || '').startsWith('AIR_') ? 'AOD' : 'Điểm đến'}:</strong> {svc.dest_address}</div>}
                           {(svc.service_type_code || '').startsWith('AIR_') && (<>
@@ -2575,9 +2578,13 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                     📤 Phí dịch vụ ({serviceFees.length} mục)
                   </div>
                   {serviceFees.map((c, i) => (
-                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', padding: '2px 0', color: 'var(--text-secondary)' }}>
-                      <span>{c.cost_name} {c.quantity > 1 ? `×${c.quantity}` : ''}</span>
-                      <span><b>{formatPrice(parseFloat(c.selling_amount) || 0)}</b>{c.vat_rate > 0 && <span style={{ color: '#9CA3AF' }}> +VAT {c.vat_rate}%</span>}</span>
+                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', padding: '2px 0', color: 'var(--text-secondary)', gap: '8px' }}>
+                      <span style={{ flex: 1, minWidth: 0 }}>{c.cost_name}</span>
+                      <span style={{ whiteSpace: 'nowrap' }}>
+                        {c.quantity > 1 && <span style={{ color: '#6B7280' }}>{c.quantity} × {formatPrice(parseFloat(c.selling_rate) || 0)} = </span>}
+                        <b>{formatPrice(parseFloat(c.selling_amount) || 0)}</b>
+                        {c.vat_rate > 0 && <span style={{ color: '#9CA3AF' }}> +VAT {c.vat_rate}%</span>}
+                      </span>
                     </div>
                   ))}
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: '600', marginTop: '4px', paddingTop: '4px', borderTop: '1px dashed rgba(0,0,0,0.1)', color: '#10B981' }}>
@@ -2599,9 +2606,13 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                     🔄 Chi hộ ({reimbursements.length} mục)
                   </div>
                   {reimbursements.map((c, i) => (
-                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', padding: '2px 0', color: 'var(--text-secondary)' }}>
-                      <span>{c.cost_name} {c.quantity > 1 ? `×${c.quantity}` : ''}</span>
-                      <span><b>{formatPrice(parseFloat(c.selling_amount) || 0)}</b>{c.vat_rate > 0 && <span style={{ color: '#9CA3AF' }}> +VAT {c.vat_rate}%</span>}</span>
+                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', padding: '2px 0', color: 'var(--text-secondary)', gap: '8px' }}>
+                      <span style={{ flex: 1, minWidth: 0 }}>{c.cost_name}</span>
+                      <span style={{ whiteSpace: 'nowrap' }}>
+                        {c.quantity > 1 && <span style={{ color: '#6B7280' }}>{c.quantity} × {formatPrice(parseFloat(c.selling_rate) || 0)} = </span>}
+                        <b>{formatPrice(parseFloat(c.selling_amount) || 0)}</b>
+                        {c.vat_rate > 0 && <span style={{ color: '#9CA3AF' }}> +VAT {c.vat_rate}%</span>}
+                      </span>
                     </div>
                   ))}
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: '600', marginTop: '4px', paddingTop: '4px', borderTop: '1px dashed rgba(0,0,0,0.1)', color: '#F59E0B' }}>
