@@ -10,7 +10,7 @@ Handles the business logic for Telegram document capture:
 
 import re
 import logging
-from typing import Optional, Tuple
+from typing import Optional
 
 import httpx
 
@@ -20,15 +20,11 @@ from app.db.supabase_client import get_supabase
 logger = logging.getLogger(__name__)
 
 # --- Job number patterns (match existing formats in DB) ---
+# Format: PREFIX-CUSTID-YYMM-SEQ (e.g. SEA-46-2503-001, AIR-20-2503-015)
 JOB_NO_PATTERNS = [
+    re.compile(r'((?:SEA|AIR|CUS|TRK|WHS|IMP)-\d+-\d{4}-\d{3})', re.IGNORECASE),  # SEA-46-2503-001
     re.compile(r'(LG\d{4}/\d{3})', re.IGNORECASE),           # LG2604/001
-    re.compile(r'(TRK-\d{4}-\d{4})', re.IGNORECASE),          # TRK-1903-0004
     re.compile(r'#(LG\d{7})', re.IGNORECASE),                  # #LG2604001 → LG2604/001
-    re.compile(r'(IMP-\d{4}-\d{4})', re.IGNORECASE),           # IMP-2604-0001
-    re.compile(r'(SEA-\d{4}-\d{4})', re.IGNORECASE),           # SEA-2604-0001
-    re.compile(r'(AIR-\d{4}-\d{4})', re.IGNORECASE),           # AIR-2604-0001
-    re.compile(r'(CUS-\d{4}-\d{4})', re.IGNORECASE),           # CUS-2604-0001
-    re.compile(r'(WHS-\d{4}-\d{4})', re.IGNORECASE),           # WHS-2604-0001
 ]
 
 # --- Doc type detection keywords (Vietnamese + English) ---
