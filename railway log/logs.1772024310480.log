@@ -1,0 +1,1001 @@
+2026-02-25T08:34:05.284507730Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 1 of 32: Resource temporarily unavailable
+2026-02-25T08:34:05.284517568Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:05.284523572Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:05.284532283Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:05.284537403Z [err]  [2026-02-25 08:34:05 +0000] [66] [INFO] Started server process [66]
+2026-02-25T08:34:05.284542563Z [err]  [2026-02-25 08:34:05 +0000] [66] [INFO] Waiting for application startup.
+2026-02-25T08:34:05.284547771Z [err]  INFO:main:🚀 Starting SLMS Backend...
+2026-02-25T08:34:05.284552726Z [err]  INFO:main:📊 Database: postgresql://postgres.ooixntyflwmjaryxwakx:%21%40k...
+2026-02-25T08:34:05.284558496Z [err]  INFO:main:🤖 AI Provider: deepseek
+2026-02-25T08:34:05.284563823Z [err]  [2026-02-25 08:34:05 +0000] [66] [INFO] Application startup complete.
+2026-02-25T08:34:05.284570933Z [err]  [2026-02-25 08:34:05 +0000] [17] [INFO] Started server process [17]
+2026-02-25T08:34:05.284576033Z [err]  [2026-02-25 08:34:05 +0000] [17] [INFO] Waiting for application startup.
+2026-02-25T08:34:05.284580836Z [err]  INFO:main:🚀 Starting SLMS Backend...
+2026-02-25T08:34:05.284585502Z [err]  INFO:main:📊 Database: postgresql://postgres.ooixntyflwmjaryxwakx:%21%40k...
+2026-02-25T08:34:05.284590449Z [err]  INFO:main:🤖 AI Provider: deepseek
+2026-02-25T08:34:05.284595528Z [err]  [2026-02-25 08:34:05 +0000] [17] [INFO] Application startup complete.
+2026-02-25T08:34:05.354836200Z [err]  [2026-02-25 08:34:05 +0000] [1] [WARNING] Worker (pid:202) was sent SIGINT!
+2026-02-25T08:34:05.354842685Z [err]  [2026-02-25 08:34:05 +0000] [1] [WARNING] Worker (pid:274) was sent SIGINT!
+2026-02-25T08:34:05.354847408Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 6 of 32: Resource temporarily unavailable
+2026-02-25T08:34:05.354851763Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:05.354858291Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:05.354863446Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:05.371508314Z [err]  [2026-02-25 08:34:05 +0000] [1092] [INFO] Booting worker with pid: 1092
+2026-02-25T08:34:05.379905114Z [err]  [2026-02-25 08:34:05 +0000] [1093] [INFO] Booting worker with pid: 1093
+2026-02-25T08:34:05.517051022Z [err]  [2026-02-25 08:34:05 +0000] [1] [WARNING] Worker (pid:195) was sent SIGINT!
+2026-02-25T08:34:05.517055807Z [err]  [2026-02-25 08:34:05 +0000] [1094] [INFO] Booting worker with pid: 1094
+2026-02-25T08:34:05.538064953Z [err]  [2026-02-25 08:34:05 +0000] [16] [INFO] Started server process [16]
+2026-02-25T08:34:05.538075994Z [err]  [2026-02-25 08:34:05 +0000] [16] [INFO] Waiting for application startup.
+2026-02-25T08:34:05.538460154Z [err]  INFO:main:🚀 Starting SLMS Backend...
+2026-02-25T08:34:05.538467347Z [err]  INFO:main:📊 Database: postgresql://postgres.ooixntyflwmjaryxwakx:%21%40k...
+2026-02-25T08:34:05.538473676Z [err]  INFO:main:🤖 AI Provider: deepseek
+2026-02-25T08:34:05.538479371Z [err]  [2026-02-25 08:34:05 +0000] [16] [INFO] Application startup complete.
+2026-02-25T08:34:05.680113453Z [err]  [2026-02-25 08:34:05 +0000] [19] [INFO] Started server process [19]
+2026-02-25T08:34:05.680123697Z [err]  [2026-02-25 08:34:05 +0000] [19] [INFO] Waiting for application startup.
+2026-02-25T08:34:05.680131900Z [err]  INFO:main:🚀 Starting SLMS Backend...
+2026-02-25T08:34:05.680138798Z [err]  INFO:main:📊 Database: postgresql://postgres.ooixntyflwmjaryxwakx:%21%40k...
+2026-02-25T08:34:05.680144894Z [err]  INFO:main:🤖 AI Provider: deepseek
+2026-02-25T08:34:05.680151096Z [err]  [2026-02-25 08:34:05 +0000] [19] [INFO] Application startup complete.
+2026-02-25T08:34:05.680157374Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 4 of 32: Resource temporarily unavailable
+2026-02-25T08:34:05.680163607Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:05.680170438Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:05.680176819Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:05.680182572Z [err]  [2026-02-25 08:34:05 +0000] [239] [INFO] Started server process [239]
+2026-02-25T08:34:05.680188652Z [err]  [2026-02-25 08:34:05 +0000] [239] [INFO] Waiting for application startup.
+2026-02-25T08:34:05.680194292Z [err]  INFO:main:🚀 Starting SLMS Backend...
+2026-02-25T08:34:05.680200371Z [err]  INFO:main:📊 Database: postgresql://postgres.ooixntyflwmjaryxwakx:%21%40k...
+2026-02-25T08:34:05.680206454Z [err]  INFO:main:🤖 AI Provider: deepseek
+2026-02-25T08:34:05.680213349Z [err]  [2026-02-25 08:34:05 +0000] [239] [INFO] Application startup complete.
+2026-02-25T08:34:05.750448442Z [err]  [2026-02-25 08:34:05 +0000] [1] [WARNING] Worker (pid:240) was sent SIGINT!
+2026-02-25T08:34:05.750457119Z [err]  [2026-02-25 08:34:05 +0000] [1099] [INFO] Booting worker with pid: 1099
+2026-02-25T08:34:06.091010870Z [err]  [2026-02-25 08:34:05 +0000] [22] [INFO] Started server process [22]
+2026-02-25T08:34:06.091021368Z [err]  [2026-02-25 08:34:05 +0000] [22] [INFO] Waiting for application startup.
+2026-02-25T08:34:06.091027551Z [err]  INFO:main:🚀 Starting SLMS Backend...
+2026-02-25T08:34:06.091033125Z [err]  INFO:main:📊 Database: postgresql://postgres.ooixntyflwmjaryxwakx:%21%40k...
+2026-02-25T08:34:06.091037743Z [err]  INFO:main:🤖 AI Provider: deepseek
+2026-02-25T08:34:06.091042776Z [err]  [2026-02-25 08:34:05 +0000] [22] [INFO] Application startup complete.
+2026-02-25T08:34:06.091049227Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 4 of 32: Resource temporarily unavailable
+2026-02-25T08:34:06.091053559Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:06.091058372Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:06.091063510Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:06.091068481Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 1 of 32: Resource temporarily unavailable
+2026-02-25T08:34:06.091073877Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:06.091078524Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:06.091083530Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:06.091087906Z [err]  [2026-02-25 08:34:06 +0000] [13] [INFO] Started server process [13]
+2026-02-25T08:34:06.091093248Z [err]  [2026-02-25 08:34:06 +0000] [13] [INFO] Waiting for application startup.
+2026-02-25T08:34:06.091097937Z [err]  INFO:main:🚀 Starting SLMS Backend...
+2026-02-25T08:34:06.091403032Z [err]  INFO:main:📊 Database: postgresql://postgres.ooixntyflwmjaryxwakx:%21%40k...
+2026-02-25T08:34:06.091411700Z [err]  INFO:main:🤖 AI Provider: deepseek
+2026-02-25T08:34:06.091416983Z [err]  [2026-02-25 08:34:06 +0000] [13] [INFO] Application startup complete.
+2026-02-25T08:34:06.091422519Z [err]  [2026-02-25 08:34:06 +0000] [20] [INFO] Started server process [20]
+2026-02-25T08:34:06.091427705Z [err]  [2026-02-25 08:34:06 +0000] [20] [INFO] Waiting for application startup.
+2026-02-25T08:34:06.091432777Z [err]  INFO:main:🚀 Starting SLMS Backend...
+2026-02-25T08:34:06.091437966Z [err]  INFO:main:📊 Database: postgresql://postgres.ooixntyflwmjaryxwakx:%21%40k...
+2026-02-25T08:34:06.091443910Z [err]  INFO:main:🤖 AI Provider: deepseek
+2026-02-25T08:34:06.091448636Z [err]  [2026-02-25 08:34:06 +0000] [20] [INFO] Application startup complete.
+2026-02-25T08:34:06.091454064Z [err]  [2026-02-25 08:34:06 +0000] [1] [WARNING] Worker (pid:235) was sent SIGINT!
+2026-02-25T08:34:06.091458859Z [err]  [2026-02-25 08:34:06 +0000] [1] [WARNING] Worker (pid:280) was sent SIGINT!
+2026-02-25T08:34:06.091464102Z [err]  [2026-02-25 08:34:06 +0000] [1105] [INFO] Booting worker with pid: 1105
+2026-02-25T08:34:06.134175401Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 5 of 32: Resource temporarily unavailable
+2026-02-25T08:34:06.134184440Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:06.134192160Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:06.134198602Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:06.270609755Z [err]  [2026-02-25 08:34:06 +0000] [1111] [INFO] Booting worker with pid: 1111
+2026-02-25T08:34:06.270620882Z [err]  [2026-02-25 08:34:06 +0000] [1] [WARNING] Worker (pid:67) was sent SIGINT!
+2026-02-25T08:34:06.273604657Z [err]  [2026-02-25 08:34:06 +0000] [1112] [INFO] Booting worker with pid: 1112
+2026-02-25T08:34:06.411890935Z [err]  [2026-02-25 08:34:06 +0000] [24] [INFO] Started server process [24]
+2026-02-25T08:34:06.411897726Z [err]  [2026-02-25 08:34:06 +0000] [24] [INFO] Waiting for application startup.
+2026-02-25T08:34:06.411904883Z [err]  INFO:main:🚀 Starting SLMS Backend...
+2026-02-25T08:34:06.411911376Z [err]  INFO:main:📊 Database: postgresql://postgres.ooixntyflwmjaryxwakx:%21%40k...
+2026-02-25T08:34:06.411917885Z [err]  INFO:main:🤖 AI Provider: deepseek
+2026-02-25T08:34:06.411929189Z [err]  [2026-02-25 08:34:06 +0000] [24] [INFO] Application startup complete.
+2026-02-25T08:34:06.544791450Z [err]  [2026-02-25 08:34:06 +0000] [276] [INFO] Started server process [276]
+2026-02-25T08:34:06.544799702Z [err]  [2026-02-25 08:34:06 +0000] [276] [INFO] Waiting for application startup.
+2026-02-25T08:34:06.544805404Z [err]  INFO:main:🚀 Starting SLMS Backend...
+2026-02-25T08:34:06.544810347Z [err]  INFO:main:📊 Database: postgresql://postgres.ooixntyflwmjaryxwakx:%21%40k...
+2026-02-25T08:34:06.544814513Z [err]  INFO:main:🤖 AI Provider: deepseek
+2026-02-25T08:34:06.544818964Z [err]  [2026-02-25 08:34:06 +0000] [276] [INFO] Application startup complete.
+2026-02-25T08:34:06.583778087Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 4 of 32: Resource temporarily unavailable
+2026-02-25T08:34:06.583787786Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:06.583794285Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:06.583801295Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:06.583807826Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 3 of 32: Resource temporarily unavailable
+2026-02-25T08:34:06.583814328Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:06.583820364Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:06.583828864Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:06.721022798Z [err]  [2026-02-25 08:34:06 +0000] [1] [WARNING] Worker (pid:199) was sent SIGINT!
+2026-02-25T08:34:06.743825449Z [err]  [2026-02-25 08:34:06 +0000] [1120] [INFO] Booting worker with pid: 1120
+2026-02-25T08:34:06.771094191Z [err]  [2026-02-25 08:34:06 +0000] [1] [WARNING] Worker (pid:279) was sent SIGINT!
+2026-02-25T08:34:06.777948105Z [err]  [2026-02-25 08:34:06 +0000] [1121] [INFO] Booting worker with pid: 1121
+2026-02-25T08:34:06.849209337Z [err]  [2026-02-25 08:34:06 +0000] [26] [INFO] Started server process [26]
+2026-02-25T08:34:06.849223297Z [err]  [2026-02-25 08:34:06 +0000] [26] [INFO] Waiting for application startup.
+2026-02-25T08:34:06.849230258Z [err]  INFO:main:🚀 Starting SLMS Backend...
+2026-02-25T08:34:06.849237187Z [err]  INFO:main:📊 Database: postgresql://postgres.ooixntyflwmjaryxwakx:%21%40k...
+2026-02-25T08:34:06.849242974Z [err]  INFO:main:🤖 AI Provider: deepseek
+2026-02-25T08:34:06.849248360Z [err]  [2026-02-25 08:34:06 +0000] [26] [INFO] Application startup complete.
+2026-02-25T08:34:06.872905709Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 4 of 32: Resource temporarily unavailable
+2026-02-25T08:34:06.872914069Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:06.872920805Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:06.872927086Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:06.945558984Z [err]  [2026-02-25 08:34:06 +0000] [1] [WARNING] Worker (pid:315) was sent SIGINT!
+2026-02-25T08:34:06.970876088Z [err]  [2026-02-25 08:34:06 +0000] [1126] [INFO] Booting worker with pid: 1126
+2026-02-25T08:34:07.177703351Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 4 of 32: Resource temporarily unavailable
+2026-02-25T08:34:07.177712823Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:07.177720335Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:07.177727362Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:07.250217475Z [err]  [2026-02-25 08:34:07 +0000] [1] [WARNING] Worker (pid:273) was sent SIGINT!
+2026-02-25T08:34:07.270902145Z [err]  [2026-02-25 08:34:07 +0000] [1131] [INFO] Booting worker with pid: 1131
+2026-02-25T08:34:07.445197290Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 4 of 32: Resource temporarily unavailable
+2026-02-25T08:34:07.445204312Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:07.445210032Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:07.445214975Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:07.466173638Z [err]  [2026-02-25 08:34:07 +0000] [1] [WARNING] Worker (pid:130) was sent SIGINT!
+2026-02-25T08:34:07.477966111Z [err]  [2026-02-25 08:34:07 +0000] [1136] [INFO] Booting worker with pid: 1136
+2026-02-25T08:34:07.613653003Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 4 of 32: Resource temporarily unavailable
+2026-02-25T08:34:07.613659565Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:07.613663838Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:07.613668498Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:07.634205678Z [err]  [2026-02-25 08:34:07 +0000] [1] [WARNING] Worker (pid:314) was sent SIGINT!
+2026-02-25T08:34:07.638287868Z [err]  [2026-02-25 08:34:07 +0000] [1141] [INFO] Booting worker with pid: 1141
+2026-02-25T08:34:08.235902020Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 4 of 32: Resource temporarily unavailable
+2026-02-25T08:34:08.235909341Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:08.235914742Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:08.235920224Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:08.235924576Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 3 of 32: Resource temporarily unavailable
+2026-02-25T08:34:08.235928796Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:08.235933379Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:08.235938713Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:08.235943077Z [err]  [2026-02-25 08:34:08 +0000] [1] [WARNING] Worker (pid:201) was sent SIGINT!
+2026-02-25T08:34:08.235947601Z [err]  [2026-02-25 08:34:08 +0000] [1] [WARNING] Worker (pid:1004) was sent SIGINT!
+2026-02-25T08:34:08.235951700Z [err]  [2026-02-25 08:34:08 +0000] [1149] [INFO] Booting worker with pid: 1149
+2026-02-25T08:34:08.235956353Z [err]  [2026-02-25 08:34:08 +0000] [1150] [INFO] Booting worker with pid: 1150
+2026-02-25T08:34:08.274910056Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 4 of 32: Resource temporarily unavailable
+2026-02-25T08:34:08.274919139Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:08.274925033Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:08.274931156Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:08.346243794Z [err]  [2026-02-25 08:34:08 +0000] [1] [WARNING] Worker (pid:1003) was sent SIGINT!
+2026-02-25T08:34:08.368950929Z [err]  [2026-02-25 08:34:08 +0000] [1155] [INFO] Booting worker with pid: 1155
+2026-02-25T08:34:08.442208776Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 4 of 32: Resource temporarily unavailable
+2026-02-25T08:34:08.442217869Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:08.442223628Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:08.442228991Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:08.442234364Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 4 of 32: Resource temporarily unavailable
+2026-02-25T08:34:08.442239536Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:08.442244948Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:08.442250336Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:08.479597182Z [err]  [2026-02-25 08:34:08 +0000] [1] [WARNING] Worker (pid:63) was sent SIGINT!
+2026-02-25T08:34:08.479608819Z [err]  [2026-02-25 08:34:08 +0000] [1164] [INFO] Booting worker with pid: 1164
+2026-02-25T08:34:08.549868180Z [err]  [2026-02-25 08:34:08 +0000] [1] [WARNING] Worker (pid:278) was sent SIGINT!
+2026-02-25T08:34:08.549874531Z [err]  [2026-02-25 08:34:08 +0000] [1165] [INFO] Booting worker with pid: 1165
+2026-02-25T08:34:09.458034653Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:09.458045718Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:09.458051503Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:09.458137649Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 4 of 32: Resource temporarily unavailable
+2026-02-25T08:34:09.549230236Z [err]  [2026-02-25 08:34:09 +0000] [1] [WARNING] Worker (pid:1026) was sent SIGINT!
+2026-02-25T08:34:09.549237577Z [err]  [2026-02-25 08:34:09 +0000] [1170] [INFO] Booting worker with pid: 1170
+2026-02-25T08:34:09.577893277Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 4 of 32: Resource temporarily unavailable
+2026-02-25T08:34:09.577905109Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:09.577915236Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:09.577924801Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:09.577932748Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 1 of 32: Resource temporarily unavailable
+2026-02-25T08:34:09.577939626Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:09.577947174Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:09.577954146Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:09.582355323Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 3 of 32: Resource temporarily unavailable
+2026-02-25T08:34:09.582364878Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:09.582370258Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:09.582374899Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:09.633601583Z [err]  [2026-02-25 08:34:09 +0000] [1] [WARNING] Worker (pid:1025) was sent SIGINT!
+2026-02-25T08:34:09.633609915Z [err]  [2026-02-25 08:34:09 +0000] [1] [WARNING] Worker (pid:1041) was sent SIGINT!
+2026-02-25T08:34:09.678087689Z [err]  [2026-02-25 08:34:09 +0000] [1179] [INFO] Booting worker with pid: 1179
+2026-02-25T08:34:09.678097359Z [err]  [2026-02-25 08:34:09 +0000] [1180] [INFO] Booting worker with pid: 1180
+2026-02-25T08:34:09.748619817Z [err]  [2026-02-25 08:34:09 +0000] [1] [WARNING] Worker (pid:1036) was sent SIGINT!
+2026-02-25T08:34:09.776794744Z [err]  [2026-02-25 08:34:09 +0000] [1181] [INFO] Booting worker with pid: 1181
+2026-02-25T08:34:09.776803882Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 4 of 32: Resource temporarily unavailable
+2026-02-25T08:34:09.776813138Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:09.776819194Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:09.776825464Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:09.836282438Z [err]  [2026-02-25 08:34:09 +0000] [1] [WARNING] Worker (pid:1016) was sent SIGINT!
+2026-02-25T08:34:09.836287556Z [err]  [2026-02-25 08:34:09 +0000] [1186] [INFO] Booting worker with pid: 1186
+2026-02-25T08:34:10.284181286Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:10.284189937Z [err]  [2026-02-25 08:34:10 +0000] [1] [WARNING] Worker (pid:1060) was sent SIGINT!
+2026-02-25T08:34:10.284195727Z [err]  [2026-02-25 08:34:10 +0000] [1194] [INFO] Booting worker with pid: 1194
+2026-02-25T08:34:10.284201924Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 4 of 32: Resource temporarily unavailable
+2026-02-25T08:34:10.284208017Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:10.284214582Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:10.284221039Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:10.284229421Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 1 of 32: Resource temporarily unavailable
+2026-02-25T08:34:10.284229607Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:10.284240568Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:10.284248555Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:10.284255954Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 2 of 32: Resource temporarily unavailable
+2026-02-25T08:34:10.284263582Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:10.284270422Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:10.334426767Z [err]  [2026-02-25 08:34:10 +0000] [1] [WARNING] Worker (pid:312) was sent SIGINT!
+2026-02-25T08:34:10.334435447Z [err]  [2026-02-25 08:34:10 +0000] [1] [WARNING] Worker (pid:1015) was sent SIGINT!
+2026-02-25T08:34:10.334442132Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 6 of 32: Resource temporarily unavailable
+2026-02-25T08:34:10.334448164Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:10.334453890Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:10.334459904Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:10.339116644Z [err]  [2026-02-25 08:34:10 +0000] [1] [WARNING] Worker (pid:1068) was sent SIGINT!
+2026-02-25T08:34:10.379104074Z [err]  [2026-02-25 08:34:10 +0000] [1201] [INFO] Booting worker with pid: 1201
+2026-02-25T08:34:10.518159997Z [err]  [2026-02-25 08:34:10 +0000] [1202] [INFO] Booting worker with pid: 1202
+2026-02-25T08:34:10.589544442Z [err]  [2026-02-25 08:34:10 +0000] [1203] [INFO] Booting worker with pid: 1203
+2026-02-25T08:34:10.589556670Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 4 of 32: Resource temporarily unavailable
+2026-02-25T08:34:10.589562716Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:10.589567634Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:10.589572568Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:10.589578067Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 3 of 32: Resource temporarily unavailable
+2026-02-25T08:34:10.589582278Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:10.589586525Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:10.589590761Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:10.702697009Z [err]  [2026-02-25 08:34:10 +0000] [1] [WARNING] Worker (pid:1054) was sent SIGINT!
+2026-02-25T08:34:10.702714087Z [err]  [2026-02-25 08:34:10 +0000] [1] [WARNING] Worker (pid:1077) was sent SIGINT!
+2026-02-25T08:34:10.702720360Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 5 of 32: Resource temporarily unavailable
+2026-02-25T08:34:10.702726163Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:10.702731143Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:10.702736700Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:10.702742098Z [err]  [2026-02-25 08:34:10 +0000] [1211] [INFO] Booting worker with pid: 1211
+2026-02-25T08:34:10.773825291Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 5 of 32: Resource temporarily unavailable
+2026-02-25T08:34:10.773834767Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:10.773840966Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:10.773847320Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:10.773853943Z [err]  [2026-02-25 08:34:10 +0000] [1222] [INFO] Booting worker with pid: 1222
+2026-02-25T08:34:10.773860883Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 1 of 32: Resource temporarily unavailable
+2026-02-25T08:34:10.773867013Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:10.773874606Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:10.773880925Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:10.783907865Z [err]  [2026-02-25 08:34:10 +0000] [1] [WARNING] Worker (pid:1074) was sent SIGINT!
+2026-02-25T08:34:10.783916663Z [err]  [2026-02-25 08:34:10 +0000] [1] [WARNING] Worker (pid:1092) was sent SIGINT!
+2026-02-25T08:34:10.922148579Z [err]  [2026-02-25 08:34:10 +0000] [1224] [INFO] Booting worker with pid: 1224
+2026-02-25T08:34:10.934328659Z [err]  [2026-02-25 08:34:10 +0000] [1225] [INFO] Booting worker with pid: 1225
+2026-02-25T08:34:10.954766971Z [err]  [2026-02-25 08:34:10 +0000] [1] [WARNING] Worker (pid:1009) was sent SIGINT!
+2026-02-25T08:34:10.970431798Z [err]  [2026-02-25 08:34:10 +0000] [1226] [INFO] Booting worker with pid: 1226
+2026-02-25T08:34:11.110685839Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 4 of 32: Resource temporarily unavailable
+2026-02-25T08:34:11.110695596Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:11.110705304Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:11.110714613Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:11.110721576Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 3 of 32: Resource temporarily unavailable
+2026-02-25T08:34:11.110727727Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:11.110734446Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:11.110741204Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:11.133655658Z [err]  [2026-02-25 08:34:11 +0000] [1] [WARNING] Worker (pid:1048) was sent SIGINT!
+2026-02-25T08:34:11.134653057Z [err]  [2026-02-25 08:34:11 +0000] [1] [WARNING] Worker (pid:1059) was sent SIGINT!
+2026-02-25T08:34:11.173583223Z [err]  [2026-02-25 08:34:11 +0000] [1234] [INFO] Booting worker with pid: 1234
+2026-02-25T08:34:11.261132251Z [err]  [2026-02-25 08:34:11 +0000] [1235] [INFO] Booting worker with pid: 1235
+2026-02-25T08:34:11.362595652Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 4 of 32: Resource temporarily unavailable
+2026-02-25T08:34:11.362605173Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:11.362611713Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:11.362616516Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:11.381908137Z [err]  [2026-02-25 08:34:11 +0000] [1] [WARNING] Worker (pid:1080) was sent SIGINT!
+2026-02-25T08:34:11.381916700Z [err]  [2026-02-25 08:34:11 +0000] [1240] [INFO] Booting worker with pid: 1240
+2026-02-25T08:34:11.385202210Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 4 of 32: Resource temporarily unavailable
+2026-02-25T08:34:11.385210666Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:11.385217156Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:11.385223586Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:11.474227630Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 3 of 32: Resource temporarily unavailable
+2026-02-25T08:34:11.474237105Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:11.474244149Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:11.474250995Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:11.474260532Z [err]  [2026-02-25 08:34:11 +0000] [1] [WARNING] Worker (pid:1094) was sent SIGINT!
+2026-02-25T08:34:11.476720924Z [err]  [2026-02-25 08:34:11 +0000] [1248] [INFO] Booting worker with pid: 1248
+2026-02-25T08:34:11.568348193Z [err]  [2026-02-25 08:34:11 +0000] [1] [WARNING] Worker (pid:1099) was sent SIGINT!
+2026-02-25T08:34:11.573619794Z [err]  [2026-02-25 08:34:11 +0000] [1249] [INFO] Booting worker with pid: 1249
+2026-02-25T08:34:11.679442701Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 4 of 32: Resource temporarily unavailable
+2026-02-25T08:34:11.679449014Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:11.679464254Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:11.679478002Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:11.779764959Z [err]  [2026-02-25 08:34:11 +0000] [1] [WARNING] Worker (pid:1093) was sent SIGINT!
+2026-02-25T08:34:11.779771099Z [err]  [2026-02-25 08:34:11 +0000] [1254] [INFO] Booting worker with pid: 1254
+2026-02-25T08:34:11.878643310Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 4 of 32: Resource temporarily unavailable
+2026-02-25T08:34:11.878655130Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:11.878663450Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:11.878671064Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:11.934546415Z [err]  [2026-02-25 08:34:11 +0000] [1] [WARNING] Worker (pid:1112) was sent SIGINT!
+2026-02-25T08:34:11.939219555Z [err]  [2026-02-25 08:34:11 +0000] [1259] [INFO] Booting worker with pid: 1259
+2026-02-25T08:34:12.285602858Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 4 of 32: Resource temporarily unavailable
+2026-02-25T08:34:12.285607153Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:12.285611742Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:12.285617220Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:12.334679251Z [err]  [2026-02-25 08:34:12 +0000] [1] [WARNING] Worker (pid:1126) was sent SIGINT!
+2026-02-25T08:34:12.375322145Z [err]  [2026-02-25 08:34:12 +0000] [1264] [INFO] Booting worker with pid: 1264
+2026-02-25T08:34:12.596014865Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 4 of 32: Resource temporarily unavailable
+2026-02-25T08:34:12.596022694Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:12.596027436Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:12.596032186Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:12.596036982Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 3 of 32: Resource temporarily unavailable
+2026-02-25T08:34:12.596041766Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:12.596046576Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:12.596053236Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:12.634615879Z [err]  [2026-02-25 08:34:12 +0000] [1] [WARNING] Worker (pid:1049) was sent SIGINT!
+2026-02-25T08:34:12.634625382Z [err]  [2026-02-25 08:34:12 +0000] [1] [WARNING] Worker (pid:1105) was sent SIGINT!
+2026-02-25T08:34:12.672789049Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 5 of 32: Resource temporarily unavailable
+2026-02-25T08:34:12.672797771Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:12.672804148Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:12.672810042Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:12.672815964Z [err]  [2026-02-25 08:34:12 +0000] [1272] [INFO] Booting worker with pid: 1272
+2026-02-25T08:34:12.678288241Z [err]  [2026-02-25 08:34:12 +0000] [1278] [INFO] Booting worker with pid: 1278
+2026-02-25T08:34:12.814989404Z [err]  [2026-02-25 08:34:12 +0000] [1] [WARNING] Worker (pid:1121) was sent SIGINT!
+2026-02-25T08:34:12.814996527Z [err]  [2026-02-25 08:34:12 +0000] [1279] [INFO] Booting worker with pid: 1279
+2026-02-25T08:34:12.852713434Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 4 of 32: Resource temporarily unavailable
+2026-02-25T08:34:12.852720048Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:12.852725079Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:12.852730292Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:12.934017706Z [err]  [2026-02-25 08:34:12 +0000] [1] [WARNING] Worker (pid:1111) was sent SIGINT!
+2026-02-25T08:34:12.981102311Z [err]  [2026-02-25 08:34:12 +0000] [1284] [INFO] Booting worker with pid: 1284
+2026-02-25T08:34:13.321462240Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:13.321471850Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:13.321516697Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 4 of 32: Resource temporarily unavailable
+2026-02-25T08:34:13.321522814Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:13.321529348Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:13.321535867Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:13.321541492Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 3 of 32: Resource temporarily unavailable
+2026-02-25T08:34:13.321547406Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:13.334401715Z [err]  [2026-02-25 08:34:13 +0000] [1] [WARNING] Worker (pid:1141) was sent SIGINT!
+2026-02-25T08:34:13.338945168Z [err]  [2026-02-25 08:34:13 +0000] [1292] [INFO] Booting worker with pid: 1292
+2026-02-25T08:34:13.380282418Z [err]  [2026-02-25 08:34:13 +0000] [1] [WARNING] Worker (pid:1120) was sent SIGINT!
+2026-02-25T08:34:13.458196140Z [err]  [2026-02-25 08:34:13 +0000] [1293] [INFO] Booting worker with pid: 1293
+2026-02-25T08:34:13.534818095Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 4 of 32: Resource temporarily unavailable
+2026-02-25T08:34:13.534828733Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:13.534835185Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:13.534840902Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:13.680554507Z [err]  [2026-02-25 08:34:13 +0000] [1] [WARNING] Worker (pid:1131) was sent SIGINT!
+2026-02-25T08:34:13.680561496Z [err]  [2026-02-25 08:34:13 +0000] [1298] [INFO] Booting worker with pid: 1298
+2026-02-25T08:34:13.878647757Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 4 of 32: Resource temporarily unavailable
+2026-02-25T08:34:13.878658132Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:13.878665093Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:13.878672037Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:13.951281626Z [err]  [2026-02-25 08:34:13 +0000] [1] [WARNING] Worker (pid:1149) was sent SIGINT!
+2026-02-25T08:34:13.975439819Z [err]  [2026-02-25 08:34:13 +0000] [1303] [INFO] Booting worker with pid: 1303
+2026-02-25T08:34:14.243105044Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 4 of 32: Resource temporarily unavailable
+2026-02-25T08:34:14.243112484Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:14.243117219Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:14.243122125Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:14.321685642Z [err]  [2026-02-25 08:34:14 +0000] [1] [WARNING] Worker (pid:1164) was sent SIGINT!
+2026-02-25T08:34:14.321695372Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 4 of 32: Resource temporarily unavailable
+2026-02-25T08:34:14.321701142Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:14.321709712Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:14.321716431Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:14.321723570Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 3 of 32: Resource temporarily unavailable
+2026-02-25T08:34:14.321730158Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:14.321736907Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:14.321743465Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:14.321750918Z [err]  [2026-02-25 08:34:14 +0000] [1308] [INFO] Booting worker with pid: 1308
+2026-02-25T08:34:14.334327340Z [err]  [2026-02-25 08:34:14 +0000] [1] [WARNING] Worker (pid:1155) was sent SIGINT!
+2026-02-25T08:34:14.334333863Z [err]  [2026-02-25 08:34:14 +0000] [1] [WARNING] Worker (pid:1165) was sent SIGINT!
+2026-02-25T08:34:14.334992351Z [err]  [2026-02-25 08:34:14 +0000] [1316] [INFO] Booting worker with pid: 1316
+2026-02-25T08:34:14.474850082Z [err]  [2026-02-25 08:34:14 +0000] [1317] [INFO] Booting worker with pid: 1317
+2026-02-25T08:34:15.001484899Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 4 of 32: Resource temporarily unavailable
+2026-02-25T08:34:15.001492702Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:15.001497440Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:15.001503323Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:15.039186518Z [err]  [2026-02-25 08:34:15 +0000] [1] [WARNING] Worker (pid:1186) was sent SIGINT!
+2026-02-25T08:34:15.083522265Z [err]  [2026-02-25 08:34:15 +0000] [1322] [INFO] Booting worker with pid: 1322
+2026-02-25T08:34:15.174233088Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 4 of 32: Resource temporarily unavailable
+2026-02-25T08:34:15.174244280Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:15.174251168Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:15.174258204Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:15.247748190Z [err]  [2026-02-25 08:34:15 +0000] [1] [WARNING] Worker (pid:1180) was sent SIGINT!
+2026-02-25T08:34:15.247763173Z [err]  [2026-02-25 08:34:15 +0000] [1327] [INFO] Booting worker with pid: 1327
+2026-02-25T08:34:15.322707996Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 4 of 32: Resource temporarily unavailable
+2026-02-25T08:34:15.322712650Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:15.322717596Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:15.322722431Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:15.334357436Z [err]  [2026-02-25 08:34:15 +0000] [1] [WARNING] Worker (pid:1179) was sent SIGINT!
+2026-02-25T08:34:15.338918639Z [err]  [2026-02-25 08:34:15 +0000] [1332] [INFO] Booting worker with pid: 1332
+2026-02-25T08:34:15.482647150Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 4 of 32: Resource temporarily unavailable
+2026-02-25T08:34:15.482654118Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:15.482661115Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:15.482666213Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:15.534771137Z [err]  [2026-02-25 08:34:15 +0000] [1] [WARNING] Worker (pid:1194) was sent SIGINT!
+2026-02-25T08:34:15.539137586Z [err]  [2026-02-25 08:34:15 +0000] [1337] [INFO] Booting worker with pid: 1337
+2026-02-25T08:34:15.679599645Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 4 of 32: Resource temporarily unavailable
+2026-02-25T08:34:15.679609489Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:15.679615974Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:15.679622911Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:15.750564550Z [err]  [2026-02-25 08:34:15 +0000] [1] [WARNING] Worker (pid:1150) was sent SIGINT!
+2026-02-25T08:34:15.750574963Z [err]  [2026-02-25 08:34:15 +0000] [1342] [INFO] Booting worker with pid: 1342
+2026-02-25T08:34:15.891903514Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 4 of 32: Resource temporarily unavailable
+2026-02-25T08:34:15.891908092Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:15.891912356Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:15.891916582Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:15.891920578Z [err]  [2026-02-25 08:34:15 +0000] [1] [WARNING] Worker (pid:1170) was sent SIGINT!
+2026-02-25T08:34:15.891924782Z [err]  [2026-02-25 08:34:15 +0000] [1347] [INFO] Booting worker with pid: 1347
+2026-02-25T08:34:15.973101236Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 4 of 32: Resource temporarily unavailable
+2026-02-25T08:34:15.973113692Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:15.973122381Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:15.973130871Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:15.978106014Z [err]  [2026-02-25 08:34:15 +0000] [1] [WARNING] Worker (pid:1203) was sent SIGINT!
+2026-02-25T08:34:15.983468521Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 4 of 32: Resource temporarily unavailable
+2026-02-25T08:34:15.983477509Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:15.983482689Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:15.983487709Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:16.055558330Z [err]  [2026-02-25 08:34:16 +0000] [1352] [INFO] Booting worker with pid: 1352
+2026-02-25T08:34:16.082206145Z [err]  [2026-02-25 08:34:16 +0000] [1] [WARNING] Worker (pid:1181) was sent SIGINT!
+2026-02-25T08:34:16.082214298Z [err]  [2026-02-25 08:34:16 +0000] [1357] [INFO] Booting worker with pid: 1357
+2026-02-25T08:34:16.082220655Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 4 of 32: Resource temporarily unavailable
+2026-02-25T08:34:16.082226386Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:16.082232334Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:16.082237893Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:16.153309329Z [err]  [2026-02-25 08:34:16 +0000] [1] [WARNING] Worker (pid:1222) was sent SIGINT!
+2026-02-25T08:34:16.171444682Z [err]  [2026-02-25 08:34:16 +0000] [1362] [INFO] Booting worker with pid: 1362
+2026-02-25T08:34:16.171453554Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 4 of 32: Resource temporarily unavailable
+2026-02-25T08:34:16.171461562Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:16.171467225Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:16.171472988Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:16.247395374Z [err]  [2026-02-25 08:34:16 +0000] [1] [WARNING] Worker (pid:1211) was sent SIGINT!
+2026-02-25T08:34:16.247403578Z [err]  [2026-02-25 08:34:16 +0000] [1367] [INFO] Booting worker with pid: 1367
+2026-02-25T08:34:16.334295714Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 4 of 32: Resource temporarily unavailable
+2026-02-25T08:34:16.334302521Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:16.334461705Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:16.334471933Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:16.409946187Z [err]  [2026-02-25 08:34:16 +0000] [1] [WARNING] Worker (pid:1136) was sent SIGINT!
+2026-02-25T08:34:16.447688288Z [err]  [2026-02-25 08:34:16 +0000] [1372] [INFO] Booting worker with pid: 1372
+2026-02-25T08:34:16.735392559Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 4 of 32: Resource temporarily unavailable
+2026-02-25T08:34:16.735396923Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:16.735401158Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:16.735405499Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:16.735409423Z [err]  [2026-02-25 08:34:16 +0000] [1] [WARNING] Worker (pid:1248) was sent SIGINT!
+2026-02-25T08:34:16.735413483Z [err]  [2026-02-25 08:34:16 +0000] [1377] [INFO] Booting worker with pid: 1377
+2026-02-25T08:34:16.780055330Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 4 of 32: Resource temporarily unavailable
+2026-02-25T08:34:16.780066528Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:16.780074810Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:16.780081504Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:16.837124181Z [err]  [2026-02-25 08:34:16 +0000] [1] [WARNING] Worker (pid:1240) was sent SIGINT!
+2026-02-25T08:34:16.837130454Z [err]  [2026-02-25 08:34:16 +0000] [1382] [INFO] Booting worker with pid: 1382
+2026-02-25T08:34:16.875362061Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 4 of 32: Resource temporarily unavailable
+2026-02-25T08:34:16.875371044Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:16.875377474Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:16.875384328Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:16.969859049Z [err]  [2026-02-25 08:34:16 +0000] [1] [WARNING] Worker (pid:1235) was sent SIGINT!
+2026-02-25T08:34:16.977758973Z [err]  [2026-02-25 08:34:16 +0000] [1387] [INFO] Booting worker with pid: 1387
+2026-02-25T08:34:16.977768381Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 4 of 32: Resource temporarily unavailable
+2026-02-25T08:34:16.977775444Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:16.977782012Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:16.977788422Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:17.114483932Z [err]  [2026-02-25 08:34:17 +0000] [1] [WARNING] Worker (pid:1201) was sent SIGINT!
+2026-02-25T08:34:17.114489622Z [err]  [2026-02-25 08:34:17 +0000] [1392] [INFO] Booting worker with pid: 1392
+2026-02-25T08:34:17.114494683Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 4 of 32: Resource temporarily unavailable
+2026-02-25T08:34:17.114500108Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:17.114505792Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:17.114513762Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:17.114518694Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 3 of 32: Resource temporarily unavailable
+2026-02-25T08:34:17.114523310Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:17.114528360Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:17.114533682Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:17.134215996Z [err]  [2026-02-25 08:34:17 +0000] [1] [WARNING] Worker (pid:1226) was sent SIGINT!
+2026-02-25T08:34:17.134224608Z [err]  [2026-02-25 08:34:17 +0000] [1] [WARNING] Worker (pid:1234) was sent SIGINT!
+2026-02-25T08:34:17.138454777Z [err]  [2026-02-25 08:34:17 +0000] [1400] [INFO] Booting worker with pid: 1400
+2026-02-25T08:34:17.251307733Z [err]  [2026-02-25 08:34:17 +0000] [1401] [INFO] Booting worker with pid: 1401
+2026-02-25T08:34:17.325824059Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 4 of 32: Resource temporarily unavailable
+2026-02-25T08:34:17.325829014Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:17.325833555Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:17.325838273Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:17.335620853Z [err]  [2026-02-25 08:34:17 +0000] [1] [WARNING] Worker (pid:1249) was sent SIGINT!
+2026-02-25T08:34:17.377896581Z [err]  [2026-02-25 08:34:17 +0000] [1406] [INFO] Booting worker with pid: 1406
+2026-02-25T08:34:17.438338300Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 4 of 32: Resource temporarily unavailable
+2026-02-25T08:34:17.438349167Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:17.438356296Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:17.438363276Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:17.509852600Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 3 of 32: Resource temporarily unavailable
+2026-02-25T08:34:17.509864862Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:17.509871280Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:17.509876378Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:17.547230452Z [err]  [2026-02-25 08:34:17 +0000] [1] [WARNING] Worker (pid:1224) was sent SIGINT!
+2026-02-25T08:34:17.547239462Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 3 of 32: Resource temporarily unavailable
+2026-02-25T08:34:17.547246172Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:17.547252751Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:17.547260734Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:17.571107003Z [err]  [2026-02-25 08:34:17 +0000] [1414] [INFO] Booting worker with pid: 1414
+2026-02-25T08:34:17.648977030Z [err]  [2026-02-25 08:34:17 +0000] [1] [WARNING] Worker (pid:1254) was sent SIGINT!
+2026-02-25T08:34:17.648981975Z [err]  [2026-02-25 08:34:17 +0000] [1] [WARNING] Worker (pid:1259) was sent SIGINT!
+2026-02-25T08:34:17.648987766Z [err]  [2026-02-25 08:34:17 +0000] [1418] [INFO] Booting worker with pid: 1418
+2026-02-25T08:34:17.686103804Z [err]  [2026-02-25 08:34:17 +0000] [1419] [INFO] Booting worker with pid: 1419
+2026-02-25T08:34:17.934386560Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 4 of 32: Resource temporarily unavailable
+2026-02-25T08:34:17.934395501Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:17.934402042Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:17.934408003Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:17.973437100Z [err]  [2026-02-25 08:34:17 +0000] [1] [WARNING] Worker (pid:1278) was sent SIGINT!
+2026-02-25T08:34:17.973445580Z [err]  [2026-02-25 08:34:17 +0000] [1424] [INFO] Booting worker with pid: 1424
+2026-02-25T08:34:18.439895751Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 4 of 32: Resource temporarily unavailable
+2026-02-25T08:34:18.439904676Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:18.439911319Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:18.439916626Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:18.478121691Z [err]  [2026-02-25 08:34:18 +0000] [1] [WARNING] Worker (pid:1279) was sent SIGINT!
+2026-02-25T08:34:18.478131370Z [err]  [2026-02-25 08:34:18 +0000] [1429] [INFO] Booting worker with pid: 1429
+2026-02-25T08:34:18.788202745Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 4 of 32: Resource temporarily unavailable
+2026-02-25T08:34:18.788208785Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:18.788213875Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:18.788218756Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:18.880592605Z [err]  [2026-02-25 08:34:18 +0000] [1] [WARNING] Worker (pid:1284) was sent SIGINT!
+2026-02-25T08:34:18.880602802Z [err]  [2026-02-25 08:34:18 +0000] [1434] [INFO] Booting worker with pid: 1434
+2026-02-25T08:34:19.018151647Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 4 of 32: Resource temporarily unavailable
+2026-02-25T08:34:19.018157110Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:19.018162025Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:19.018167358Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:19.038215203Z [err]  [2026-02-25 08:34:19 +0000] [1] [WARNING] Worker (pid:1292) was sent SIGINT!
+2026-02-25T08:34:19.038225952Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 5 of 32: Resource temporarily unavailable
+2026-02-25T08:34:19.038234093Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:19.038240727Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:19.038246858Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:19.079527536Z [err]  [2026-02-25 08:34:19 +0000] [1444] [INFO] Booting worker with pid: 1444
+2026-02-25T08:34:19.151033950Z [err]  [2026-02-25 08:34:19 +0000] [1] [WARNING] Worker (pid:1272) was sent SIGINT!
+2026-02-25T08:34:19.173988100Z [err]  [2026-02-25 08:34:19 +0000] [1445] [INFO] Booting worker with pid: 1445
+2026-02-25T08:34:19.386655795Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 4 of 32: Resource temporarily unavailable
+2026-02-25T08:34:19.386663138Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:19.386668359Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:19.386673569Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:19.457943243Z [err]  [2026-02-25 08:34:19 +0000] [1] [WARNING] Worker (pid:1293) was sent SIGINT!
+2026-02-25T08:34:19.468383128Z [err]  [2026-02-25 08:34:19 +0000] [1450] [INFO] Booting worker with pid: 1450
+2026-02-25T08:34:19.475144783Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 4 of 32: Resource temporarily unavailable
+2026-02-25T08:34:19.475153900Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:19.475159906Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:19.475165342Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:19.546276678Z [err]  [2026-02-25 08:34:19 +0000] [1] [WARNING] Worker (pid:1298) was sent SIGINT!
+2026-02-25T08:34:19.546283687Z [err]  [2026-02-25 08:34:19 +0000] [1455] [INFO] Booting worker with pid: 1455
+2026-02-25T08:34:19.578249256Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 4 of 32: Resource temporarily unavailable
+2026-02-25T08:34:19.578257105Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:19.578263446Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:19.578268994Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:19.634791606Z [err]  [2026-02-25 08:34:19 +0000] [1] [WARNING] Worker (pid:1316) was sent SIGINT!
+2026-02-25T08:34:19.638988541Z [err]  [2026-02-25 08:34:19 +0000] [1460] [INFO] Booting worker with pid: 1460
+2026-02-25T08:34:19.778928376Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 4 of 32: Resource temporarily unavailable
+2026-02-25T08:34:19.778938151Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:19.778944224Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:19.778949908Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:19.834070933Z [err]  [2026-02-25 08:34:19 +0000] [1] [WARNING] Worker (pid:1264) was sent SIGINT!
+2026-02-25T08:34:19.834077101Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 5 of 32: Resource temporarily unavailable
+2026-02-25T08:34:19.834081738Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:34:19.834087949Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:34:19.834093299Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:34:19.842787598Z [err]  [2026-02-25 08:34:19 +0000] [1] [ERROR] Unhandled exception in main loop
+2026-02-25T08:34:19.842794088Z [err]  Traceback (most recent call last):
+2026-02-25T08:34:19.842798658Z [err]    File "/usr/local/lib/python3.12/site-packages/gunicorn/arbiter.py", line 245, in run
+2026-02-25T08:34:19.842803173Z [err]      self.manage_workers()
+2026-02-25T08:34:19.842808499Z [err]    File "/usr/local/lib/python3.12/site-packages/gunicorn/arbiter.py", line 657, in manage_workers
+2026-02-25T08:34:19.842812763Z [err]      self.spawn_workers()
+2026-02-25T08:34:19.842817593Z [err]    File "/usr/local/lib/python3.12/site-packages/gunicorn/arbiter.py", line 743, in spawn_workers
+2026-02-25T08:34:19.842822046Z [err]      self.spawn_worker()
+2026-02-25T08:34:19.842825948Z [err]    File "/usr/local/lib/python3.12/site-packages/gunicorn/arbiter.py", line 689, in spawn_worker
+2026-02-25T08:34:19.842830109Z [err]      pid = os.fork()
+2026-02-25T08:34:19.842834196Z [err]            ^^^^^^^^^
+2026-02-25T08:34:19.842838407Z [err]  BlockingIOError: [Errno 11] Resource temporarily unavailable
+2026-02-25T08:34:19.997700901Z [err]  [2026-02-25 08:34:19 +0000] [1] [WARNING] Worker (pid:1202) was sent SIGQUIT!
+2026-02-25T08:34:19.997711828Z [err]  [2026-02-25 08:34:19 +0000] [1] [WARNING] Worker (pid:1225) was sent SIGQUIT!
+2026-02-25T08:34:19.997718916Z [err]  [2026-02-25 08:34:19 +0000] [1] [WARNING] Worker (pid:1303) was sent SIGINT!
+2026-02-25T08:34:19.997726641Z [err]  [2026-02-25 08:34:19 +0000] [1] [WARNING] Worker (pid:1308) was sent SIGQUIT!
+2026-02-25T08:34:19.997733529Z [err]  [2026-02-25 08:34:19 +0000] [1] [WARNING] Worker (pid:1317) was sent SIGQUIT!
+2026-02-25T08:34:19.997740764Z [err]  [2026-02-25 08:34:19 +0000] [1] [WARNING] Worker (pid:1322) was sent SIGQUIT!
+2026-02-25T08:34:19.997747294Z [err]  [2026-02-25 08:34:19 +0000] [1] [WARNING] Worker (pid:1327) was sent SIGQUIT!
+2026-02-25T08:34:19.997754314Z [err]  [2026-02-25 08:34:19 +0000] [1] [WARNING] Worker (pid:1332) was sent SIGQUIT!
+2026-02-25T08:34:19.997761204Z [err]  [2026-02-25 08:34:19 +0000] [1] [WARNING] Worker (pid:1337) was sent SIGQUIT!
+2026-02-25T08:34:19.997767832Z [err]  [2026-02-25 08:34:19 +0000] [1] [WARNING] Worker (pid:1342) was sent SIGQUIT!
+2026-02-25T08:34:19.997773664Z [err]  [2026-02-25 08:34:19 +0000] [1] [WARNING] Worker (pid:1347) was sent SIGQUIT!
+2026-02-25T08:34:19.997779999Z [err]  [2026-02-25 08:34:19 +0000] [1] [WARNING] Worker (pid:1352) was sent SIGQUIT!
+2026-02-25T08:34:19.997786283Z [err]  [2026-02-25 08:34:19 +0000] [1] [WARNING] Worker (pid:1357) was sent SIGQUIT!
+2026-02-25T08:34:19.997797527Z [err]  [2026-02-25 08:34:19 +0000] [1] [WARNING] Worker (pid:1362) was sent SIGQUIT!
+2026-02-25T08:34:19.997805537Z [err]  [2026-02-25 08:34:19 +0000] [1] [WARNING] Worker (pid:1367) was sent SIGQUIT!
+2026-02-25T08:34:19.997811815Z [err]  [2026-02-25 08:34:19 +0000] [1] [WARNING] Worker (pid:1372) was sent SIGQUIT!
+2026-02-25T08:34:19.997817903Z [err]  [2026-02-25 08:34:19 +0000] [1] [WARNING] Worker (pid:1377) was sent SIGQUIT!
+2026-02-25T08:34:19.998019959Z [err]  [2026-02-25 08:34:19 +0000] [1] [WARNING] Worker (pid:1382) was sent SIGQUIT!
+2026-02-25T08:34:19.998023958Z [err]  [2026-02-25 08:34:19 +0000] [1] [WARNING] Worker (pid:1460) was sent SIGQUIT!
+2026-02-25T08:34:19.998029647Z [err]  [2026-02-25 08:34:19 +0000] [1] [WARNING] Worker (pid:1387) was sent SIGQUIT!
+2026-02-25T08:34:19.998034854Z [err]  [2026-02-25 08:34:19 +0000] [1] [WARNING] Worker (pid:1392) was sent SIGQUIT!
+2026-02-25T08:34:19.998040054Z [err]  [2026-02-25 08:34:19 +0000] [1] [WARNING] Worker (pid:1400) was sent SIGQUIT!
+2026-02-25T08:34:19.998064729Z [err]  [2026-02-25 08:34:19 +0000] [1] [WARNING] Worker (pid:1401) was sent SIGQUIT!
+2026-02-25T08:34:19.998070710Z [err]  [2026-02-25 08:34:19 +0000] [1] [WARNING] Worker (pid:1406) was sent SIGQUIT!
+2026-02-25T08:34:19.998075476Z [err]  [2026-02-25 08:34:19 +0000] [1] [WARNING] Worker (pid:1414) was sent SIGQUIT!
+2026-02-25T08:34:19.998079976Z [err]  [2026-02-25 08:34:19 +0000] [1] [WARNING] Worker (pid:1418) was sent SIGQUIT!
+2026-02-25T08:34:19.998085437Z [err]  [2026-02-25 08:34:19 +0000] [1] [WARNING] Worker (pid:1419) was sent SIGQUIT!
+2026-02-25T08:34:19.998089969Z [err]  [2026-02-25 08:34:19 +0000] [1] [WARNING] Worker (pid:1424) was sent SIGQUIT!
+2026-02-25T08:34:19.998094947Z [err]  [2026-02-25 08:34:19 +0000] [1] [WARNING] Worker (pid:1429) was sent SIGQUIT!
+2026-02-25T08:34:19.998101550Z [err]  [2026-02-25 08:34:19 +0000] [1] [WARNING] Worker (pid:1434) was sent SIGQUIT!
+2026-02-25T08:34:19.998106488Z [err]  [2026-02-25 08:34:19 +0000] [1] [WARNING] Worker (pid:1444) was sent SIGQUIT!
+2026-02-25T08:34:19.998110976Z [err]  [2026-02-25 08:34:19 +0000] [1] [WARNING] Worker (pid:1445) was sent SIGQUIT!
+2026-02-25T08:34:19.998115263Z [err]  [2026-02-25 08:34:19 +0000] [1] [WARNING] Worker (pid:1450) was sent SIGQUIT!
+2026-02-25T08:34:19.998120432Z [err]  [2026-02-25 08:34:19 +0000] [1] [WARNING] Worker (pid:1455) was sent SIGQUIT!
+2026-02-25T08:34:49.997534576Z [err]  [2026-02-25 08:34:49 +0000] [1] [ERROR] Worker (pid:3) was sent SIGKILL! Perhaps out of memory?
+2026-02-25T08:34:50.606693622Z [err]  [2026-02-25 08:34:50 +0000] [4] [INFO] Booting worker with pid: 4
+2026-02-25T08:34:50.606781985Z [err]  [2026-02-25 08:34:50 +0000] [1] [INFO] Starting gunicorn 25.1.0
+2026-02-25T08:34:50.606786553Z [err]  [2026-02-25 08:34:50 +0000] [1] [INFO] Listening at: http://0.0.0.0:8000 (1)
+2026-02-25T08:34:50.606790705Z [err]  [2026-02-25 08:34:50 +0000] [1] [INFO] Using worker: uvicorn.workers.UvicornWorker
+2026-02-25T08:34:50.606795596Z [err]  [2026-02-25 08:34:50 +0000] [1] [INFO] Control socket listening at /app/gunicorn.ctl
+2026-02-25T08:34:50.606800572Z [err]  [2026-02-25 08:34:50 +0000] [3] [INFO] Booting worker with pid: 3
+2026-02-25T08:34:50.643815938Z [err]  [2026-02-25 08:34:50 +0000] [5] [INFO] Booting worker with pid: 5
+2026-02-25T08:34:50.734615290Z [err]  [2026-02-25 08:34:50 +0000] [6] [INFO] Booting worker with pid: 6
+2026-02-25T08:34:50.772967280Z [err]  [2026-02-25 08:34:50 +0000] [7] [INFO] Booting worker with pid: 7
+2026-02-25T08:34:50.843318533Z [err]  [2026-02-25 08:34:50 +0000] [8] [INFO] Booting worker with pid: 8
+2026-02-25T08:34:50.857771641Z [err]  [2026-02-25 08:34:50 +0000] [9] [INFO] Booting worker with pid: 9
+2026-02-25T08:34:50.881488802Z [err]  [2026-02-25 08:34:50 +0000] [10] [INFO] Booting worker with pid: 10
+2026-02-25T08:34:50.972624283Z [err]  [2026-02-25 08:34:50 +0000] [11] [INFO] Booting worker with pid: 11
+2026-02-25T08:34:50.982334583Z [err]  [2026-02-25 08:34:50 +0000] [12] [INFO] Booting worker with pid: 12
+2026-02-25T08:34:51.006341796Z [err]  [2026-02-25 08:34:51 +0000] [13] [INFO] Booting worker with pid: 13
+2026-02-25T08:34:51.116250295Z [err]  [2026-02-25 08:34:51 +0000] [14] [INFO] Booting worker with pid: 14
+2026-02-25T08:34:51.154545666Z [err]  [2026-02-25 08:34:51 +0000] [15] [INFO] Booting worker with pid: 15
+2026-02-25T08:34:51.194531825Z [err]  [2026-02-25 08:34:51 +0000] [16] [INFO] Booting worker with pid: 16
+2026-02-25T08:34:51.266677246Z [err]  [2026-02-25 08:34:51 +0000] [17] [INFO] Booting worker with pid: 17
+2026-02-25T08:34:51.324292222Z [err]  [2026-02-25 08:34:51 +0000] [18] [INFO] Booting worker with pid: 18
+2026-02-25T08:34:51.452063757Z [err]  [2026-02-25 08:34:51 +0000] [19] [INFO] Booting worker with pid: 19
+2026-02-25T08:34:51.490227034Z [err]  [2026-02-25 08:34:51 +0000] [20] [INFO] Booting worker with pid: 20
+2026-02-25T08:34:51.494721389Z [err]  [2026-02-25 08:34:51 +0000] [21] [INFO] Booting worker with pid: 21
+2026-02-25T08:34:51.566866350Z [err]  [2026-02-25 08:34:51 +0000] [22] [INFO] Booting worker with pid: 22
+2026-02-25T08:34:51.639884830Z [err]  [2026-02-25 08:34:51 +0000] [23] [INFO] Booting worker with pid: 23
+2026-02-25T08:34:51.711507959Z [err]  [2026-02-25 08:34:51 +0000] [24] [INFO] Booting worker with pid: 24
+2026-02-25T08:34:51.848724824Z [err]  [2026-02-25 08:34:51 +0000] [26] [INFO] Booting worker with pid: 26
+2026-02-25T08:34:51.848732699Z [err]  [2026-02-25 08:34:51 +0000] [25] [INFO] Booting worker with pid: 25
+2026-02-25T08:34:51.977292646Z [err]  [2026-02-25 08:34:51 +0000] [27] [INFO] Booting worker with pid: 27
+2026-02-25T08:34:52.048613761Z [err]  [2026-02-25 08:34:52 +0000] [28] [INFO] Booting worker with pid: 28
+2026-02-25T08:34:52.128847997Z [err]  [2026-02-25 08:34:52 +0000] [29] [INFO] Booting worker with pid: 29
+2026-02-25T08:34:52.286531318Z [err]  [2026-02-25 08:34:52 +0000] [30] [INFO] Booting worker with pid: 30
+2026-02-25T08:34:52.423554650Z [err]  [2026-02-25 08:34:52 +0000] [62] [INFO] Booting worker with pid: 62
+2026-02-25T08:34:52.497803788Z [err]  [2026-02-25 08:34:52 +0000] [73] [INFO] Booting worker with pid: 73
+2026-02-25T08:34:52.636134766Z [err]  [2026-02-25 08:34:52 +0000] [95] [INFO] Booting worker with pid: 95
+2026-02-25T08:34:52.642952346Z [err]  [2026-02-25 08:34:52 +0000] [96] [INFO] Booting worker with pid: 96
+2026-02-25T08:34:52.752932921Z [err]  [2026-02-25 08:34:52 +0000] [97] [INFO] Booting worker with pid: 97
+2026-02-25T08:34:52.793009193Z [err]  [2026-02-25 08:34:52 +0000] [98] [INFO] Booting worker with pid: 98
+2026-02-25T08:34:52.850646636Z [err]  [2026-02-25 08:34:52 +0000] [99] [INFO] Booting worker with pid: 99
+2026-02-25T08:34:53.046948587Z [err]  [2026-02-25 08:34:52 +0000] [100] [INFO] Booting worker with pid: 100
+2026-02-25T08:34:53.046952577Z [err]  [2026-02-25 08:34:53 +0000] [101] [INFO] Booting worker with pid: 101
+2026-02-25T08:34:53.161115693Z [err]  [2026-02-25 08:34:53 +0000] [102] [INFO] Booting worker with pid: 102
+2026-02-25T08:34:53.258662261Z [err]  [2026-02-25 08:34:53 +0000] [103] [INFO] Booting worker with pid: 103
+2026-02-25T08:34:53.399379632Z [err]  [2026-02-25 08:34:53 +0000] [104] [INFO] Booting worker with pid: 104
+2026-02-25T08:34:53.399387765Z [err]  [2026-02-25 08:34:53 +0000] [105] [INFO] Booting worker with pid: 105
+2026-02-25T08:34:53.543946509Z [err]  [2026-02-25 08:34:53 +0000] [106] [INFO] Booting worker with pid: 106
+2026-02-25T08:34:53.543953021Z [err]  [2026-02-25 08:34:53 +0000] [107] [INFO] Booting worker with pid: 107
+2026-02-25T08:34:53.586560318Z [err]  [2026-02-25 08:34:53 +0000] [139] [INFO] Booting worker with pid: 139
+2026-02-25T08:34:53.734000491Z [err]  [2026-02-25 08:34:53 +0000] [171] [INFO] Booting worker with pid: 171
+2026-02-25T08:34:53.745490856Z [err]  [2026-02-25 08:34:53 +0000] [172] [INFO] Booting worker with pid: 172
+2026-02-25T08:34:53.785545633Z [err]  [2026-02-25 08:34:53 +0000] [173] [INFO] Booting worker with pid: 173
+2026-02-25T08:34:53.875834771Z [err]  [2026-02-25 08:34:53 +0000] [174] [INFO] Booting worker with pid: 174
+2026-02-25T08:34:53.888209531Z [err]  [2026-02-25 08:34:53 +0000] [175] [INFO] Booting worker with pid: 175
+2026-02-25T08:34:53.982110247Z [err]  [2026-02-25 08:34:53 +0000] [207] [INFO] Booting worker with pid: 207
+2026-02-25T08:34:54.198488415Z [err]  [2026-02-25 08:34:54 +0000] [236] [INFO] Booting worker with pid: 236
+2026-02-25T08:34:54.198498361Z [err]  [2026-02-25 08:34:54 +0000] [240] [INFO] Booting worker with pid: 240
+2026-02-25T08:34:54.482710483Z [err]  [2026-02-25 08:34:54 +0000] [241] [INFO] Booting worker with pid: 241
+2026-02-25T08:34:54.482719405Z [err]  [2026-02-25 08:34:54 +0000] [242] [INFO] Booting worker with pid: 242
+2026-02-25T08:34:54.482725324Z [err]  [2026-02-25 08:34:54 +0000] [245] [INFO] Booting worker with pid: 245
+2026-02-25T08:34:54.619276495Z [err]  [2026-02-25 08:34:54 +0000] [275] [INFO] Booting worker with pid: 275
+2026-02-25T08:34:54.887781629Z [err]  [2026-02-25 08:34:54 +0000] [307] [INFO] Booting worker with pid: 307
+2026-02-25T08:34:54.887786564Z [err]  [2026-02-25 08:34:54 +0000] [308] [INFO] Booting worker with pid: 308
+2026-02-25T08:34:55.098118136Z [err]  [2026-02-25 08:34:54 +0000] [309] [INFO] Booting worker with pid: 309
+2026-02-25T08:34:55.098123542Z [err]  [2026-02-25 08:34:55 +0000] [341] [INFO] Booting worker with pid: 341
+2026-02-25T08:34:55.098129377Z [err]  [2026-02-25 08:34:55 +0000] [342] [INFO] Booting worker with pid: 342
+2026-02-25T08:34:55.233343955Z [err]  [2026-02-25 08:34:55 +0000] [343] [INFO] Booting worker with pid: 343
+2026-02-25T08:34:55.246262616Z [err]  [2026-02-25 08:34:55 +0000] [344] [INFO] Booting worker with pid: 344
+2026-02-25T08:34:55.384269003Z [err]  [2026-02-25 08:34:55 +0000] [376] [INFO] Booting worker with pid: 376
+2026-02-25T08:34:55.521556264Z [err]  [2026-02-25 08:34:55 +0000] [377] [INFO] Booting worker with pid: 377
+2026-02-25T08:34:55.846262573Z [err]  [2026-02-25 08:34:55 +0000] [3] [INFO] Started server process [3]
+2026-02-25T08:34:55.846269589Z [err]  [2026-02-25 08:34:55 +0000] [3] [INFO] Waiting for application startup.
+2026-02-25T08:34:55.884604566Z [err]  INFO:main:🚀 Starting SLMS Backend...
+2026-02-25T08:34:55.884613474Z [err]  INFO:main:📊 Database: postgresql://postgres.ooixntyflwmjaryxwakx:%21%40k...
+2026-02-25T08:34:55.884622043Z [err]  INFO:main:🤖 AI Provider: deepseek
+2026-02-25T08:34:55.884629231Z [err]  [2026-02-25 08:34:55 +0000] [3] [INFO] Application startup complete.
+2026-02-25T08:34:56.618258939Z [err]  INFO:main:📊 Database: postgresql://postgres.ooixntyflwmjaryxwakx:%21%40k...
+2026-02-25T08:34:56.618268851Z [err]  INFO:main:🤖 AI Provider: deepseek
+2026-02-25T08:34:56.618272981Z [err]  [2026-02-25 08:34:56 +0000] [4] [INFO] Started server process [4]
+2026-02-25T08:34:56.618276763Z [err]  [2026-02-25 08:34:56 +0000] [4] [INFO] Application startup complete.
+2026-02-25T08:34:56.618282488Z [err]  [2026-02-25 08:34:56 +0000] [4] [INFO] Waiting for application startup.
+2026-02-25T08:34:56.618289939Z [err]  INFO:main:🚀 Starting SLMS Backend...
+2026-02-25T08:34:58.300072337Z [err]  [2026-02-25 08:34:58 +0000] [6] [INFO] Started server process [6]
+2026-02-25T08:34:58.300076950Z [err]  [2026-02-25 08:34:58 +0000] [6] [INFO] Waiting for application startup.
+2026-02-25T08:34:58.300082082Z [err]  INFO:main:🚀 Starting SLMS Backend...
+2026-02-25T08:34:58.300090849Z [err]  INFO:main:📊 Database: postgresql://postgres.ooixntyflwmjaryxwakx:%21%40k...
+2026-02-25T08:34:58.300095369Z [err]  INFO:main:🤖 AI Provider: deepseek
+2026-02-25T08:34:58.300101632Z [err]  [2026-02-25 08:34:58 +0000] [6] [INFO] Application startup complete.
+2026-02-25T08:34:59.086757987Z [err]  [2026-02-25 08:34:59 +0000] [17] [INFO] Waiting for application startup.
+2026-02-25T08:34:59.086765861Z [err]  INFO:main:🚀 Starting SLMS Backend...
+2026-02-25T08:34:59.086770881Z [err]  INFO:main:📊 Database: postgresql://postgres.ooixntyflwmjaryxwakx:%21%40k...
+2026-02-25T08:34:59.086775794Z [err]  INFO:main:🤖 AI Provider: deepseek
+2026-02-25T08:34:59.086780234Z [err]  [2026-02-25 08:34:59 +0000] [17] [INFO] Application startup complete.
+2026-02-25T08:34:59.086827206Z [err]  [2026-02-25 08:34:59 +0000] [17] [INFO] Started server process [17]
+2026-02-25T08:34:59.316131469Z [err]  [2026-02-25 08:34:59 +0000] [14] [INFO] Started server process [14]
+2026-02-25T08:34:59.316139147Z [err]  [2026-02-25 08:34:59 +0000] [14] [INFO] Waiting for application startup.
+2026-02-25T08:34:59.316144569Z [err]  INFO:main:🚀 Starting SLMS Backend...
+2026-02-25T08:34:59.316149391Z [err]  INFO:main:📊 Database: postgresql://postgres.ooixntyflwmjaryxwakx:%21%40k...
+2026-02-25T08:34:59.316154161Z [err]  INFO:main:🤖 AI Provider: deepseek
+2026-02-25T08:34:59.316158903Z [err]  [2026-02-25 08:34:59 +0000] [14] [INFO] Application startup complete.
+2026-02-25T08:34:59.316163386Z [err]  [2026-02-25 08:34:59 +0000] [7] [INFO] Started server process [7]
+2026-02-25T08:34:59.316167617Z [err]  [2026-02-25 08:34:59 +0000] [7] [INFO] Waiting for application startup.
+2026-02-25T08:34:59.316172200Z [err]  INFO:main:🚀 Starting SLMS Backend...
+2026-02-25T08:34:59.316180624Z [err]  INFO:main:📊 Database: postgresql://postgres.ooixntyflwmjaryxwakx:%21%40k...
+2026-02-25T08:34:59.316185056Z [err]  INFO:main:🤖 AI Provider: deepseek
+2026-02-25T08:34:59.316189230Z [err]  [2026-02-25 08:34:59 +0000] [7] [INFO] Application startup complete.
+2026-02-25T08:35:00.086093836Z [err]  [2026-02-25 08:35:00 +0000] [9] [INFO] Started server process [9]
+2026-02-25T08:35:00.086099904Z [err]  [2026-02-25 08:35:00 +0000] [9] [INFO] Waiting for application startup.
+2026-02-25T08:35:00.086105891Z [err]  INFO:main:🚀 Starting SLMS Backend...
+2026-02-25T08:35:00.086112270Z [err]  INFO:main:📊 Database: postgresql://postgres.ooixntyflwmjaryxwakx:%21%40k...
+2026-02-25T08:35:00.086118232Z [err]  INFO:main:🤖 AI Provider: deepseek
+2026-02-25T08:35:00.086124422Z [err]  [2026-02-25 08:35:00 +0000] [9] [INFO] Application startup complete.
+2026-02-25T08:35:00.309013790Z [err]  [2026-02-25 08:35:00 +0000] [16] [INFO] Started server process [16]
+2026-02-25T08:35:00.309023683Z [err]  [2026-02-25 08:35:00 +0000] [16] [INFO] Waiting for application startup.
+2026-02-25T08:35:00.309031023Z [err]  INFO:main:🚀 Starting SLMS Backend...
+2026-02-25T08:35:00.309038237Z [err]  INFO:main:📊 Database: postgresql://postgres.ooixntyflwmjaryxwakx:%21%40k...
+2026-02-25T08:35:00.309045580Z [err]  INFO:main:🤖 AI Provider: deepseek
+2026-02-25T08:35:00.309051323Z [err]  [2026-02-25 08:35:00 +0000] [16] [INFO] Application startup complete.
+2026-02-25T08:35:00.498285077Z [err]  INFO:main:🤖 AI Provider: deepseek
+2026-02-25T08:35:00.498293506Z [err]  [2026-02-25 08:35:00 +0000] [18] [INFO] Application startup complete.
+2026-02-25T08:35:00.498362528Z [err]  [2026-02-25 08:35:00 +0000] [18] [INFO] Started server process [18]
+2026-02-25T08:35:00.498369751Z [err]  [2026-02-25 08:35:00 +0000] [18] [INFO] Waiting for application startup.
+2026-02-25T08:35:00.498376383Z [err]  INFO:main:🚀 Starting SLMS Backend...
+2026-02-25T08:35:00.498382748Z [err]  INFO:main:📊 Database: postgresql://postgres.ooixntyflwmjaryxwakx:%21%40k...
+2026-02-25T08:35:00.646510927Z [err]  [2026-02-25 08:35:00 +0000] [10] [INFO] Started server process [10]
+2026-02-25T08:35:00.646515373Z [err]  [2026-02-25 08:35:00 +0000] [10] [INFO] Waiting for application startup.
+2026-02-25T08:35:00.646519576Z [err]  INFO:main:🚀 Starting SLMS Backend...
+2026-02-25T08:35:00.646523951Z [err]  INFO:main:📊 Database: postgresql://postgres.ooixntyflwmjaryxwakx:%21%40k...
+2026-02-25T08:35:00.646528903Z [err]  INFO:main:🤖 AI Provider: deepseek
+2026-02-25T08:35:00.646533839Z [err]  [2026-02-25 08:35:00 +0000] [10] [INFO] Application startup complete.
+2026-02-25T08:35:00.685119751Z [err]  [2026-02-25 08:35:00 +0000] [8] [INFO] Started server process [8]
+2026-02-25T08:35:00.685128351Z [err]  [2026-02-25 08:35:00 +0000] [8] [INFO] Waiting for application startup.
+2026-02-25T08:35:00.685135797Z [err]  INFO:main:🚀 Starting SLMS Backend...
+2026-02-25T08:35:00.685142216Z [err]  INFO:main:📊 Database: postgresql://postgres.ooixntyflwmjaryxwakx:%21%40k...
+2026-02-25T08:35:00.685148521Z [err]  INFO:main:🤖 AI Provider: deepseek
+2026-02-25T08:35:00.685156561Z [err]  [2026-02-25 08:35:00 +0000] [8] [INFO] Application startup complete.
+2026-02-25T08:35:01.239533999Z [err]  [2026-02-25 08:35:01 +0000] [28] [INFO] Started server process [28]
+2026-02-25T08:35:01.239541915Z [err]  [2026-02-25 08:35:01 +0000] [28] [INFO] Waiting for application startup.
+2026-02-25T08:35:01.239547244Z [err]  INFO:main:🚀 Starting SLMS Backend...
+2026-02-25T08:35:01.239552357Z [err]  INFO:main:📊 Database: postgresql://postgres.ooixntyflwmjaryxwakx:%21%40k...
+2026-02-25T08:35:01.239557636Z [err]  INFO:main:🤖 AI Provider: deepseek
+2026-02-25T08:35:01.239570920Z [err]  [2026-02-25 08:35:01 +0000] [28] [INFO] Application startup complete.
+2026-02-25T08:35:01.306393805Z [err]  [2026-02-25 08:35:01 +0000] [12] [INFO] Started server process [12]
+2026-02-25T08:35:01.306403258Z [err]  [2026-02-25 08:35:01 +0000] [12] [INFO] Waiting for application startup.
+2026-02-25T08:35:01.306409131Z [err]  INFO:main:🚀 Starting SLMS Backend...
+2026-02-25T08:35:01.306414358Z [err]  INFO:main:📊 Database: postgresql://postgres.ooixntyflwmjaryxwakx:%21%40k...
+2026-02-25T08:35:01.306421869Z [err]  INFO:main:🤖 AI Provider: deepseek
+2026-02-25T08:35:01.306428072Z [err]  [2026-02-25 08:35:01 +0000] [12] [INFO] Application startup complete.
+2026-02-25T08:35:01.798566328Z [err]  [2026-02-25 08:35:01 +0000] [13] [INFO] Started server process [13]
+2026-02-25T08:35:01.798573059Z [err]  [2026-02-25 08:35:01 +0000] [13] [INFO] Waiting for application startup.
+2026-02-25T08:35:01.798577528Z [err]  INFO:main:🚀 Starting SLMS Backend...
+2026-02-25T08:35:01.798581750Z [err]  INFO:main:📊 Database: postgresql://postgres.ooixntyflwmjaryxwakx:%21%40k...
+2026-02-25T08:35:01.798586251Z [err]  INFO:main:🤖 AI Provider: deepseek
+2026-02-25T08:35:01.798591905Z [err]  [2026-02-25 08:35:01 +0000] [13] [INFO] Application startup complete.
+2026-02-25T08:35:02.946358807Z [err]  [2026-02-25 08:35:02 +0000] [11] [INFO] Started server process [11]
+2026-02-25T08:35:02.946363581Z [err]  [2026-02-25 08:35:02 +0000] [11] [INFO] Waiting for application startup.
+2026-02-25T08:35:02.946369527Z [err]  INFO:main:🚀 Starting SLMS Backend...
+2026-02-25T08:35:02.946373547Z [err]  INFO:main:📊 Database: postgresql://postgres.ooixntyflwmjaryxwakx:%21%40k...
+2026-02-25T08:35:02.946378931Z [err]  INFO:main:🤖 AI Provider: deepseek
+2026-02-25T08:35:02.946382888Z [err]  [2026-02-25 08:35:02 +0000] [11] [INFO] Application startup complete.
+2026-02-25T08:35:03.359500496Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 4 of 32: Resource temporarily unavailable
+2026-02-25T08:35:03.359507036Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:35:03.359511442Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:35:03.359515755Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:35:03.359520175Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 1 of 32: Resource temporarily unavailable
+2026-02-25T08:35:03.359525241Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:35:03.359529520Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:35:03.359535165Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:35:03.430701673Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 2 of 32: Resource temporarily unavailable
+2026-02-25T08:35:03.430707185Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:35:03.430715144Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:35:03.430720132Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:35:03.430726083Z [err]  [2026-02-25 08:35:03 +0000] [1] [WARNING] Worker (pid:139) was sent SIGINT!
+2026-02-25T08:35:03.430737364Z [err]  [2026-02-25 08:35:03 +0000] [1005] [INFO] Booting worker with pid: 1005
+2026-02-25T08:35:03.442622579Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 3 of 32: Resource temporarily unavailable
+2026-02-25T08:35:03.442631704Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:35:03.442638117Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:35:03.442644190Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:35:03.486171772Z [err]  [2026-02-25 08:35:03 +0000] [1] [WARNING] Worker (pid:104) was sent SIGINT!
+2026-02-25T08:35:03.486185611Z [err]  [2026-02-25 08:35:03 +0000] [1] [WARNING] Worker (pid:343) was sent SIGINT!
+2026-02-25T08:35:03.486194427Z [err]  [2026-02-25 08:35:03 +0000] [15] [INFO] Started server process [15]
+2026-02-25T08:35:03.486201458Z [err]  [2026-02-25 08:35:03 +0000] [1009] [INFO] Booting worker with pid: 1009
+2026-02-25T08:35:03.486207647Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 4 of 32: Resource temporarily unavailable
+2026-02-25T08:35:03.486215598Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:35:03.486222211Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:35:03.486229792Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:35:03.486237025Z [err]  [2026-02-25 08:35:03 +0000] [15] [INFO] Waiting for application startup.
+2026-02-25T08:35:03.486244828Z [err]  INFO:main:🚀 Starting SLMS Backend...
+2026-02-25T08:35:03.486252339Z [err]  INFO:main:📊 Database: postgresql://postgres.ooixntyflwmjaryxwakx:%21%40k...
+2026-02-25T08:35:03.486259902Z [err]  INFO:main:🤖 AI Provider: deepseek
+2026-02-25T08:35:03.486267410Z [err]  [2026-02-25 08:35:03 +0000] [15] [INFO] Application startup complete.
+2026-02-25T08:35:03.558050980Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 5 of 32: Resource temporarily unavailable
+2026-02-25T08:35:03.558056749Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:35:03.558062486Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:35:03.558067722Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:35:03.558072920Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 4 of 32: Resource temporarily unavailable
+2026-02-25T08:35:03.558077800Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:35:03.558082550Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:35:03.558086888Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:35:03.580093628Z [err]  [2026-02-25 08:35:03 +0000] [1023] [INFO] Booting worker with pid: 1023
+2026-02-25T08:35:03.582966489Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 4 of 32: Resource temporarily unavailable
+2026-02-25T08:35:03.582975009Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:35:03.582981577Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:35:03.582988082Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:35:03.723431971Z [err]  [2026-02-25 08:35:03 +0000] [1] [WARNING] Worker (pid:100) was sent SIGINT!
+2026-02-25T08:35:03.723438672Z [err]  [2026-02-25 08:35:03 +0000] [1] [WARNING] Worker (pid:175) was sent SIGINT!
+2026-02-25T08:35:03.723443387Z [err]  [2026-02-25 08:35:03 +0000] [1] [WARNING] Worker (pid:207) was sent SIGINT!
+2026-02-25T08:35:03.723447961Z [err]  [2026-02-25 08:35:03 +0000] [1] [WARNING] Worker (pid:309) was sent SIGINT!
+2026-02-25T08:35:03.723452312Z [err]  [2026-02-25 08:35:03 +0000] [1] [WARNING] Worker (pid:342) was sent SIGINT!
+2026-02-25T08:35:03.745001993Z [err]  [2026-02-25 08:35:03 +0000] [1028] [INFO] Booting worker with pid: 1028
+2026-02-25T08:35:03.745012395Z [err]  [2026-02-25 08:35:03 +0000] [1029] [INFO] Booting worker with pid: 1029
+2026-02-25T08:35:03.785801186Z [err]  [2026-02-25 08:35:03 +0000] [172] [INFO] Started server process [172]
+2026-02-25T08:35:03.785809276Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 7 of 32: Resource temporarily unavailable
+2026-02-25T08:35:03.785815902Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:35:03.785824017Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:35:03.785831356Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:35:03.785837714Z [err]  [2026-02-25 08:35:03 +0000] [172] [INFO] Waiting for application startup.
+2026-02-25T08:35:03.785844648Z [err]  INFO:main:🚀 Starting SLMS Backend...
+2026-02-25T08:35:03.785852502Z [err]  INFO:main:📊 Database: postgresql://postgres.ooixntyflwmjaryxwakx:%21%40k...
+2026-02-25T08:35:03.785860626Z [err]  INFO:main:🤖 AI Provider: deepseek
+2026-02-25T08:35:03.785867811Z [err]  [2026-02-25 08:35:03 +0000] [172] [INFO] Application startup complete.
+2026-02-25T08:35:03.894910171Z [err]  [2026-02-25 08:35:03 +0000] [1037] [INFO] Booting worker with pid: 1037
+2026-02-25T08:35:03.965569765Z [err]  [2026-02-25 08:35:03 +0000] [62] [INFO] Started server process [62]
+2026-02-25T08:35:03.965579373Z [err]  [2026-02-25 08:35:03 +0000] [62] [INFO] Waiting for application startup.
+2026-02-25T08:35:03.965585224Z [err]  INFO:main:🚀 Starting SLMS Backend...
+2026-02-25T08:35:03.965594574Z [err]  INFO:main:📊 Database: postgresql://postgres.ooixntyflwmjaryxwakx:%21%40k...
+2026-02-25T08:35:03.965599568Z [err]  INFO:main:🤖 AI Provider: deepseek
+2026-02-25T08:35:03.965605058Z [err]  [2026-02-25 08:35:03 +0000] [62] [INFO] Application startup complete.
+2026-02-25T08:35:03.965610923Z [err]  [2026-02-25 08:35:03 +0000] [1038] [INFO] Booting worker with pid: 1038
+2026-02-25T08:35:03.965616732Z [err]  [2026-02-25 08:35:03 +0000] [1039] [INFO] Booting worker with pid: 1039
+2026-02-25T08:35:03.984963332Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 4 of 32: Resource temporarily unavailable
+2026-02-25T08:35:03.984975029Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:35:03.984985770Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:35:03.984992861Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:35:04.085040135Z [err]  [2026-02-25 08:35:04 +0000] [1] [WARNING] Worker (pid:240) was sent SIGINT!
+2026-02-25T08:35:04.085047030Z [err]  [2026-02-25 08:35:04 +0000] [1] [WARNING] Worker (pid:308) was sent SIGINT!
+2026-02-25T08:35:04.085053857Z [err]  [2026-02-25 08:35:04 +0000] [1044] [INFO] Booting worker with pid: 1044
+2026-02-25T08:35:04.182021348Z [err]  [2026-02-25 08:35:04 +0000] [1045] [INFO] Booting worker with pid: 1045
+2026-02-25T08:35:04.319893360Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 4 of 32: Resource temporarily unavailable
+2026-02-25T08:35:04.319900573Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:35:04.319905739Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:35:04.319909496Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:35:04.342531268Z [err]  [2026-02-25 08:35:04 +0000] [1] [WARNING] Worker (pid:96) was sent SIGINT!
+2026-02-25T08:35:04.342541523Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 5 of 32: Resource temporarily unavailable
+2026-02-25T08:35:04.342548801Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:35:04.342554303Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:35:04.342560161Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:35:04.342567476Z [err]  [2026-02-25 08:35:04 +0000] [5] [INFO] Started server process [5]
+2026-02-25T08:35:04.342574685Z [err]  [2026-02-25 08:35:04 +0000] [5] [INFO] Waiting for application startup.
+2026-02-25T08:35:04.342581276Z [err]  INFO:main:🚀 Starting SLMS Backend...
+2026-02-25T08:35:04.342587714Z [err]  INFO:main:📊 Database: postgresql://postgres.ooixntyflwmjaryxwakx:%21%40k...
+2026-02-25T08:35:04.342595872Z [err]  INFO:main:🤖 AI Provider: deepseek
+2026-02-25T08:35:04.342601714Z [err]  [2026-02-25 08:35:04 +0000] [5] [INFO] Application startup complete.
+2026-02-25T08:35:04.342606956Z [err]  [2026-02-25 08:35:04 +0000] [105] [INFO] Started server process [105]
+2026-02-25T08:35:04.343209300Z [err]  [2026-02-25 08:35:04 +0000] [1055] [INFO] Booting worker with pid: 1055
+2026-02-25T08:35:04.448496508Z [err]  [2026-02-25 08:35:04 +0000] [105] [INFO] Waiting for application startup.
+2026-02-25T08:35:04.448511000Z [err]  INFO:main:🚀 Starting SLMS Backend...
+2026-02-25T08:35:04.448518263Z [err]  INFO:main:📊 Database: postgresql://postgres.ooixntyflwmjaryxwakx:%21%40k...
+2026-02-25T08:35:04.448523475Z [err]  INFO:main:🤖 AI Provider: deepseek
+2026-02-25T08:35:04.448528746Z [err]  [2026-02-25 08:35:04 +0000] [105] [INFO] Application startup complete.
+2026-02-25T08:35:04.448534427Z [err]  [2026-02-25 08:35:04 +0000] [1] [WARNING] Worker (pid:275) was sent SIGINT!
+2026-02-25T08:35:04.448539987Z [err]  [2026-02-25 08:35:04 +0000] [1056] [INFO] Booting worker with pid: 1056
+2026-02-25T08:35:04.546837426Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 4 of 32: Resource temporarily unavailable
+2026-02-25T08:35:04.546844651Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:35:04.546849812Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:35:04.546854893Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:35:04.546859763Z [err]  [2026-02-25 08:35:04 +0000] [1] [WARNING] Worker (pid:27) was sent SIGINT!
+2026-02-25T08:35:04.586325714Z [err]  [2026-02-25 08:35:04 +0000] [1061] [INFO] Booting worker with pid: 1061
+2026-02-25T08:35:05.280241958Z [err]  [2026-02-25 08:35:05 +0000] [21] [INFO] Started server process [21]
+2026-02-25T08:35:05.280250563Z [err]  [2026-02-25 08:35:05 +0000] [21] [INFO] Waiting for application startup.
+2026-02-25T08:35:05.280257655Z [err]  INFO:main:🚀 Starting SLMS Backend...
+2026-02-25T08:35:05.280264832Z [err]  INFO:main:📊 Database: postgresql://postgres.ooixntyflwmjaryxwakx:%21%40k...
+2026-02-25T08:35:05.280271758Z [err]  INFO:main:🤖 AI Provider: deepseek
+2026-02-25T08:35:05.280278981Z [err]  [2026-02-25 08:35:05 +0000] [21] [INFO] Application startup complete.
+2026-02-25T08:35:05.281528287Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 4 of 32: Resource temporarily unavailable
+2026-02-25T08:35:05.281536540Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:35:05.281542387Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:35:05.281549896Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:35:05.352668372Z [err]  [2026-02-25 08:35:05 +0000] [1] [WARNING] Worker (pid:242) was sent SIGINT!
+2026-02-25T08:35:05.352676886Z [err]  [2026-02-25 08:35:05 +0000] [1066] [INFO] Booting worker with pid: 1066
+2026-02-25T08:35:05.450198743Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 4 of 32: Resource temporarily unavailable
+2026-02-25T08:35:05.450202919Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:35:05.450207223Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:35:05.450211683Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:35:05.450215870Z [err]  [2026-02-25 08:35:05 +0000] [1] [WARNING] Worker (pid:102) was sent SIGINT!
+2026-02-25T08:35:05.450220096Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 4 of 32: Resource temporarily unavailable
+2026-02-25T08:35:05.450224298Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:35:05.450228483Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:35:05.450233886Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:35:05.450237973Z [err]  [2026-02-25 08:35:05 +0000] [1071] [INFO] Booting worker with pid: 1071
+2026-02-25T08:35:05.475992378Z [err]  [2026-02-25 08:35:05 +0000] [20] [INFO] Started server process [20]
+2026-02-25T08:35:05.476000751Z [err]  [2026-02-25 08:35:05 +0000] [20] [INFO] Waiting for application startup.
+2026-02-25T08:35:05.476007533Z [err]  INFO:main:🚀 Starting SLMS Backend...
+2026-02-25T08:35:05.476013682Z [err]  INFO:main:📊 Database: postgresql://postgres.ooixntyflwmjaryxwakx:%21%40k...
+2026-02-25T08:35:05.476019669Z [err]  INFO:main:🤖 AI Provider: deepseek
+2026-02-25T08:35:05.476025356Z [err]  [2026-02-25 08:35:05 +0000] [20] [INFO] Application startup complete.
+2026-02-25T08:35:05.482294276Z [err]  [2026-02-25 08:35:05 +0000] [26] [INFO] Started server process [26]
+2026-02-25T08:35:05.482304271Z [err]  [2026-02-25 08:35:05 +0000] [26] [INFO] Waiting for application startup.
+2026-02-25T08:35:05.482311087Z [err]  INFO:main:🚀 Starting SLMS Backend...
+2026-02-25T08:35:05.482317503Z [err]  INFO:main:📊 Database: postgresql://postgres.ooixntyflwmjaryxwakx:%21%40k...
+2026-02-25T08:35:05.482323858Z [err]  INFO:main:🤖 AI Provider: deepseek
+2026-02-25T08:35:05.482330540Z [err]  [2026-02-25 08:35:05 +0000] [26] [INFO] Application startup complete.
+2026-02-25T08:35:05.482336885Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 3 of 32: Resource temporarily unavailable
+2026-02-25T08:35:05.482344504Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:35:05.482351919Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:35:05.482358533Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:35:05.559089311Z [err]  [2026-02-25 08:35:05 +0000] [1] [WARNING] Worker (pid:106) was sent SIGINT!
+2026-02-25T08:35:05.559095610Z [err]  [2026-02-25 08:35:05 +0000] [1] [WARNING] Worker (pid:341) was sent SIGINT!
+2026-02-25T08:35:05.559101430Z [err]  [2026-02-25 08:35:05 +0000] [1079] [INFO] Booting worker with pid: 1079
+2026-02-25T08:35:05.641456352Z [err]  [2026-02-25 08:35:05 +0000] [1080] [INFO] Booting worker with pid: 1080
+2026-02-25T08:35:05.683650831Z [err]  [2026-02-25 08:35:05 +0000] [24] [INFO] Started server process [24]
+2026-02-25T08:35:05.683659679Z [err]  [2026-02-25 08:35:05 +0000] [24] [INFO] Waiting for application startup.
+2026-02-25T08:35:05.683666168Z [err]  INFO:main:🚀 Starting SLMS Backend...
+2026-02-25T08:35:05.683673554Z [err]  INFO:main:📊 Database: postgresql://postgres.ooixntyflwmjaryxwakx:%21%40k...
+2026-02-25T08:35:05.683679608Z [err]  INFO:main:🤖 AI Provider: deepseek
+2026-02-25T08:35:05.683700104Z [err]  [2026-02-25 08:35:05 +0000] [24] [INFO] Application startup complete.
+2026-02-25T08:35:05.886319980Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 4 of 32: Resource temporarily unavailable
+2026-02-25T08:35:05.886330706Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:35:05.886339025Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:35:05.886347115Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:35:05.886354420Z [err]  [2026-02-25 08:35:05 +0000] [19] [INFO] Started server process [19]
+2026-02-25T08:35:05.886362351Z [err]  [2026-02-25 08:35:05 +0000] [19] [INFO] Waiting for application startup.
+2026-02-25T08:35:05.886369213Z [err]  INFO:main:🚀 Starting SLMS Backend...
+2026-02-25T08:35:05.886375945Z [err]  INFO:main:📊 Database: postgresql://postgres.ooixntyflwmjaryxwakx:%21%40k...
+2026-02-25T08:35:05.886382750Z [err]  INFO:main:🤖 AI Provider: deepseek
+2026-02-25T08:35:05.886389639Z [err]  [2026-02-25 08:35:05 +0000] [19] [INFO] Application startup complete.
+2026-02-25T08:35:05.960415087Z [err]  [2026-02-25 08:35:05 +0000] [1] [WARNING] Worker (pid:103) was sent SIGINT!
+2026-02-25T08:35:05.973903566Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 4 of 32: Resource temporarily unavailable
+2026-02-25T08:35:05.973914126Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:35:05.973920726Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:35:05.973927058Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:35:05.973933067Z [err]  [2026-02-25 08:35:05 +0000] [1085] [INFO] Booting worker with pid: 1085
+2026-02-25T08:35:06.054413863Z [err]  [2026-02-25 08:35:06 +0000] [1] [WARNING] Worker (pid:173) was sent SIGINT!
+2026-02-25T08:35:06.077278569Z [err]  [2026-02-25 08:35:06 +0000] [30] [INFO] Started server process [30]
+2026-02-25T08:35:06.077287736Z [err]  [2026-02-25 08:35:06 +0000] [30] [INFO] Waiting for application startup.
+2026-02-25T08:35:06.077294943Z [err]  INFO:main:🚀 Starting SLMS Backend...
+2026-02-25T08:35:06.077301542Z [err]  INFO:main:📊 Database: postgresql://postgres.ooixntyflwmjaryxwakx:%21%40k...
+2026-02-25T08:35:06.077307484Z [err]  INFO:main:🤖 AI Provider: deepseek
+2026-02-25T08:35:06.077313469Z [err]  [2026-02-25 08:35:06 +0000] [30] [INFO] Application startup complete.
+2026-02-25T08:35:06.078767064Z [err]  [2026-02-25 08:35:06 +0000] [1090] [INFO] Booting worker with pid: 1090
+2026-02-25T08:35:06.185690285Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 4 of 32: Resource temporarily unavailable
+2026-02-25T08:35:06.185699538Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:35:06.185706361Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:35:06.185712321Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:35:06.257092545Z [err]  [2026-02-25 08:35:06 +0000] [22] [INFO] Started server process [22]
+2026-02-25T08:35:06.257102761Z [err]  [2026-02-25 08:35:06 +0000] [22] [INFO] Waiting for application startup.
+2026-02-25T08:35:06.257109224Z [err]  INFO:main:🚀 Starting SLMS Backend...
+2026-02-25T08:35:06.257115046Z [err]  INFO:main:📊 Database: postgresql://postgres.ooixntyflwmjaryxwakx:%21%40k...
+2026-02-25T08:35:06.257121108Z [err]  INFO:main:🤖 AI Provider: deepseek
+2026-02-25T08:35:06.257126666Z [err]  [2026-02-25 08:35:06 +0000] [22] [INFO] Application startup complete.
+2026-02-25T08:35:06.257131704Z [err]  [2026-02-25 08:35:06 +0000] [1] [WARNING] Worker (pid:344) was sent SIGINT!
+2026-02-25T08:35:06.257137549Z [err]  OpenBLAS blas_thread_init: pthread_create failed for thread 5 of 32: Resource temporarily unavailable
+2026-02-25T08:35:06.257143303Z [err]  OpenBLAS blas_thread_init: ensure that your address space and process count limits are big enough (ulimit -a)
+2026-02-25T08:35:06.257148993Z [err]  OpenBLAS blas_thread_init: or set a smaller OPENBLAS_NUM_THREADS to fit into what you have available
+2026-02-25T08:35:06.257154098Z [err]  OpenBLAS blas_thread_init: RLIMIT_NPROC 1048576 current, 1048576 max
+2026-02-25T08:35:06.290166997Z [err]  [2026-02-25 08:35:06 +0000] [1] [ERROR] Unhandled exception in main loop
+2026-02-25T08:35:06.290174067Z [err]  Traceback (most recent call last):
+2026-02-25T08:35:06.290178816Z [err]    File "/usr/local/lib/python3.12/site-packages/gunicorn/arbiter.py", line 245, in run
+2026-02-25T08:35:06.290183972Z [err]      self.manage_workers()
+2026-02-25T08:35:06.290190917Z [err]    File "/usr/local/lib/python3.12/site-packages/gunicorn/arbiter.py", line 657, in manage_workers
+2026-02-25T08:35:06.290196923Z [err]      self.spawn_workers()
+2026-02-25T08:35:06.290201696Z [err]    File "/usr/local/lib/python3.12/site-packages/gunicorn/arbiter.py", line 743, in spawn_workers
+2026-02-25T08:35:06.290206230Z [err]      self.spawn_worker()
+2026-02-25T08:35:06.290211205Z [err]    File "/usr/local/lib/python3.12/site-packages/gunicorn/arbiter.py", line 689, in spawn_worker
+2026-02-25T08:35:06.290216179Z [err]      pid = os.fork()
+2026-02-25T08:35:06.290221069Z [err]            ^^^^^^^^^
+2026-02-25T08:35:06.290225656Z [err]  BlockingIOError: [Errno 11] Resource temporarily unavailable
+2026-02-25T08:35:06.489387164Z [err]  [2026-02-25 08:35:06 +0000] [1] [WARNING] Worker (pid:107) was sent SIGQUIT!
+2026-02-25T08:35:06.489390304Z [err]  [2026-02-25 08:35:06 +0000] [1] [WARNING] Worker (pid:1005) was sent SIGQUIT!
+2026-02-25T08:35:06.489395153Z [err]  [2026-02-25 08:35:06 +0000] [1] [WARNING] Worker (pid:171) was sent SIGQUIT!
+2026-02-25T08:35:06.489400713Z [err]  [2026-02-25 08:35:06 +0000] [1] [WARNING] Worker (pid:174) was sent SIGQUIT!
+2026-02-25T08:35:06.489401525Z [err]  [2026-02-25 08:35:06 +0000] [1] [WARNING] Worker (pid:1009) was sent SIGQUIT!
+2026-02-25T08:35:06.489406573Z [err]  [2026-02-25 08:35:06 +0000] [1] [WARNING] Worker (pid:236) was sent SIGQUIT!
+2026-02-25T08:35:06.489411516Z [err]  [2026-02-25 08:35:06 +0000] [1] [WARNING] Worker (pid:1023) was sent SIGQUIT!
+2026-02-25T08:35:06.489414187Z [err]  [2026-02-25 08:35:06 +0000] [1] [WARNING] Worker (pid:241) was sent SIGQUIT!
+2026-02-25T08:35:06.489418172Z [err]  [2026-02-25 08:35:06 +0000] [1] [WARNING] Worker (pid:1028) was sent SIGQUIT!
+2026-02-25T08:35:06.489423617Z [err]  [2026-02-25 08:35:06 +0000] [1] [WARNING] Worker (pid:245) was sent SIGINT!
+2026-02-25T08:35:06.489430021Z [err]  [2026-02-25 08:35:06 +0000] [1] [WARNING] Worker (pid:307) was sent SIGQUIT!
+2026-02-25T08:35:06.489436173Z [err]  [2026-02-25 08:35:06 +0000] [1] [WARNING] Worker (pid:376) was sent SIGQUIT!
+2026-02-25T08:35:06.489442711Z [err]  [2026-02-25 08:35:06 +0000] [1] [WARNING] Worker (pid:377) was sent SIGQUIT!
+2026-02-25T08:35:06.489459863Z [err]  [2026-02-25 08:35:06 +0000] [1] [WARNING] Worker (pid:1038) was sent SIGQUIT!
+2026-02-25T08:35:06.489464639Z [err]  [2026-02-25 08:35:06 +0000] [1] [WARNING] Worker (pid:1029) was sent SIGQUIT!
+2026-02-25T08:35:06.489469832Z [err]  [2026-02-25 08:35:06 +0000] [1] [WARNING] Worker (pid:1039) was sent SIGQUIT!
+2026-02-25T08:35:06.489473383Z [err]  [2026-02-25 08:35:06 +0000] [1] [WARNING] Worker (pid:1037) was sent SIGQUIT!
+2026-02-25T08:35:06.489479649Z [err]  [2026-02-25 08:35:06 +0000] [1] [WARNING] Worker (pid:1044) was sent SIGQUIT!
+2026-02-25T08:35:06.489491841Z [err]  [2026-02-25 08:35:06 +0000] [1] [WARNING] Worker (pid:1066) was sent SIGQUIT!
+2026-02-25T08:35:06.489497764Z [err]  [2026-02-25 08:35:06 +0000] [1] [WARNING] Worker (pid:1071) was sent SIGQUIT!
+2026-02-25T08:35:06.489502519Z [err]  [2026-02-25 08:35:06 +0000] [1] [WARNING] Worker (pid:1079) was sent SIGQUIT!
+2026-02-25T08:35:06.489506882Z [err]  [2026-02-25 08:35:06 +0000] [1] [WARNING] Worker (pid:1080) was sent SIGQUIT!
+2026-02-25T08:35:06.489520132Z [err]  [2026-02-25 08:35:06 +0000] [1] [WARNING] Worker (pid:1045) was sent SIGQUIT!
+2026-02-25T08:35:06.489528663Z [err]  [2026-02-25 08:35:06 +0000] [1] [WARNING] Worker (pid:23) was sent SIGQUIT!
+2026-02-25T08:35:06.489530544Z [err]  [2026-02-25 08:35:06 +0000] [1] [WARNING] Worker (pid:1055) was sent SIGQUIT!
+2026-02-25T08:35:06.489536468Z [err]  [2026-02-25 08:35:06 +0000] [1] [WARNING] Worker (pid:25) was sent SIGQUIT!
+2026-02-25T08:35:06.489538450Z [err]  [2026-02-25 08:35:06 +0000] [1] [WARNING] Worker (pid:1056) was sent SIGQUIT!
+2026-02-25T08:35:06.489543236Z [err]  [2026-02-25 08:35:06 +0000] [1] [WARNING] Worker (pid:29) was sent SIGQUIT!
+2026-02-25T08:35:06.489549053Z [err]  [2026-02-25 08:35:06 +0000] [1] [WARNING] Worker (pid:73) was sent SIGQUIT!
+2026-02-25T08:35:06.489555347Z [err]  [2026-02-25 08:35:06 +0000] [1] [WARNING] Worker (pid:95) was sent SIGQUIT!
+2026-02-25T08:35:06.489559145Z [err]  [2026-02-25 08:35:06 +0000] [1] [WARNING] Worker (pid:1061) was sent SIGQUIT!
+2026-02-25T08:35:06.489563563Z [err]  [2026-02-25 08:35:06 +0000] [1] [WARNING] Worker (pid:97) was sent SIGQUIT!
+2026-02-25T08:35:06.489568159Z [err]  [2026-02-25 08:35:06 +0000] [1] [WARNING] Worker (pid:98) was sent SIGQUIT!
+2026-02-25T08:35:06.489573190Z [err]  [2026-02-25 08:35:06 +0000] [1] [WARNING] Worker (pid:99) was sent SIGQUIT!
+2026-02-25T08:35:06.489577979Z [err]  [2026-02-25 08:35:06 +0000] [1] [WARNING] Worker (pid:101) was sent SIGQUIT!
+2026-02-25T08:35:06.489688034Z [err]  [2026-02-25 08:35:06 +0000] [1] [WARNING] Worker (pid:1085) was sent SIGQUIT!
+2026-02-25T08:35:06.489693374Z [err]  [2026-02-25 08:35:06 +0000] [1] [WARNING] Worker (pid:1090) was sent SIGQUIT!

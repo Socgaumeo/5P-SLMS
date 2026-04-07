@@ -12,6 +12,7 @@ import './AdminPanel.css'
 import RateFormModal from './RateFormModal'
 import RateUploadModal from './RateUploadModal'
 import { authFetch, API_URL } from '../../utils/auth-fetch'
+import DebitTemplateManagerPanel from '../debit/debit-template-manager-admin-panel'
 
 // Helper to format currency
 const formatCurrency = (value) => {
@@ -29,6 +30,7 @@ const TABS = [
   { id: 'customers', label: 'Customers', icon: '👥' },
   { id: 'selling-rates', label: 'Doanh Thu', icon: '💰' },
   { id: 'buying-rates', label: 'Chi phí NCC', icon: '💸' },
+  { id: 'debit-templates', label: 'Debit Templates', icon: '📝' },
 ]
 
 // Generic DataTable component
@@ -2282,6 +2284,8 @@ export default function AdminPanel() {
         return <RatesTab type="selling" />
       case 'buying-rates':
         return <RatesTab type="buying" />
+      case 'debit-templates':
+        return <DebitTemplateManagerPanel />
       default:
         return <ServiceTypesTab />
     }
