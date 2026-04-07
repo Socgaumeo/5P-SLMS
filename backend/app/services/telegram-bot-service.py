@@ -82,16 +82,19 @@ def detect_doc_type(caption: str, filename: str = "") -> str:
 def validate_job(job_no: str) -> Optional[dict]:
     """
     Check if job_no exists in database.
-    Returns job record dict or None.
+    Returns job record dict with customer info or None.
     """
     try:
         client = get_supabase()
         result = client.table('jobs').select(
-            'job_id, job_no, customer_id, status_code'
+            'job_id, job_no, customer_id, status_code, customers(short_name)'
         ).eq('job_no', job_no).limit(1).execute()
 
         if result.data:
-            return result.data[0]
+            row = result.data[0]
+            customer = row.pop('customers', {}) or {}
+            row['customer_name'] = customer.get('short_name', '')
+            return row
         return None
     except Exception as e:
         logger.error(f"Error validating job {job_no}: {e}")
@@ -170,7 +173,19 @@ def is_allowed_chat(chat_id: str) -> bool:
     return str(chat_id) in allowed_ids
 
 
-def format_confirm_message(file_name: str, job_no: str, doc_type: str) -> str:
+def update_document_gdrive_url(doc_id: int, gdrive_url: str):
+    """Update document record with Google Drive link."""
+    try:
+        client = get_supabase()
+        client.table('documents').update({
+            'external_url': gdrive_url,
+            'cloud_backup_status': 'synced',
+        }).eq('id', doc_id).execute()
+    except Exception as e:
+        logger.error(f"Error updating gdrive_url for doc {doc_id}: {e}")
+
+
+def format_confirm_message(file_name: str, job_no: str, doc_type: str, gdrive_url: str = None) -> str:
     """Format a confirmation reply message."""
     type_labels = {
         'AN': 'Arrival Notice', 'DEBIT': 'Debit Note', 'DO': 'Delivery Order',
@@ -179,12 +194,15 @@ def format_confirm_message(file_name: str, job_no: str, doc_type: str) -> str:
         'PACKING_LIST': 'Packing List', 'OTHER': 'Khác',
     }
     label = type_labels.get(doc_type, doc_type)
-    return (
+    msg = (
         f"✅ <b>Đã lưu chứng từ</b>\n"
         f"📄 {file_name}\n"
         f"📋 Job: <code>{job_no}</code>\n"
         f"🏷️ Loại: {label}"
     )
+    if gdrive_url:
+        msg += f"\n📁 <a href=\"{gdrive_url}\">Tải về từ Google Drive</a>"
+    return msg
 
 
 def format_missing_info_message() -> str:

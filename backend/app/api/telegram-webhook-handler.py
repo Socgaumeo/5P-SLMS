@@ -21,6 +21,8 @@ from fastapi import APIRouter, Request, HTTPException, Header
 import importlib
 from app.core.config import settings
 bot_svc = importlib.import_module("app.services.telegram-bot-service")
+tg_downloader = importlib.import_module("app.services.telegram-file-downloader")
+gdrive_svc = importlib.import_module("app.services.google-drive-upload-service")
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/telegram", tags=["Telegram Webhook"])
@@ -160,9 +162,30 @@ async def telegram_webhook(
     )
 
     if document:
-        # Send confirmation reply
+        # Upload to Google Drive (async background, non-blocking)
+        gdrive_url = None
+        if settings.GDRIVE_ENABLED:
+            try:
+                dl_result = await tg_downloader.download_telegram_file(file_info['file_id'])
+                if dl_result:
+                    file_bytes, _ = dl_result
+                    gdrive_url = gdrive_svc.upload_to_gdrive(
+                        file_bytes=file_bytes,
+                        file_name=file_info['file_name'],
+                        mime_type=file_info.get('mime_type', 'application/octet-stream'),
+                        customer_name=job.get('customer_name', ''),
+                        job_no=job_no,
+                    )
+                    if gdrive_url:
+                        bot_svc.update_document_gdrive_url(document['id'], gdrive_url)
+                else:
+                    logger.warning(f"Could not download file from Telegram for GDrive backup")
+            except Exception as e:
+                logger.error(f"GDrive upload failed: {e}")
+
+        # Send confirmation reply (with GDrive link if available)
         confirm_msg = bot_svc.format_confirm_message(
-            file_info['file_name'], job_no, doc_type
+            file_info['file_name'], job_no, doc_type, gdrive_url
         )
         await bot_svc.send_telegram_message(chat_id, confirm_msg, message_id)
         return {"ok": True, "action": "captured", "document_id": document['id']}

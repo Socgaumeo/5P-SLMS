@@ -47,9 +47,12 @@ class Settings(BaseSettings):
     TELEGRAM_ALLOWED_CHAT_IDS: str = ""  # Comma-separated chat IDs (whitelist)
     TELEGRAM_STORAGE_CHAT_ID: Optional[str] = None  # Private chat/channel for web upload storage
 
-    # Cloud Backup Configuration
-    CLOUD_BACKUP_ENABLED: bool = False
-    CLOUD_BACKUP_PROVIDER: str = ""  # 'gdrive', 'onedrive', or 'both'
+    # Google Drive Configuration
+    GDRIVE_ENABLED: bool = False
+    GDRIVE_REFRESH_TOKEN: Optional[str] = None
+    GDRIVE_CLIENT_ID: Optional[str] = None
+    GDRIVE_CLIENT_SECRET: Optional[str] = None
+    GDRIVE_ROOT_FOLDER_ID: Optional[str] = None  # Auto-created if not set
 
     # Application
     DEBUG: bool = False

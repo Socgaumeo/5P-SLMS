@@ -29,6 +29,10 @@ pillow>=10.2.0
 # Rate Limiting
 slowapi>=0.1.9
 
+# Google Drive
+google-api-python-client>=2.0.0
+google-auth-oauthlib>=1.0.0
+
 # Utilities
 httpx>=0.26.0
 python-jose[cryptography]>=3.3.0
