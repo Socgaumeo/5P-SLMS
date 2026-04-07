@@ -23,8 +23,11 @@ export default function SearchBox({ onJobSelect }) {
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
-  // Date filter state
+  // Date filter state - supports both month and date range
   const [filterMonth, setFilterMonth] = useState(getCurrentMonth());
+  const [filterMode, setFilterMode] = useState('month'); // 'month' or 'range'
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
   // Custom template info
   const [templateInfo, setTemplateInfo] = useState(null);
   const inputRef = useRef(null);
@@ -120,12 +123,21 @@ export default function SearchBox({ onJobSelect }) {
     }
   };
 
-  // Load all jobs for entity with date filter
-  const loadEntityJobs = async (entity, month = filterMonth) => {
+  // Load all jobs for entity with date filter (month or range)
+  const loadEntityJobs = async (entity, opts = {}) => {
     setLoading(true);
     try {
       let url = `${API_URL}/api/search/jobs-by-entity?entity_type=${entity.type}&entity_id=${entity.id}`;
-      if (month) url += `&month=${month}`;
+      const mode = opts.mode || filterMode;
+      if (mode === 'range') {
+        const fd = opts.fromDate || fromDate;
+        const td = opts.toDate || toDate;
+        if (fd) url += `&from_date=${fd}`;
+        if (td) url += `&to_date=${td}`;
+      } else {
+        const month = opts.month || filterMonth;
+        if (month) url += `&month=${month}`;
+      }
 
       const res = await fetch(url);
       const data = await res.json();
@@ -159,8 +171,14 @@ export default function SearchBox({ onJobSelect }) {
       } else {
         // Use generic export
         url = `${API_URL}/api/jobs/exports/entity?entity_type=${entityMatch.type}&entity_id=${entityMatch.id}`;
-        if (filterMonth) url += `&month=${filterMonth}`;
-        filename = `${entityMatch.type}_${entityMatch.code}_${filterMonth || 'all'}_export.xlsx`;
+        if (filterMode === 'range') {
+          if (fromDate) url += `&from_date=${fromDate}`;
+          if (toDate) url += `&to_date=${toDate}`;
+          filename = `${entityMatch.type}_${entityMatch.code}_${fromDate || ''}_${toDate || ''}_export.xlsx`;
+        } else {
+          if (filterMonth) url += `&month=${filterMonth}`;
+          filename = `${entityMatch.type}_${entityMatch.code}_${filterMonth || 'all'}_export.xlsx`;
+        }
       }
 
       const response = await fetch(url);
@@ -246,7 +264,7 @@ export default function SearchBox({ onJobSelect }) {
           ref={inputRef}
           type="text"
           className="search-input"
-          placeholder="Tìm job, khách hàng... (Ctrl+K)"
+          placeholder="Tìm job, khách hàng, tờ khai, BL, CO, invoice... (Ctrl+K)"
           value={query}
           onChange={handleInputChange}
           onFocus={handleFocus}
@@ -301,6 +319,15 @@ export default function SearchBox({ onJobSelect }) {
                   <span className="result-customer">
                     {job.customer_code} - {job.customer_name}
                   </span>
+                  {/* Show matched document info */}
+                  {(job.cd_no || job.bl_awb_no || job.co_no || job.invoice_numbers) && (
+                    <span className="result-docs">
+                      {job.cd_no && `TK: ${job.cd_no}`}
+                      {job.bl_awb_no && `${job.cd_no ? ' • ' : ''}BL: ${job.bl_awb_no}`}
+                      {job.co_no && ` • CO: ${job.co_no}`}
+                      {job.invoice_numbers && ` • INV: ${job.invoice_numbers}`}
+                    </span>
+                  )}
                 </div>
                 <span
                   className="result-status"
@@ -331,19 +358,55 @@ export default function SearchBox({ onJobSelect }) {
             {/* Date filter and export buttons */}
             <div className="entity-panel-toolbar">
               <div className="date-filter">
-                <label>Tháng:</label>
-                <input
-                  type="month"
-                  value={filterMonth}
-                  onChange={(e) => {
-                    setFilterMonth(e.target.value);
-                    loadEntityJobs(entityMatch, e.target.value);
-                  }}
-                  className="month-input"
-                />
+                {/* Filter mode toggle */}
+                <div className="filter-mode-toggle">
+                  <button
+                    className={`mode-btn ${filterMode === 'month' ? 'active' : ''}`}
+                    onClick={() => { setFilterMode('month'); loadEntityJobs(entityMatch, { mode: 'month' }); }}
+                  >Tháng</button>
+                  <button
+                    className={`mode-btn ${filterMode === 'range' ? 'active' : ''}`}
+                    onClick={() => { setFilterMode('range'); loadEntityJobs(entityMatch, { mode: 'range' }); }}
+                  >Khoảng ngày</button>
+                </div>
+
+                {filterMode === 'month' ? (
+                  <input
+                    type="month"
+                    value={filterMonth}
+                    onChange={(e) => {
+                      setFilterMonth(e.target.value);
+                      loadEntityJobs(entityMatch, { mode: 'month', month: e.target.value });
+                    }}
+                    className="month-input"
+                  />
+                ) : (
+                  <div className="date-range-inputs">
+                    <input
+                      type="date"
+                      value={fromDate}
+                      onChange={(e) => {
+                        setFromDate(e.target.value);
+                        if (toDate) loadEntityJobs(entityMatch, { mode: 'range', fromDate: e.target.value, toDate });
+                      }}
+                      className="date-input"
+                      placeholder="Từ ngày"
+                    />
+                    <span className="date-separator">→</span>
+                    <input
+                      type="date"
+                      value={toDate}
+                      onChange={(e) => {
+                        setToDate(e.target.value);
+                        if (fromDate) loadEntityJobs(entityMatch, { mode: 'range', fromDate, toDate: e.target.value });
+                      }}
+                      className="date-input"
+                      placeholder="Đến ngày"
+                    />
+                  </div>
+                )}
               </div>
               <div className="export-buttons">
-                {/* Custom template export if available */}
                 {templateInfo && (
                   <button
                     className="export-btn custom-template"
@@ -354,7 +417,6 @@ export default function SearchBox({ onJobSelect }) {
                     {exporting ? '⏳' : '📊'} {templateInfo.name ? `Mẫu ${entityMatch.code}` : 'Xuất mẫu riêng'}
                   </button>
                 )}
-                {/* Generic export */}
                 <button
                   className="export-btn"
                   onClick={() => exportEntityJobs(false)}
@@ -366,10 +428,17 @@ export default function SearchBox({ onJobSelect }) {
             </div>
 
             <div className="entity-panel-stats">
-              <span>Tổng: <strong>{entityJobs.length}</strong> jobs trong tháng {filterMonth}</span>
+              <span>Tổng: <strong>{entityJobs.length}</strong> jobs
+                {filterMode === 'month' ? ` tháng ${filterMonth}` : fromDate && toDate ? ` từ ${fromDate} → ${toDate}` : ''}
+              </span>
               <span>Doanh thu: <strong>
                 {entityJobs.reduce((s, j) => s + (parseFloat(j.total_revenue) || 0), 0).toLocaleString('vi-VN')}đ
               </strong></span>
+              {entityJobs.some(j => (parseFloat(j.reimbursement_total) || 0) > 0) && (
+                <span style={{ color: '#F59E0B' }}>Chi hộ: <strong>
+                  {entityJobs.reduce((s, j) => s + (parseFloat(j.reimbursement_total) || 0), 0).toLocaleString('vi-VN')}đ
+                </strong></span>
+              )}
             </div>
             <div className="entity-panel-body">
               {entityJobs.length > 0 ? (
@@ -380,7 +449,7 @@ export default function SearchBox({ onJobSelect }) {
                       <th>Ngày</th>
                       <th>Trạng thái</th>
                       <th>Doanh thu</th>
-                      <th>Chi phí</th>
+                      <th>Chi hộ</th>
                       <th>Lợi nhuận</th>
                     </tr>
                   </thead>
@@ -389,8 +458,6 @@ export default function SearchBox({ onJobSelect }) {
                       <tr
                         key={job.job_id}
                         onClick={() => {
-                          // Open job detail but keep entity panel visible (acts as "back" destination)
-                          // User can close entity panel with X button when done
                           if (onJobSelect) {
                             onJobSelect(job);
                           }
@@ -408,7 +475,7 @@ export default function SearchBox({ onJobSelect }) {
                           </span>
                         </td>
                         <td className="number">{(parseFloat(job.total_revenue) || 0).toLocaleString('vi-VN')}</td>
-                        <td className="number">{(parseFloat(job.total_cost) || 0).toLocaleString('vi-VN')}</td>
+                        <td className="number reimb">{(parseFloat(job.reimbursement_total) || 0) > 0 ? (parseFloat(job.reimbursement_total) || 0).toLocaleString('vi-VN') : '-'}</td>
                         <td className="number profit">
                           {(parseFloat(job.profit) || 0).toLocaleString('vi-VN')}
                         </td>

@@ -966,6 +966,7 @@ async def get_recent_jobs(limit: int = 10, status: Optional[str] = None):
         # Fetch jobs with customer info (created_by join added when column exists)
         query = client.table('jobs').select(
             'job_id, job_no, status_code, etd, created_at, customer_id, created_by, updated_by, '
+            'total_revenue, total_cost, '
             'customers(customer_code, short_name)'
         )
         if status:
@@ -998,6 +999,8 @@ async def get_recent_jobs(limit: int = 10, status: Optional[str] = None):
                 'customer_id': row.get('customer_id'),
                 'customer_code': customer.get('customer_code'),
                 'customer_name': customer.get('short_name'),
+                'total_revenue': float(row.get('total_revenue') or 0),
+                'total_cost': float(row.get('total_cost') or 0),
                 'created_by': row.get('created_by'),
                 'creator_code': creator.get('user_code'),
                 'creator_name': creator.get('full_name'),
@@ -1006,7 +1009,7 @@ async def get_recent_jobs(limit: int = 10, status: Optional[str] = None):
                 'updater_name': updater.get('full_name'),
             })
 
-        # Get service types for each job
+        # Get service types and reimbursement totals for each job
         if jobs:
             job_ids = [j['job_id'] for j in jobs]
             svc_result = client.table('job_services').select(
@@ -1018,8 +1021,21 @@ async def get_recent_jobs(limit: int = 10, status: Optional[str] = None):
                 if svc['job_id'] not in svc_map:
                     svc_map[svc['job_id']] = svc['service_type_code']
 
+            # Get reimbursement totals from job_costs
+            reimb_map = {}
+            try:
+                costs_result = client.table('job_costs').select(
+                    'job_id, selling_amount, is_reimbursement'
+                ).in_('job_id', job_ids).eq('is_reimbursement', True).execute()
+                for c in costs_result.data:
+                    jid = c['job_id']
+                    reimb_map[jid] = reimb_map.get(jid, 0) + float(c.get('selling_amount') or 0)
+            except Exception:
+                pass
+
             for job in jobs:
                 job['service_type'] = svc_map.get(job['job_id'])
+                job['reimbursement_total'] = reimb_map.get(job['job_id'], 0)
 
         return {"jobs": jobs}
 

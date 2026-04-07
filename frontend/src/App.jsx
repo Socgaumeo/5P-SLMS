@@ -337,6 +337,7 @@ function QuotationSelector({ type, rates, standardRates = [], selectedRateId, se
 // ========================================
 function JobDetailModal({ job, onClose, onUpdate }) {
   const [services, setServices] = useState([])
+  const [jobCosts, setJobCosts] = useState([])
   const [loading, setLoading] = useState(true)
   const [editMode, setEditMode] = useState(false)
   const [vendors, setVendors] = useState([])
@@ -545,6 +546,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
           return svc
         })
         setServices(processedServices)
+        setJobCosts(data.costs || [])
       }
     } catch (error) {
       console.error('Failed to fetch job details:', error)
@@ -2487,6 +2489,76 @@ function JobDetailModal({ job, onClose, onUpdate }) {
           </div>
         </div>
 
+        {/* Chi hộ (Reimbursement) Section */}
+        {(() => {
+          const reimbursements = jobCosts.filter(c => c.is_reimbursement)
+          const serviceFees = jobCosts.filter(c => !c.is_reimbursement)
+          const totalService = serviceFees.reduce((sum, c) => sum + (parseFloat(c.selling_amount) || 0), 0)
+          const totalReimb = reimbursements.reduce((sum, c) => sum + (parseFloat(c.selling_amount) || 0), 0)
+          const totalVAT = serviceFees.reduce((sum, c) => sum + (parseFloat(c.selling_amount) || 0) * (parseFloat(c.vat_rate) || 0) / 100, 0)
+          const totalReimbVAT = reimbursements.reduce((sum, c) => sum + (parseFloat(c.selling_amount) || 0) * (parseFloat(c.vat_rate) || 0) / 100, 0)
+          if (jobCosts.length === 0) return null
+          return (
+            <div style={{ padding: '0 16px 12px' }}>
+              {/* Service Fees Summary */}
+              {serviceFees.length > 0 && (
+                <div style={{ marginBottom: '10px', padding: '10px 12px', background: 'rgba(16, 185, 129, 0.06)', borderRadius: '8px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
+                  <div style={{ fontWeight: '600', fontSize: '13px', marginBottom: '6px', color: '#10B981' }}>
+                    📤 Phí dịch vụ ({serviceFees.length} mục)
+                  </div>
+                  {serviceFees.map((c, i) => (
+                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', padding: '2px 0', color: 'var(--text-secondary)' }}>
+                      <span>{c.cost_name} {c.quantity > 1 ? `×${c.quantity}` : ''}</span>
+                      <span><b>{formatPrice(parseFloat(c.selling_amount) || 0)}</b>{c.vat_rate > 0 && <span style={{ color: '#9CA3AF' }}> +VAT {c.vat_rate}%</span>}</span>
+                    </div>
+                  ))}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: '600', marginTop: '4px', paddingTop: '4px', borderTop: '1px dashed rgba(0,0,0,0.1)', color: '#10B981' }}>
+                    <span>Tổng DV (trước VAT)</span>
+                    <span>{formatPrice(totalService)}</span>
+                  </div>
+                  {totalVAT > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#9CA3AF' }}>
+                      <span>VAT</span>
+                      <span>{formatPrice(totalVAT)}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+              {/* Reimbursement Section */}
+              {reimbursements.length > 0 && (
+                <div style={{ padding: '10px 12px', background: 'rgba(245, 158, 11, 0.06)', borderRadius: '8px', border: '1px solid rgba(245, 158, 11, 0.2)' }}>
+                  <div style={{ fontWeight: '600', fontSize: '13px', marginBottom: '6px', color: '#F59E0B' }}>
+                    🔄 Chi hộ ({reimbursements.length} mục)
+                  </div>
+                  {reimbursements.map((c, i) => (
+                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', padding: '2px 0', color: 'var(--text-secondary)' }}>
+                      <span>{c.cost_name} {c.quantity > 1 ? `×${c.quantity}` : ''}</span>
+                      <span><b>{formatPrice(parseFloat(c.selling_amount) || 0)}</b>{c.vat_rate > 0 && <span style={{ color: '#9CA3AF' }}> +VAT {c.vat_rate}%</span>}</span>
+                    </div>
+                  ))}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: '600', marginTop: '4px', paddingTop: '4px', borderTop: '1px dashed rgba(0,0,0,0.1)', color: '#F59E0B' }}>
+                    <span>Tổng chi hộ</span>
+                    <span>{formatPrice(totalReimb)}</span>
+                  </div>
+                  {totalReimbVAT > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#9CA3AF' }}>
+                      <span>VAT chi hộ</span>
+                      <span>{formatPrice(totalReimbVAT)}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+              {/* Grand Total */}
+              {serviceFees.length > 0 && reimbursements.length > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', fontWeight: '700', marginTop: '8px', padding: '8px 12px', background: 'var(--bg-secondary)', borderRadius: '6px' }}>
+                  <span>Tổng cộng (DV + Chi hộ)</span>
+                  <span>{formatPrice(totalService + totalVAT + totalReimb + totalReimbVAT)}</span>
+                </div>
+              )}
+            </div>
+          )
+        })()}
+
         <div className="modal-footer">
           <button className="btn-secondary" onClick={onClose}>Đóng</button>
           {editMode && <button className="btn-primary" disabled={saving} onClick={async () => { const ok = await handleSaveAllChanges(); if (ok !== false) { setEditMode(false); onUpdate && onUpdate(); } }}>{saving ? '⏳ Đang lưu...' : '✓ Lưu thay đổi'}</button>}
@@ -2881,6 +2953,10 @@ function App() {
 }
 
 function MainDashboard() {
+  const formatPrice = (price) => {
+    if (!price) return '0'
+    return new Intl.NumberFormat('vi-VN').format(price)
+  }
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [chatOpen, setChatOpen] = useState(false)
   const [activeNav, setActiveNav] = useState('dashboard')
@@ -3304,9 +3380,9 @@ function MainDashboard() {
                     <th>Customer</th>
                     <th>Service Type</th>
                     <th>Date</th>
-                    <th>Người tạo</th>
+                    <th>Doanh thu</th>
+                    <th>Chi hộ</th>
                     <th>Status</th>
-                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -3316,11 +3392,13 @@ function MainDashboard() {
                       <td>{job.customer_code || job.customer_name}</td>
                       <td>{getServiceIcon(job.service_type)} {job.service_type}</td>
                       <td>{job.etd || job.created_at?.split('T')[0]}</td>
-                      <td>{job.creator_name || '-'}</td>
-                      <td><StatusBadge status={job.status_code || 'PENDING'} /></td>
-                      <td>
-                        <button className="action-btn" onClick={(e) => { e.stopPropagation(); handleViewJob(job); }}>View</button>
+                      <td style={{ textAlign: 'right', color: '#10B981', fontWeight: job.total_revenue > 0 ? '600' : '400' }}>
+                        {job.total_revenue > 0 ? formatPrice(job.total_revenue) : '-'}
                       </td>
+                      <td style={{ textAlign: 'right', color: '#F59E0B', fontWeight: job.reimbursement_total > 0 ? '600' : '400' }}>
+                        {job.reimbursement_total > 0 ? formatPrice(job.reimbursement_total) : '-'}
+                      </td>
+                      <td><StatusBadge status={job.status_code || 'PENDING'} /></td>
                     </tr>
                   )) : (
                     <tr><td colSpan="7" className="no-data">No jobs found</td></tr>

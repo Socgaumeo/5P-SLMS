@@ -210,8 +210,8 @@ def search_jobs(
     db: DatabaseSession = Depends(get_db)
 ):
     """
-    Search jobs by job_no, customer_code, or customer_name.
-    Returns results for header search dropdown.
+    Search jobs by job_no, customer_code, customer_name,
+    or document numbers (cd_no, bl_awb_no, co_no, invoice_numbers, GNT in cost_name).
     """
     try:
         search_term = f"%{q}%"
@@ -219,22 +219,31 @@ def search_jobs(
         db.execute("""
             SELECT DISTINCT
                 j.job_id, j.job_no, j.status_code, j.etd,
-                j.created_at,
+                j.created_at, j.total_revenue,
                 c.customer_code,
                 COALESCE(c.short_name, c.company_name) as customer_name,
-                (SELECT js.service_type_code
-                 FROM job_services js
-                 WHERE js.job_id = j.job_id
-                 ORDER BY js.svc_id LIMIT 1) as service_type
+                (SELECT js2.service_type_code
+                 FROM job_services js2
+                 WHERE js2.job_id = j.job_id
+                 ORDER BY js2.svc_id LIMIT 1) as service_type,
+                -- Include matched document info for display
+                js.cd_no, js.bl_awb_no, js.co_no, js.invoice_numbers
             FROM jobs j
             LEFT JOIN customers c ON j.customer_id = c.customer_id
+            LEFT JOIN job_services js ON j.job_id = js.job_id
+            LEFT JOIN job_costs jc ON j.job_id = jc.job_id
             WHERE j.job_no ILIKE %s
                OR c.customer_code ILIKE %s
                OR c.short_name ILIKE %s
                OR c.company_name ILIKE %s
+               OR js.cd_no ILIKE %s
+               OR js.bl_awb_no ILIKE %s
+               OR js.co_no ILIKE %s
+               OR js.invoice_numbers ILIKE %s
+               OR jc.cost_name ILIKE %s
             ORDER BY j.created_at DESC
             LIMIT %s
-        """, (search_term, search_term, search_term, search_term, limit))
+        """, (search_term,) * 9 + (limit,))
 
         results = db.fetchall()
 
@@ -369,6 +378,22 @@ def search_jobs_by_entity(
         raw_results = db.fetchall()
         results = []
 
+        # Collect all job_ids for batch reimbursement query
+        all_job_ids = [dict(r)['job_id'] for r in raw_results]
+
+        # Batch fetch reimbursement totals
+        reimb_map = {}
+        if all_job_ids:
+            placeholders = ','.join(['%s'] * len(all_job_ids))
+            db.execute(f"""
+                SELECT job_id, SUM(selling_amount) as reimb_total
+                FROM job_costs
+                WHERE job_id IN ({placeholders}) AND is_reimbursement = true
+                GROUP BY job_id
+            """, tuple(all_job_ids))
+            for r in db.fetchall():
+                reimb_map[r['job_id']] = float(r['reimb_total'] or 0)
+
         # For each job, calculate totals from service_details if jobs table has 0
         for row in raw_results:
             job = dict(row)
@@ -397,6 +422,7 @@ def search_jobs_by_entity(
                 job['total_cost'] = calc_cost
                 job['profit'] = calc_revenue - calc_cost
 
+            job['reimbursement_total'] = reimb_map.get(job_id, 0)
             results.append(job)
 
         # Get entity info
