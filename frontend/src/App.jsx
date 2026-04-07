@@ -2585,8 +2585,9 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                     <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', padding: '2px 0', color: 'var(--text-secondary)', gap: '8px' }}>
                       <span style={{ flex: 1, minWidth: 0 }}>{c.cost_name}</span>
                       <span style={{ whiteSpace: 'nowrap' }}>
-                        {c.quantity > 1 && <span style={{ color: '#6B7280' }}>{c.quantity} × {formatPrice(parseFloat(c.selling_rate) || 0)} = </span>}
+                        {c.quantity > 1 && <span style={{ color: '#6B7280' }}>{c.quantity} {c.unit || ''} × {formatPrice(parseFloat(c.selling_rate) || 0)} = </span>}
                         <b>{formatPrice(parseFloat(c.selling_amount) || 0)}</b>
+                        {c.quantity <= 1 && c.unit && <span style={{ color: '#9CA3AF' }}> /{c.unit}</span>}
                         {c.vat_rate > 0 && <span style={{ color: '#9CA3AF' }}> +VAT {c.vat_rate}%</span>}
                       </span>
                     </div>
@@ -2613,8 +2614,9 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                     <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', padding: '2px 0', color: 'var(--text-secondary)', gap: '8px' }}>
                       <span style={{ flex: 1, minWidth: 0 }}>{c.cost_name}</span>
                       <span style={{ whiteSpace: 'nowrap' }}>
-                        {c.quantity > 1 && <span style={{ color: '#6B7280' }}>{c.quantity} × {formatPrice(parseFloat(c.selling_rate) || 0)} = </span>}
+                        {c.quantity > 1 && <span style={{ color: '#6B7280' }}>{c.quantity} {c.unit || ''} × {formatPrice(parseFloat(c.selling_rate) || 0)} = </span>}
                         <b>{formatPrice(parseFloat(c.selling_amount) || 0)}</b>
+                        {c.quantity <= 1 && c.unit && <span style={{ color: '#9CA3AF' }}> /{c.unit}</span>}
                         {c.vat_rate > 0 && <span style={{ color: '#9CA3AF' }}> +VAT {c.vat_rate}%</span>}
                       </span>
                     </div>
