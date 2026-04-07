@@ -1630,6 +1630,10 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                 })
                                 const result = await res.json()
                                 if (!result.success) { alert(result.message || 'Lỗi khi lưu'); return }
+                                // Show duplicate document warnings from backend
+                                if (result.warnings && result.warnings.length > 0) {
+                                  alert('⚠️ Cảnh báo chứng từ trùng:\n' + result.warnings.join('\n'))
+                                }
 
                                 // For SEA_DOM: also save specialized fields via sea-dom-details endpoint
                                 if (isSeaDom) {

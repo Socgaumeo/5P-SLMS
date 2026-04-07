@@ -365,7 +365,49 @@ async def create_job(request: JobCreateFromChatRequest, req: Request):
                             warnings.append(f"⚠️ Có thể trùng với {dup['job_no']} (cùng khách, cùng ngày, trùng thông tin hàng)")
             except Exception as e:
                 logger.warning(f"Duplicate check failed: {e}")
-        
+
+        # --- DOCUMENT NUMBER DUPLICATE CHECK ---
+        doc_fields = {
+            'cd_no': job_data.get('cd_no'),
+            'bl_awb_no': job_data.get('bl_awb_no'),
+            'co_no': job_data.get('co_no'),
+            'invoice_numbers': invoice_numbers,
+        }
+        doc_values = {k: v.strip() for k, v in doc_fields.items() if v and str(v).strip()}
+        if doc_values:
+            try:
+                from app.db.session import get_db_context
+                with get_db_context() as db:
+                    conditions = []
+                    params = []
+                    field_labels = {'cd_no': 'Tờ khai', 'bl_awb_no': 'BL/AWB', 'co_no': 'CO', 'invoice_numbers': 'Invoice'}
+                    for field, val in doc_values.items():
+                        if field == 'invoice_numbers':
+                            conditions.append(f"js.{field} ILIKE %s")
+                            params.append(f"%{val}%")
+                        else:
+                            conditions.append(f"js.{field} = %s")
+                            params.append(val)
+                    where = " OR ".join(conditions)
+                    db.execute(f"""
+                        SELECT j.job_no, js.cd_no, js.bl_awb_no, js.co_no, js.invoice_numbers
+                        FROM job_services js JOIN jobs j ON js.job_id = j.job_id
+                        WHERE ({where}) LIMIT 5
+                    """, params)
+                    for row in db.fetchall():
+                        matched = []
+                        for field, val in doc_values.items():
+                            db_val = str(row.get(field) or '').strip()
+                            if field == 'invoice_numbers':
+                                if val.lower() in db_val.lower():
+                                    matched.append(field_labels[field])
+                            elif db_val == val:
+                                matched.append(field_labels[field])
+                        if matched:
+                            warnings.append(f"⚠️ Chứng từ trùng: {', '.join(matched)} đã tồn tại trong {row['job_no']}")
+            except Exception as e:
+                logger.warning(f"Document duplicate check failed: {e}")
+
         # --- PRICE ANOMALY CHECK ---
         selling_price = job_data.get('selling_price')
         buying_price = job_data.get('buying_price')
@@ -2534,7 +2576,48 @@ async def update_service_details(svc_id: int, request: Request):
         update_data['updated_at'] = datetime.now().isoformat()
         client.table('job_services').update(update_data).eq('svc_id', svc_id).execute()
         logger.info(f"Updated details for service {svc_id}: {list(update_data.keys())}")
-        return {"success": True, "svc_id": svc_id}
+
+        # Check for duplicate documents after save
+        doc_warnings = []
+        doc_check = {k: update_data[k] for k in ('cd_no', 'bl_awb_no', 'co_no', 'invoice_numbers') if update_data.get(k)}
+        if doc_check:
+            try:
+                from app.db.session import get_db_context
+                with get_db_context() as db:
+                    conditions, params = [], []
+                    labels = {'cd_no': 'Tờ khai', 'bl_awb_no': 'BL/AWB', 'co_no': 'CO', 'invoice_numbers': 'Invoice'}
+                    for f, v in doc_check.items():
+                        val = str(v).strip()
+                        if not val:
+                            continue
+                        if f == 'invoice_numbers':
+                            conditions.append(f"js.{f} ILIKE %s")
+                            params.append(f"%{val}%")
+                        else:
+                            conditions.append(f"js.{f} = %s")
+                            params.append(val)
+                    if conditions:
+                        params.append(svc_id)
+                        db.execute(f"""
+                            SELECT j.job_no, js.cd_no, js.bl_awb_no, js.co_no, js.invoice_numbers
+                            FROM job_services js JOIN jobs j ON js.job_id = j.job_id
+                            WHERE ({" OR ".join(conditions)}) AND js.svc_id != %s LIMIT 5
+                        """, params)
+                        for row in db.fetchall():
+                            for f, v in doc_check.items():
+                                db_val = str(row.get(f) or '').strip()
+                                val = str(v).strip()
+                                if f == 'invoice_numbers' and val.lower() in db_val.lower():
+                                    doc_warnings.append(f"{labels[f]} '{val}' trùng với {row['job_no']}")
+                                elif db_val == val:
+                                    doc_warnings.append(f"{labels[f]} '{val}' trùng với {row['job_no']}")
+            except Exception as e:
+                logger.warning(f"Doc duplicate check on update failed: {e}")
+
+        result = {"success": True, "svc_id": svc_id}
+        if doc_warnings:
+            result["warnings"] = doc_warnings
+        return result
     except Exception as e:
         logger.error(f"Error updating service details: {e}")
         return {"success": False, "message": str(e)}
