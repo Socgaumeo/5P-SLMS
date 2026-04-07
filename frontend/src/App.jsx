@@ -2582,14 +2582,12 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                     📤 Phí dịch vụ ({serviceFees.length} mục)
                   </div>
                   {serviceFees.map((c, i) => (
-                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', padding: '2px 0', color: 'var(--text-secondary)', gap: '8px' }}>
-                      <span style={{ flex: 1, minWidth: 0 }}>{c.cost_name}</span>
-                      <span style={{ whiteSpace: 'nowrap' }}>
-                        {c.quantity > 1 && <span style={{ color: '#6B7280' }}>{c.quantity} {c.unit || ''} × {formatPrice(parseFloat(c.selling_rate) || 0)} = </span>}
-                        <b>{formatPrice(parseFloat(c.selling_amount) || 0)}</b>
-                        {c.quantity <= 1 && c.unit && <span style={{ color: '#9CA3AF' }}> /{c.unit}</span>}
-                        {c.vat_rate > 0 && <span style={{ color: '#9CA3AF' }}> +VAT {c.vat_rate}%</span>}
-                      </span>
+                    <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr auto auto auto auto', gap: '4px', alignItems: 'baseline', fontSize: '12px', padding: '2px 0', color: 'var(--text-secondary)' }}>
+                      <span style={{ minWidth: 0 }}>{c.cost_name}</span>
+                      <span style={{ textAlign: 'right', color: '#6B7280', whiteSpace: 'nowrap' }}>{parseFloat(c.quantity) || 1} {c.unit || ''}</span>
+                      <span style={{ color: '#9CA3AF' }}>×</span>
+                      <span style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{formatPrice(parseFloat(c.selling_rate) || 0)}</span>
+                      <span style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>= <b>{formatPrice(parseFloat(c.selling_amount) || 0)}</b>{c.vat_rate > 0 ? <span style={{ color: '#9CA3AF' }}> +{c.vat_rate}%</span> : ''}</span>
                     </div>
                   ))}
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: '600', marginTop: '4px', paddingTop: '4px', borderTop: '1px dashed rgba(0,0,0,0.1)', color: '#10B981' }}>
@@ -2611,14 +2609,12 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                     🔄 Chi hộ ({reimbursements.length} mục)
                   </div>
                   {reimbursements.map((c, i) => (
-                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', padding: '2px 0', color: 'var(--text-secondary)', gap: '8px' }}>
-                      <span style={{ flex: 1, minWidth: 0 }}>{c.cost_name}</span>
-                      <span style={{ whiteSpace: 'nowrap' }}>
-                        {c.quantity > 1 && <span style={{ color: '#6B7280' }}>{c.quantity} {c.unit || ''} × {formatPrice(parseFloat(c.selling_rate) || 0)} = </span>}
-                        <b>{formatPrice(parseFloat(c.selling_amount) || 0)}</b>
-                        {c.quantity <= 1 && c.unit && <span style={{ color: '#9CA3AF' }}> /{c.unit}</span>}
-                        {c.vat_rate > 0 && <span style={{ color: '#9CA3AF' }}> +VAT {c.vat_rate}%</span>}
-                      </span>
+                    <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr auto auto auto auto', gap: '4px', alignItems: 'baseline', fontSize: '12px', padding: '2px 0', color: 'var(--text-secondary)' }}>
+                      <span style={{ minWidth: 0 }}>{c.cost_name}</span>
+                      <span style={{ textAlign: 'right', color: '#6B7280', whiteSpace: 'nowrap' }}>{parseFloat(c.quantity) || 1} {c.unit || ''}</span>
+                      <span style={{ color: '#9CA3AF' }}>×</span>
+                      <span style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{formatPrice(parseFloat(c.selling_rate) || 0)}</span>
+                      <span style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>= <b>{formatPrice(parseFloat(c.selling_amount) || 0)}</b>{c.vat_rate > 0 ? <span style={{ color: '#9CA3AF' }}> +{c.vat_rate}%</span> : ''}</span>
                     </div>
                   ))}
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: '600', marginTop: '4px', paddingTop: '4px', borderTop: '1px dashed rgba(0,0,0,0.1)', color: '#F59E0B' }}>
