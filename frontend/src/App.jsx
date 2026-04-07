@@ -1603,6 +1603,10 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                       ) : (
                         /* Read-only service details */
                         <>
+                          {svc.cd_no && <div><strong>Tờ khai:</strong> {svc.cd_no}</div>}
+                          {svc.bl_awb_no && <div><strong>BL/AWB:</strong> {svc.bl_awb_no}</div>}
+                          {svc.co_no && <div><strong>CO:</strong> {svc.co_no}</div>}
+                          {svc.invoice_numbers && <div><strong>Invoice:</strong> {svc.invoice_numbers}</div>}
                           {svc.cargo_type && <div><strong>Hàng:</strong> {svc.cargo_type}</div>}
                           {svc.package_quantity && <div><strong>Số kiện:</strong> {svc.package_quantity} {svc.package_unit || 'pallet'}</div>}
                           {svc.origin_address && <div><strong>{(svc.service_type_code || '').startsWith('AIR_') ? 'AOL' : 'Điểm đi'}:</strong> {svc.origin_address}</div>}
@@ -3254,7 +3258,9 @@ function MainDashboard() {
                       </td>
                       <td>{svc.scheduled_date || svc.etd}</td>
                       <td className="service-details">
-                        {svc.cargo_type && <span>{svc.cargo_type}</span>}
+                        {svc.cd_no && <span>TK: {svc.cd_no}</span>}
+                        {svc.bl_awb_no && <span>{svc.cd_no ? ' • ' : ''}BL: {svc.bl_awb_no}</span>}
+                        {svc.cargo_type && <span>{(svc.cd_no || svc.bl_awb_no) ? ' • ' : ''}{svc.cargo_type}</span>}
                         {svc.weight_kg && <span> • {svc.weight_kg}kg</span>}
                         {svc.package_quantity && <span> • {svc.package_quantity} {svc.package_unit || 'pcs'}</span>}
                       </td>
