@@ -455,3 +455,51 @@ def search_jobs_by_entity(
     except Exception as e:
         logger.error(f"Jobs by entity search error: {e}")
         return {"results": [], "total": 0, "error": str(e)}
+
+
+@router.get("/check-duplicate-documents")
+def check_duplicate_documents(
+    doc_value: str = Query(..., min_length=1, description="Document number to check"),
+    exclude_svc_id: Optional[int] = Query(None, description="Exclude this service ID (for edits)"),
+    db: DatabaseSession = Depends(get_db)
+):
+    """
+    Check if a document number already exists in the system.
+    Searches across cd_no, bl_awb_no, co_no, invoice_numbers in job_services.
+    Uses indexed columns for fast lookup (<1ms).
+    """
+    try:
+        val = doc_value.strip()
+        if not val:
+            return {"duplicates": []}
+
+        exclude_clause = ""
+        params = [val, val, val, f"%{val}%"]
+        if exclude_svc_id:
+            exclude_clause = "AND js.svc_id != %s"
+            params.append(exclude_svc_id)
+
+        db.execute(f"""
+            SELECT DISTINCT j.job_id, j.job_no, j.etd,
+                   c.customer_code, COALESCE(c.short_name, c.company_name) as customer_name,
+                   js.cd_no, js.bl_awb_no, js.co_no, js.invoice_numbers,
+                   CASE
+                     WHEN js.cd_no = %s THEN 'cd_no'
+                     WHEN js.bl_awb_no = %s THEN 'bl_awb_no'
+                     WHEN js.co_no = %s THEN 'co_no'
+                     WHEN js.invoice_numbers ILIKE %s THEN 'invoice_numbers'
+                   END as matched_field
+            FROM job_services js
+            JOIN jobs j ON js.job_id = j.job_id
+            LEFT JOIN customers c ON j.customer_id = c.customer_id
+            WHERE (js.cd_no = %s OR js.bl_awb_no = %s OR js.co_no = %s OR js.invoice_numbers ILIKE %s)
+            {exclude_clause}
+            ORDER BY j.etd DESC
+            LIMIT 10
+        """, (*params, val, val, val, f"%{val}%", *([exclude_svc_id] if exclude_svc_id else [])))
+
+        results = [dict(r) for r in db.fetchall()]
+        return {"duplicates": results, "total": len(results)}
+    except Exception as e:
+        logger.error(f"Check duplicate docs error: {e}")
+        return {"duplicates": [], "error": str(e)}

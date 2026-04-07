@@ -373,6 +373,27 @@ function JobDetailModal({ job, onClose, onUpdate }) {
   const [quotations, setQuotations] = useState({}) // {svc_id: {buying: [], selling: []}}
   const [standardRates, setStandardRates] = useState([]) // Standard cost items from master_cost_items
   const [savedField, setSavedField] = useState(null) // Flash "Saved" indicator: 'vendor-{svc_id}', 'vehicle-{svc_id}'
+  const [duplicateWarnings, setDuplicateWarnings] = useState([]) // [{doc_value, matched_field, job_no, customer_name}]
+
+  // Check duplicate document number on blur
+  const checkDuplicateDoc = async (value, excludeSvcId) => {
+    const val = (value || '').trim()
+    if (!val || val.length < 3) return
+    try {
+      const params = new URLSearchParams({ doc_value: val })
+      if (excludeSvcId) params.append('exclude_svc_id', excludeSvcId)
+      const res = await authFetch(`${API_URL}/api/search/check-duplicate-documents?${params}`)
+      const data = await res.json()
+      if (data.duplicates && data.duplicates.length > 0) {
+        setDuplicateWarnings(prev => {
+          const filtered = prev.filter(w => w.doc_value !== val)
+          return [...filtered, ...data.duplicates.map(d => ({ ...d, doc_value: val }))]
+        })
+      } else {
+        setDuplicateWarnings(prev => prev.filter(w => w.doc_value !== val))
+      }
+    } catch (e) { /* silent */ }
+  }
 
   // Service type labels for display
   const SERVICE_TYPE_LABELS = {
@@ -1429,8 +1450,16 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                 <input type="text" value={svc.quotation_no || ''} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, quotation_no: e.target.value } : s))} placeholder="QT-2026-001" style={{ width: '100%', padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px' }} />
                               </div>
                               <div>
-                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>CD No.</label>
-                                <input type="text" value={svc.declaration_no || ''} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, declaration_no: e.target.value } : s))} placeholder="Custom Declaration No." style={{ width: '100%', padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px' }} />
+                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Tờ khai (CD No.)</label>
+                                <input type="text" value={svc.cd_no || svc.declaration_no || ''} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, cd_no: e.target.value } : s))} placeholder="Số tờ khai hải quan" style={{ width: '100%', padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px' }} onBlur={e => checkDuplicateDoc(e.target.value, svc.svc_id)} />
+                              </div>
+                              <div>
+                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>BL/AWB No.</label>
+                                <input type="text" value={svc.bl_awb_no || ''} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, bl_awb_no: e.target.value } : s))} placeholder="Bill of Lading / Airway Bill" style={{ width: '100%', padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px' }} onBlur={e => checkDuplicateDoc(e.target.value, svc.svc_id)} />
+                              </div>
+                              <div>
+                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>CO No.</label>
+                                <input type="text" value={svc.co_no || ''} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, co_no: e.target.value } : s))} placeholder="Certificate of Origin" style={{ width: '100%', padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px' }} onBlur={e => checkDuplicateDoc(e.target.value, svc.svc_id)} />
                               </div>
                               <div>
                                 <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>CW (kg)</label>
@@ -1499,6 +1528,23 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                               </div>
                             </>
                           )}
+                          {/* Document fields for non-AIR services (CUS, SEA, etc.) */}
+                          {!(svc.service_type_code || '').startsWith('AIR_') && (
+                            <>
+                              <div>
+                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Tờ khai (CD No.)</label>
+                                <input type="text" value={svc.cd_no || ''} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, cd_no: e.target.value } : s))} placeholder="Số tờ khai hải quan" style={{ width: '100%', padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px' }} onBlur={e => checkDuplicateDoc(e.target.value, svc.svc_id)} />
+                              </div>
+                              <div>
+                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>BL/AWB No.</label>
+                                <input type="text" value={svc.bl_awb_no || ''} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, bl_awb_no: e.target.value } : s))} placeholder="Bill of Lading / Airway Bill" style={{ width: '100%', padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px' }} onBlur={e => checkDuplicateDoc(e.target.value, svc.svc_id)} />
+                              </div>
+                              <div>
+                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>CO No.</label>
+                                <input type="text" value={svc.co_no || ''} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, co_no: e.target.value } : s))} placeholder="Certificate of Origin" style={{ width: '100%', padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px' }} onBlur={e => checkDuplicateDoc(e.target.value, svc.svc_id)} />
+                              </div>
+                            </>
+                          )}
                           <div>
                             <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Ngày</label>
                             <input type="date" value={svc.scheduled_date || ''} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, scheduled_date: e.target.value } : s))} style={{ width: '100%', padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px' }} />
@@ -1509,8 +1555,24 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                           </div>
                           <div style={{ gridColumn: '1 / -1' }}>
                             <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{(svc.service_type_code || '').startsWith('AIR_') ? "Customer's Invoice" : 'Invoice'}</label>
-                            <input type="text" value={svc.invoice_numbers || ''} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, invoice_numbers: e.target.value } : s))} placeholder="VD: INV-001, INV-002" style={{ width: '100%', padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px' }} />
+                            <input type="text" value={svc.invoice_numbers || ''} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, invoice_numbers: e.target.value } : s))} placeholder="VD: INV-001, INV-002" style={{ width: '100%', padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px' }} onBlur={e => checkDuplicateDoc(e.target.value, svc.svc_id)} />
                           </div>
+                          {/* Duplicate document warnings */}
+                          {duplicateWarnings.length > 0 && (() => {
+                            const svcDocs = [svc.cd_no, svc.declaration_no, svc.bl_awb_no, svc.co_no, svc.invoice_numbers].filter(Boolean).map(v => v.trim())
+                            const relevant = duplicateWarnings.filter(w => svcDocs.includes(w.doc_value))
+                            if (!relevant.length) return null
+                            return (
+                              <div style={{ gridColumn: '1 / -1', background: '#FEF3C7', border: '1px solid #F59E0B', borderRadius: '6px', padding: '8px 12px' }}>
+                                <div style={{ fontSize: '12px', fontWeight: 600, color: '#92400E', marginBottom: '4px' }}>⚠️ Chứng từ trùng:</div>
+                                {relevant.map((w, i) => (
+                                  <div key={i} style={{ fontSize: '11px', color: '#78350F' }}>
+                                    <strong>{w.doc_value}</strong> đã tồn tại trong <strong>{w.job_no}</strong> ({w.customer_name || w.customer_code}) — {w.matched_field === 'cd_no' ? 'Tờ khai' : w.matched_field === 'bl_awb_no' ? 'BL/AWB' : w.matched_field === 'co_no' ? 'CO' : 'Invoice'}
+                                  </div>
+                                ))}
+                              </div>
+                            )
+                          })()}
                           {/* Dynamic extra info fields */}
                           {(svc.extra_info || []).map((info, idx) => (
                             <div key={`info-${idx}`} style={{ gridColumn: '1 / -1', display: 'flex', gap: '4px', alignItems: 'center' }}>
@@ -1556,7 +1618,9 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                   quotation_no: svc.quotation_no || null,
                                   seller_name: svc.seller_name || null,
                                   buyer_name: svc.buyer_name || null,
-                                  declaration_no: svc.declaration_no || null,
+                                  cd_no: svc.cd_no || svc.declaration_no || null,
+                                  bl_awb_no: svc.bl_awb_no || null,
+                                  co_no: svc.co_no || null,
                                   customs_status: svc.customs_status || null,
                                 }
                                 const res = await authFetch(`${API_URL}/api/jobs/services/${svc.svc_id}/details`, {
