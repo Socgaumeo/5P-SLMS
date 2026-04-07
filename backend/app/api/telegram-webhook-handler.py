@@ -78,6 +78,82 @@ def _get_sender_info(message: dict) -> str:
     return f"{first} {last}".strip() or 'unknown'
 
 
+async def _handle_text_command(text: str, message: dict, chat_id: str, message_id: int):
+    """Handle text-only commands: /xoa, /job, /clearjob, /help"""
+    text_lower = text.lower()
+
+    # /xoa or /delete — delete document (must reply to original file message)
+    if text_lower in ('/xoa', '/delete'):
+        reply = message.get('reply_to_message')
+        if not reply:
+            await bot_svc.send_telegram_message(
+                chat_id, "⚠️ Reply vào tin nhắn chứa file cần xoá rồi gõ /xoa", message_id
+            )
+            return {"ok": True}
+
+        # Try to delete by the replied-to message's ID
+        replied_msg_id = reply.get('message_id')
+        deleted = bot_svc.delete_document_by_message(chat_id, replied_msg_id)
+        if deleted:
+            await bot_svc.send_telegram_message(
+                chat_id, f"🗑️ Đã xoá chứng từ: <b>{deleted['file_name']}</b>", message_id
+            )
+        else:
+            await bot_svc.send_telegram_message(
+                chat_id, "❌ Không tìm thấy chứng từ để xoá.", message_id
+            )
+        return {"ok": True, "action": "delete"}
+
+    # /job SEA-46-2503-001 — set active job for batch uploads
+    if text_lower.startswith('/job'):
+        job_no = bot_svc.extract_job_no(text)
+        if not job_no:
+            await bot_svc.send_telegram_message(
+                chat_id, "⚠️ Cú pháp: <code>/job SEA-46-2503-001</code>", message_id
+            )
+            return {"ok": True}
+
+        job = bot_svc.validate_job(job_no)
+        if not job:
+            await bot_svc.send_telegram_message(
+                chat_id, f"❌ Không tìm thấy job <code>{job_no}</code>", message_id
+            )
+            return {"ok": True}
+
+        sender = _get_sender_info(message)
+        bot_svc.set_chat_job(chat_id, job_no, job, sender)
+        await bot_svc.send_telegram_message(
+            chat_id,
+            f"📌 <b>Đã set job: {job_no}</b> ({job.get('customer_name', '')})\n"
+            f"Bây giờ gửi file không cần caption, tự động gán vào job này.\n"
+            f"Gõ /clearjob khi xong.",
+            message_id,
+        )
+        return {"ok": True, "action": "set_job"}
+
+    # /clearjob — clear active job
+    if text_lower.startswith('/clearjob'):
+        bot_svc.clear_chat_job(chat_id)
+        await bot_svc.send_telegram_message(
+            chat_id, "✅ Đã xoá job đang active. Gửi file cần kèm caption.", message_id
+        )
+        return {"ok": True, "action": "clear_job"}
+
+    # /help
+    if text_lower.startswith('/help'):
+        help_msg = (
+            bot_svc.format_missing_info_message() +
+            "\n\n<b>Lệnh khác:</b>\n"
+            "• <code>/job SEA-46-2503-001</code> — Set job, gửi nhiều file không cần caption\n"
+            "• <code>/clearjob</code> — Xoá job đang active\n"
+            "• <code>/xoa</code> — Reply vào file cần xoá"
+        )
+        await bot_svc.send_telegram_message(chat_id, help_msg, message_id)
+        return {"ok": True}
+
+    return {"ok": True}
+
+
 @router.post("/webhook")
 async def telegram_webhook(
     request: Request,
@@ -109,23 +185,28 @@ async def telegram_webhook(
         logger.debug(f"Ignoring message from non-whitelisted chat: {chat_id}")
         return {"ok": True}
 
+    # Handle text commands (not file messages)
+    text = message.get('text', '').strip()
+    if text and not _extract_file_info(message):
+        return await _handle_text_command(text, message, chat_id, message_id)
+
     # Extract file info
     file_info = _extract_file_info(message)
     if not file_info:
-        # Not a file message — check if it's a bot command
-        text = message.get('text', '')
-        if text.startswith('/help'):
-            await bot_svc.send_telegram_message(
-                chat_id, bot_svc.format_missing_info_message(), message_id
-            )
         return {"ok": True}
 
     # Get caption and sender
     caption = message.get('caption', '') or ''
     sender = _get_sender_info(message)
 
-    # Extract job_no from caption
+    # Extract job_no from caption, fallback to chat session job
     job_no = bot_svc.extract_job_no(caption)
+    session_job = bot_svc.get_chat_job(chat_id)
+
+    if not job_no and session_job:
+        # Use active session job (batch mode)
+        job_no = session_job['job_no']
+
     if not job_no:
         # No job_no found — ask user
         await bot_svc.send_telegram_message(
@@ -133,8 +214,11 @@ async def telegram_webhook(
         )
         return {"ok": True, "action": "asked_for_info"}
 
-    # Validate job exists
-    job = bot_svc.validate_job(job_no)
+    # Validate job exists (use cached session job if same job_no)
+    if session_job and session_job['job_no'] == job_no:
+        job = {'job_id': session_job['job_id'], 'customer_name': session_job['customer_name'], 'job_no': job_no}
+    else:
+        job = bot_svc.validate_job(job_no)
     if not job:
         await bot_svc.send_telegram_message(
             chat_id,

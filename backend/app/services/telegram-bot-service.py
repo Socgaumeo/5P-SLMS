@@ -169,6 +169,49 @@ def is_allowed_chat(chat_id: str) -> bool:
     return str(chat_id) in allowed_ids
 
 
+# --- In-memory session job_no per chat (for batch uploads) ---
+_chat_active_jobs: dict = {}  # chat_id → {job_no, job_id, customer_name, set_by}
+
+
+def set_chat_job(chat_id: str, job_no: str, job: dict, set_by: str):
+    """Set active job for a chat (batch upload mode)."""
+    _chat_active_jobs[chat_id] = {
+        'job_no': job_no, 'job_id': job['job_id'],
+        'customer_name': job.get('customer_name', ''), 'set_by': set_by,
+    }
+
+
+def get_chat_job(chat_id: str) -> Optional[dict]:
+    """Get active job for a chat, or None."""
+    return _chat_active_jobs.get(chat_id)
+
+
+def clear_chat_job(chat_id: str):
+    """Clear active job for a chat."""
+    _chat_active_jobs.pop(chat_id, None)
+
+
+def delete_document_by_message(chat_id: str, message_id: int) -> Optional[dict]:
+    """Delete document by original telegram message_id. Returns deleted doc or None."""
+    try:
+        client = get_supabase()
+        # Find document by the original file's message_id
+        result = client.table('documents').select('id, file_name, job_id').eq(
+            'telegram_chat_id', str(chat_id)
+        ).eq('telegram_message_id', message_id).limit(1).execute()
+
+        if not result.data:
+            return None
+
+        doc = result.data[0]
+        client.table('documents').delete().eq('id', doc['id']).execute()
+        logger.info(f"Deleted document {doc['id']}: {doc['file_name']}")
+        return doc
+    except Exception as e:
+        logger.error(f"Error deleting document: {e}")
+        return None
+
+
 def update_document_gdrive_url(doc_id: int, gdrive_url: str):
     """Update document record with Google Drive link."""
     try:
@@ -208,8 +251,9 @@ def format_missing_info_message() -> str:
         "Vui lòng gửi lại file kèm caption:\n"
         "<code>[Số Job] [Loại chứng từ]</code>\n\n"
         "Ví dụ:\n"
-        "• <code>LG2604/001 AN</code>\n"
-        "• <code>TRK-1903-0004 debit</code>\n"
-        "• <code>LG2604/001 DO</code>\n\n"
-        "Loại chứng từ: AN, DEBIT, DO, CD, CO, INVOICE, AWB, BL, PACKING_LIST"
+        "• <code>SEA-46-2503-001 BL</code>\n"
+        "• <code>AIR-20-2503-015 AWB</code>\n"
+        "• <code>CUS-6-2503-001 CD</code>\n\n"
+        "Loại: AN, DEBIT, DO, CD, CO, INVOICE, AWB, BL, PACKING_LIST\n\n"
+        "<b>Gửi nhiều file:</b> <code>/job SEA-46-2503-001</code> rồi gửi file không cần caption"
     )
