@@ -1896,7 +1896,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                         </div>
                       )}
 
-                      {/* Cost/Revenue Summary - Always visible when data exists */}
+                      {/* Cost/Revenue Summary - Only show when job_costs table has no selling data (avoid duplication) */}
                       {!editMode && (() => {
                         const totalCost = (svc.buying_price || 0) + (svc.extra_costs || []).reduce((sum, c) => sum + (c.amount || 0), 0)
                         const totalRevenue = (svc.selling_price || 0) + (svc.extra_revenues || []).reduce((sum, r) => sum + (r.amount || 0), 0)
@@ -1904,6 +1904,10 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                         // Detect currency from extra_costs/revenues (default VND)
                         const detectedCurrency = [...(svc.extra_costs || []), ...(svc.extra_revenues || [])].find(x => x.currency)?.currency || 'VND'
                         if (totalCost === 0 && totalRevenue === 0) return null
+                        // Skip JSONB summary if job_costs table already has selling data for this service
+                        const svcCosts = jobCosts.filter(c => c.svc_id === svc.svc_id)
+                        const svcCostsSelling = svcCosts.reduce((sum, c) => sum + (parseFloat(c.selling_amount) || 0), 0)
+                        if (svcCostsSelling > 0) return null
                         return (
                           <div style={{
                             marginTop: '12px',
