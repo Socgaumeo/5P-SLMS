@@ -636,9 +636,9 @@ function JobDetailModal({ job, onClose, onUpdate }) {
   }
 
   // Format price for display
-  const formatPrice = (price) => {
-    if (!price) return '0 VND'
-    return new Intl.NumberFormat('vi-VN').format(price) + ' VND'
+  const formatPrice = (price, currency = 'VND') => {
+    if (!price) return `0 ${currency}`
+    return new Intl.NumberFormat('vi-VN').format(price) + ` ${currency}`
   }
 
   // Save quotations for a service (including extra costs/revenues)
@@ -1901,6 +1901,8 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                         const totalCost = (svc.buying_price || 0) + (svc.extra_costs || []).reduce((sum, c) => sum + (c.amount || 0), 0)
                         const totalRevenue = (svc.selling_price || 0) + (svc.extra_revenues || []).reduce((sum, r) => sum + (r.amount || 0), 0)
                         const profit = totalRevenue - totalCost
+                        // Detect currency from extra_costs/revenues (default VND)
+                        const detectedCurrency = [...(svc.extra_costs || []), ...(svc.extra_revenues || [])].find(x => x.currency)?.currency || 'VND'
                         if (totalCost === 0 && totalRevenue === 0) return null
                         return (
                           <div style={{
@@ -1919,10 +1921,10 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                               fontSize: '13px'
                             }}>
                               <span style={{ color: '#10B981' }}>
-                                📤 Doanh thu: <b>{formatPrice(totalRevenue)}</b>
+                                📤 Doanh thu: <b>{formatPrice(totalRevenue, detectedCurrency)}</b>
                               </span>
                               <span style={{ color: '#EF4444' }}>
-                                📥 Chi phí: <b>{formatPrice(totalCost)}</b>
+                                📥 Chi phí: <b>{formatPrice(totalCost, detectedCurrency)}</b>
                               </span>
                               <span style={{
                                 fontWeight: 'bold',
@@ -1931,7 +1933,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                 background: profit >= 0 ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
                                 borderRadius: '4px'
                               }}>
-                                💵 Lợi nhuận: {formatPrice(profit)}
+                                💵 Lợi nhuận: {formatPrice(profit, detectedCurrency)}
                                 {totalCost > 0 && ` (${(profit / totalCost * 100).toFixed(1)}%)`}
                               </span>
                             </div>
@@ -1954,8 +1956,8 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                 <div key={`vc-${idx}`} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
                                   <span>📥 {cost.name || cost.description || 'Phụ phí'}{cost.vendor && <span style={{ color: '#6B7280' }}> ({cost.vendor})</span>}</span>
                                   <span style={{ color: '#EF4444' }}>
-                                    {cost.unit_price ? `${cost.qty || 1} ${cost.unit || 'ca'} × ${formatPrice(cost.unit_price)} = ` : ''}
-                                    <b>{formatPrice(cost.amount || ((cost.qty || 1) * (cost.unit_price || 0)))}</b>
+                                    {cost.unit_price ? `${cost.qty || 1} ${cost.unit || 'Lô'} × ${formatPrice(cost.unit_price, cost.currency)} = ` : ''}
+                                    <b>{formatPrice(cost.amount || ((cost.qty || 1) * (cost.unit_price || 0)), cost.currency)}</b>
                                   </span>
                                 </div>
                               ))}
@@ -1970,8 +1972,8 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                 <div key={`vr-${idx}`} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
                                   <span>📤 {rev.name || rev.description || 'Phụ thu'}</span>
                                   <span style={{ color: '#10B981' }}>
-                                    {rev.unit_price ? `${rev.qty || 1} ${rev.unit || 'chuyến'} × ${formatPrice(rev.unit_price)} = ` : ''}
-                                    <b>{formatPrice(rev.amount || ((rev.qty || 1) * (rev.unit_price || 0)))}</b>
+                                    {rev.unit_price ? `${rev.qty || 1} ${rev.unit || 'Lô'} × ${formatPrice(rev.unit_price, rev.currency)} = ` : ''}
+                                    <b>{formatPrice(rev.amount || ((rev.qty || 1) * (rev.unit_price || 0)), rev.currency)}</b>
                                   </span>
                                 </div>
                               ))}
@@ -2241,6 +2243,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                             const totalCost = (svc.buying_price || 0) + (svc.extra_costs || []).reduce((sum, c) => sum + (c.amount || 0), 0)
                             const totalRevenue = (svc.selling_price || 0) + (svc.extra_revenues || []).reduce((sum, r) => sum + (r.amount || 0), 0)
                             const profit = totalRevenue - totalCost
+                            const cur = [...(svc.extra_costs || []), ...(svc.extra_revenues || [])].find(x => x.currency)?.currency || 'VND'
                             if (totalCost === 0 && totalRevenue === 0) return null
                             return (
                               <div style={{
@@ -2254,13 +2257,13 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                 flexWrap: 'wrap',
                                 gap: '8px'
                               }}>
-                                <span>📤 Doanh thu: <b>{formatPrice(totalRevenue)}</b></span>
-                                <span>📥 Chi phí: <b>{formatPrice(totalCost)}</b></span>
+                                <span>📤 Doanh thu: <b>{formatPrice(totalRevenue, cur)}</b></span>
+                                <span>📥 Chi phí: <b>{formatPrice(totalCost, cur)}</b></span>
                                 <span style={{
                                   fontWeight: 'bold',
                                   color: profit >= 0 ? '#10B981' : '#EF4444'
                                 }}>
-                                  💵 Lợi nhuận: {formatPrice(profit)}
+                                  💵 Lợi nhuận: {formatPrice(profit, cur)}
                                   {totalCost > 0 && ` (${(profit / totalCost * 100).toFixed(1)}%)`}
                                 </span>
                               </div>
