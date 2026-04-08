@@ -2575,7 +2575,8 @@ function JobDetailModal({ job, onClose, onUpdate }) {
           const totalReimb = reimbursements.reduce((sum, c) => sum + (parseFloat(c.selling_amount) || 0), 0)
           const totalVAT = serviceFees.reduce((sum, c) => sum + (parseFloat(c.selling_amount) || 0) * (parseFloat(c.vat_rate) || 0) / 100, 0)
           const totalReimbVAT = reimbursements.reduce((sum, c) => sum + (parseFloat(c.selling_amount) || 0) * (parseFloat(c.vat_rate) || 0) / 100, 0)
-          if (jobCosts.length === 0) return null
+          // Skip when all selling_amounts are 0 (data already shown in JSONB section above)
+          if (jobCosts.length === 0 || (totalService === 0 && totalReimb === 0)) return null
           return (
             <div style={{ padding: '0 16px 12px' }}>
               {/* Service Fees Summary */}
