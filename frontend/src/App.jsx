@@ -2589,7 +2589,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                   <div style={{ fontWeight: '600', fontSize: '13px', marginBottom: '6px', color: '#10B981' }}>
                     📤 Phí dịch vụ ({serviceFees.length} mục)
                   </div>
-                  <div style={{ maxHeight: serviceFees.length > 5 ? '180px' : 'none', overflowY: serviceFees.length > 5 ? 'auto' : 'visible' }}>
+                  <div>
                   {serviceFees.map((c, i) => (
                     <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr auto auto auto auto', gap: '4px', alignItems: 'baseline', fontSize: '12px', padding: '2px 0', color: 'var(--text-secondary)' }}>
                       <span style={{ minWidth: 0 }}>{c.cost_name}</span>
@@ -2618,7 +2618,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                   <div style={{ fontWeight: '600', fontSize: '13px', marginBottom: '6px', color: '#F59E0B' }}>
                     🔄 Chi hộ ({reimbursements.length} mục)
                   </div>
-                  <div style={{ maxHeight: reimbursements.length > 5 ? '180px' : 'none', overflowY: reimbursements.length > 5 ? 'auto' : 'visible' }}>
+                  <div>
                   {reimbursements.map((c, i) => (
                     <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr auto auto auto auto', gap: '4px', alignItems: 'baseline', fontSize: '12px', padding: '2px 0', color: 'var(--text-secondary)' }}>
                       <span style={{ minWidth: 0 }}>{c.cost_name}</span>
