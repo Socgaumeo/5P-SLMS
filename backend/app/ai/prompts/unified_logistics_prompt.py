@@ -50,6 +50,38 @@ UNIFIED_SYSTEM_PROMPT = """Bạn là AI assistant của công ty logistics 5P Vi
 - Khi user gửi NHIỀU XE → trích xuất vào mảng "vehicles"
 - Khi có NHIỀU BOOKING (2+ chuyến) → trích xuất vào mảng "bookings", mỗi booking là 1 object chứa đầy đủ thông tin riêng
 
+## QUY TẮC ĐƠN VỊ TÍNH (unit) - QUAN TRỌNG!
+Đơn vị tính phụ thuộc vào LOẠI PHÍ, không chỉ loại dịch vụ:
+
+**Vận chuyển nội địa (TRUCKING_DOM):**
+- Phí vận chuyển: Chuyến, CBM (khối), KG
+- Phí chờ giờ: Ca, Giờ, Chuyến
+- Phí bốc xếp: Chuyến, KG, CBM, Kiện, Thùng
+- Phụ phí (xăng dầu, cầu đường...): Chuyến
+
+**Hải quan (CUS_IMPORT, CUS_EXPORT):**
+- Phí dịch vụ: Tờ khai, Lô
+
+**Hàng không (AIR_IMP, AIR_EXP):**
+- Phí dịch vụ: Lô, KG
+
+**Đường biển (SEA_IMP, SEA_EXP):**
+- Phí dịch vụ: Lô, Container, CBM
+
+**Kho bãi (WHS_STORAGE, WHS_HANDLE):**
+- Lưu kho: m2/ngày, KG/ngày, CBM/ngày, m2/tháng, Pallet/ngày
+- Bốc xếp: Lần, Pallet, KG, CBM, Kiện
+
+## QUY TẮC NHÀ CUNG CẤP (VENDOR)
+- Khi có biển số xe → hệ thống sẽ tự tra cứu vendor từ DB
+- BẮT BUỘC xác định vendor_code hoặc vendor_name cho mỗi dịch vụ nếu biết
+- Nếu không biết vendor → để trống, KHÔNG bịa
+
+## QUY TẮC ĐỊA CHỈ & TUYẾN ĐƯỜNG
+- BẮT BUỘC trích xuất: pickup_address (điểm lấy) + delivery_address (điểm giao) nếu có
+- Nếu có tên nhà máy/sub-customer → ghi vào delivery_address (VD: "HOSIDEN - KCN Quang Chau, Bac Ninh")
+- Nếu thiếu địa chỉ → liệt kê vào missing_fields và hỏi lại
+
 ## MATCHING KHÁCH HÀNG (QUAN TRỌNG!)
 - Khi user nhắc đến tên khách hàng, tìm trong danh sách DỮ LIỆU HỆ THỐNG
 - Match theo TÊN ĐẦY ĐỦ (company_name), không chỉ short_name
@@ -273,7 +305,7 @@ STATUS_MAPPINGS = {
 
 # Required fields for each intent
 REQUIRED_FIELDS = {
-    "create_booking": ["customer_code", "booking_date"],
+    "create_booking": ["customer_code", "booking_date", "pickup_address", "delivery_address"],
     "assign_vehicle": ["job_number", "license_plate"],
     "update_status": ["job_number", "new_status"],
     "add_cost": ["job_number", "cost_unit_price"],
@@ -282,4 +314,12 @@ REQUIRED_FIELDS = {
     "create_customer": ["customer_code", "company_name"],
     "create_vendor": ["vendor_code", "vendor_name"],
     "create_quotation": ["quote_type", "price"],
+}
+
+# Recommended fields (will generate warnings if missing)
+RECOMMENDED_FIELDS = {
+    "create_booking": ["vehicle_type", "pickup_time", "invoice_numbers", "bl_awb_no"],
+    "assign_vehicle": ["driver_name", "driver_phone", "vendor_code"],
+    "add_cost": ["cost_unit", "cost_name"],
+    "add_revenue": ["revenue_unit", "revenue_name"],
 }

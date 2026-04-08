@@ -33,17 +33,17 @@ class Validator:
     
     # Required fields per intent
     REQUIRED_FIELDS = {
-        "create_booking": ["customer_code", "booking_date"],
+        "create_booking": ["customer_code", "booking_date", "pickup_address", "delivery_address"],
         "assign_vehicle": ["license_plate", "driver_phone"],
         "update_status": ["job_number", "new_status"],
         "query_info": [],
         "general_chat": [],
     }
-    
-    # Optional but recommended fields
+
+    # Optional but recommended fields (warnings if missing)
     RECOMMENDED_FIELDS = {
-        "create_booking": ["pickup_time", "vehicle_type"],
-        "assign_vehicle": ["driver_name"],
+        "create_booking": ["pickup_time", "vehicle_type", "invoice_numbers", "bl_awb_no"],
+        "assign_vehicle": ["driver_name", "vendor_code"],
         "update_status": [],
     }
     

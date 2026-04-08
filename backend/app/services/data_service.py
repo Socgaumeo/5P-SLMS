@@ -367,6 +367,31 @@ class DataService:
 
             description = f"{job_data.get('cargo_type', '')} - {pkg_info} {dims} - Invoice: {job_data.get('invoice_numbers', '')}"
 
+            # --- AUTO-ENRICH: vendor from license plate ---
+            if not job_data.get("vendor_id") and job_data.get("bl_awb_no"):
+                try:
+                    plate = str(job_data["bl_awb_no"]).strip()
+                    # Normalize plate: remove dashes/dots for matching
+                    plate_normalized = plate.replace("-", "").replace(".", "").replace(" ", "")
+                    vehicle_result = self.client.table('drivers').select(
+                        'vendor_id'
+                    ).or_(
+                        f"license_plate.eq.{plate},"
+                        f"license_plate.eq.{plate_normalized}"
+                    ).not_.is_('vendor_id', 'null').limit(1).execute()
+                    if vehicle_result.data:
+                        job_data["vendor_id"] = vehicle_result.data[0]["vendor_id"]
+                        logger.info(f"Auto-resolved vendor_id={job_data['vendor_id']} from plate '{plate}'")
+                except Exception as e:
+                    logger.warning(f"Failed to auto-resolve vendor from plate: {e}")
+
+            # --- AUTO-ENRICH: build route from origin + dest ---
+            if not job_data.get("route"):
+                origin = job_data.get("pickup_address") or ""
+                dest = job_data.get("delivery_address") or ""
+                if origin and dest:
+                    job_data["route"] = f"{origin}- {dest}"
+
             # Parse booking date using smart parser (handles multiple formats)
             booking_date_raw = job_data.get("booking_date") or job_data.get("storage_start_date")
             etd_date = format_date_iso(booking_date_raw) if booking_date_raw else today.isoformat()
@@ -418,6 +443,7 @@ class DataService:
                         'scheduled_time': scheduled_time_str,
                         'origin_address': job_data.get("pickup_address"),
                         'dest_address': job_data.get("delivery_address"),
+                        'route': job_data.get("route"),
                         'vendor_id': job_data.get("vendor_id"),
                         'status_code': 'PENDING',
                         'cargo_type': item.get("description") or job_data.get("cargo_type"),
@@ -460,6 +486,7 @@ class DataService:
                     'scheduled_time': scheduled_time_str,
                     'origin_address': job_data.get("pickup_address"),
                     'dest_address': job_data.get("delivery_address"),
+                    'route': job_data.get("route"),
                     'vendor_id': job_data.get("vendor_id"),
                     'status_code': 'PENDING',
                     'cargo_type': job_data.get("cargo_type"),
