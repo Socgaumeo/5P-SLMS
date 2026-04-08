@@ -166,12 +166,24 @@ Trả về JSON với cấu trúc:
 - driver_cccd: CCCD tài xế
 - vendor_code: Mã vendor
 
-**Cost/Revenue:**
-- cost_name, revenue_name: Tên chi phí/doanh thu
-- cost_qty, revenue_qty: Số lượng
-- cost_unit_price, revenue_unit_price: Đơn giá
-- cost_unit, revenue_unit: Đơn vị (ca, chuyến, cbm...)
-- vendor_name: Tên NCC
+**Cost/Revenue (BẮT BUỘC đầy đủ các trường):**
+- cost_name, revenue_name: Tên chi phí/doanh thu (VD: "D/O fee", "THC", "CFS charges", "Phí vận chuyển")
+- cost_qty, revenue_qty: Số lượng (mặc định = 1)
+- cost_unit_price, revenue_unit_price: Đơn giá (VND)
+- cost_unit, revenue_unit: Đơn vị - BẮT BUỘC, KHÔNG được bỏ trống! Chọn theo loại phí:
+  * Phí vận chuyển nội địa: "Chuyến", "CBM", "KG"
+  * Phí chờ giờ: "Ca", "Giờ", "Chuyến"
+  * Phí bốc xếp: "Chuyến", "KG", "CBM", "Kiện", "Thùng"
+  * Phụ phí: "Chuyến"
+  * Hải quan: "Tờ khai", "Lô"
+  * Hàng không: "Lô", "KG"
+  * Đường biển: "Lô", "Container", "CBM"
+  * Kho bãi lưu kho: "m2/ngày", "KG/ngày", "CBM/ngày", "m2/tháng", "Pallet/ngày"
+  * Kho bãi bốc xếp: "Lần", "Pallet", "KG", "CBM", "Kiện"
+  * Nếu không rõ loại phí → mặc định: "Lô"
+- vendor_name: Tên NCC thực hiện
+- currency: Loại tiền (VND, USD) - mặc định VND
+- Khi có NHIỀU chi phí → trích xuất vào mảng "costs": [{"cost_name": "...", "cost_qty": 1, "cost_unit_price": 500000, "cost_unit": "Lô"}]
 
 **Quotation (Báo giá):**
 - quote_type: "buying" (mua vào/chi phí) hoặc "selling" (bán ra/doanh thu)

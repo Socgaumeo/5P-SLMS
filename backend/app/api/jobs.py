@@ -2402,11 +2402,20 @@ async def update_service_quotations(svc_id: int, request: ServiceQuotationReques
         current_details['buying_price'] = request.buying_price
         current_details['selling_rate_id'] = request.selling_rate_id
         current_details['selling_price'] = request.selling_price
-        # Normalize field names: description → name (frontend expects 'name')
+        # Normalize field names and ensure required fields
         def normalize_extras(items):
             for item in (items or []):
                 if 'description' in item and 'name' not in item:
                     item['name'] = item.pop('description')
+                # Ensure unit is always present (default "Lô" if missing)
+                if not item.get('unit'):
+                    item['unit'] = 'Lô'
+                # Ensure qty is present (default 1)
+                if not item.get('qty'):
+                    item['qty'] = 1
+                # Ensure unit_price from amount if missing
+                if not item.get('unit_price') and item.get('amount'):
+                    item['unit_price'] = item['amount'] / (item.get('qty') or 1)
             return items or []
         
         current_details['extra_costs'] = normalize_extras(request.extra_costs)

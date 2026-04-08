@@ -2581,6 +2581,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                   <div style={{ fontWeight: '600', fontSize: '13px', marginBottom: '6px', color: '#10B981' }}>
                     📤 Phí dịch vụ ({serviceFees.length} mục)
                   </div>
+                  <div style={{ maxHeight: serviceFees.length > 5 ? '180px' : 'none', overflowY: serviceFees.length > 5 ? 'auto' : 'visible' }}>
                   {serviceFees.map((c, i) => (
                     <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr auto auto auto auto', gap: '4px', alignItems: 'baseline', fontSize: '12px', padding: '2px 0', color: 'var(--text-secondary)' }}>
                       <span style={{ minWidth: 0 }}>{c.cost_name}</span>
@@ -2590,6 +2591,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                       <span style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>= <b>{formatPrice(parseFloat(c.selling_amount) || 0)}</b>{c.vat_rate > 0 ? <span style={{ color: '#9CA3AF' }}> +{c.vat_rate}%</span> : ''}</span>
                     </div>
                   ))}
+                  </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: '600', marginTop: '4px', paddingTop: '4px', borderTop: '1px dashed rgba(0,0,0,0.1)', color: '#10B981' }}>
                     <span>Tổng DV (trước VAT)</span>
                     <span>{formatPrice(totalService)}</span>
@@ -2608,6 +2610,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                   <div style={{ fontWeight: '600', fontSize: '13px', marginBottom: '6px', color: '#F59E0B' }}>
                     🔄 Chi hộ ({reimbursements.length} mục)
                   </div>
+                  <div style={{ maxHeight: reimbursements.length > 5 ? '180px' : 'none', overflowY: reimbursements.length > 5 ? 'auto' : 'visible' }}>
                   {reimbursements.map((c, i) => (
                     <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr auto auto auto auto', gap: '4px', alignItems: 'baseline', fontSize: '12px', padding: '2px 0', color: 'var(--text-secondary)' }}>
                       <span style={{ minWidth: 0 }}>{c.cost_name}</span>
@@ -2617,6 +2620,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                       <span style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>= <b>{formatPrice(parseFloat(c.selling_amount) || 0)}</b>{c.vat_rate > 0 ? <span style={{ color: '#9CA3AF' }}> +{c.vat_rate}%</span> : ''}</span>
                     </div>
                   ))}
+                  </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: '600', marginTop: '4px', paddingTop: '4px', borderTop: '1px dashed rgba(0,0,0,0.1)', color: '#F59E0B' }}>
                     <span>Tổng chi hộ</span>
                     <span>{formatPrice(totalReimb)}</span>
