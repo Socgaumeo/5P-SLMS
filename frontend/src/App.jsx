@@ -1676,7 +1676,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                         </div>
                       ) : (
                         /* Read-only service details */
-                        <>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '6px 16px' }}>
                           {svc.cd_no && <div><strong>Tờ khai:</strong> {svc.cd_no}</div>}
                           {svc.bl_awb_no && <div><strong>BL/AWB:</strong> {svc.bl_awb_no}</div>}
                           {svc.co_no && <div><strong>CO:</strong> {svc.co_no}</div>}
@@ -1712,12 +1712,12 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                           </>)}
                           {svc.scheduled_date && <div><strong>Ngày:</strong> {svc.scheduled_date}</div>}
                           {svc.scheduled_time && <div><strong>Giờ:</strong> {svc.scheduled_time}</div>}
-                          {svc.invoice_numbers && <div><strong>{(svc.service_type_code || '').startsWith('AIR_') ? "Customer's Invoice" : 'Invoice'}:</strong> {svc.invoice_numbers}</div>}
                           {(svc.extra_info || []).map((info, idx) => (
                             info.label && info.value ? <div key={idx}><strong>{info.label}:</strong> {info.value}</div> : null
                           ))}
-                        </>
+                        </div>
                       )}
+                    </div>
 
                       {/* Ghi chú / Yêu cầu đặc biệt - Editable */}
                       {editMode ? (
@@ -2293,7 +2293,6 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                           </button>
                         </div>
                       )}
-                    </div>
                   </div>
                 ))}
               </div>
@@ -2569,7 +2568,6 @@ function JobDetailModal({ job, onClose, onUpdate }) {
               </div>
             )}
           </div>
-        </div>
 
         {/* Chi hộ (Reimbursement) Section */}
         {(() => {
@@ -2653,12 +2651,13 @@ function JobDetailModal({ job, onClose, onUpdate }) {
         })()}
 
         {/* ─── Chứng từ Section ─── */}
-        <div className="modal-body" style={{ borderTop: '1px solid #e2e8f0', paddingTop: '16px' }}>
+        <div style={{ borderTop: '1px solid #e2e8f0', padding: '16px 16px 12px' }}>
           <h3 style={{ marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
             📄 Chứng từ
           </h3>
           <DocumentUploadZone jobId={job?.job_id} onUploadSuccess={() => setLoading(l => !l)} />
           <DocumentListTable jobId={job?.job_id} refreshTrigger={loading} />
+        </div>
         </div>
 
         <div className="modal-footer">
@@ -3136,7 +3135,7 @@ function MainDashboard() {
     return () => document.removeEventListener('keydown', handleGlobalKeyDown)
   }, [])
 
-  // Fetch dashboard data
+  // Fetch dashboard data & jobs (respects statusFilter)
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -3146,7 +3145,10 @@ function MainDashboard() {
           setStats(statsData)
         }
 
-        const jobsRes = await authFetch(`${API_URL}/api/jobs/recent?limit=10`)
+        const jobsUrl = statusFilter
+          ? `${API_URL}/api/jobs/recent?limit=100&status=${statusFilter}`
+          : `${API_URL}/api/jobs/recent?limit=10`
+        const jobsRes = await authFetch(jobsUrl)
         if (jobsRes.ok) {
           const jobsData = await jobsRes.json()
           setRecentJobs(jobsData.jobs || [])
@@ -3161,17 +3163,7 @@ function MainDashboard() {
     fetchData()
     const interval = setInterval(fetchData, 30000)
     return () => clearInterval(interval)
-  }, [])
-
-  // Fetch filtered jobs when status filter changes
-  useEffect(() => {
-    if (activeNav === 'jobs' && statusFilter) {
-      authFetch(`${API_URL}/api/jobs/recent?limit=100&status=${statusFilter}`)
-        .then(r => r.json())
-        .then(data => setRecentJobs(data.jobs || []))
-        .catch(err => console.error('Failed to fetch filtered jobs:', err))
-    }
-  }, [activeNav, statusFilter])
+  }, [statusFilter])
 
   // Fetch service-specific data
   useEffect(() => {

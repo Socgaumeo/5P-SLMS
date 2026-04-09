@@ -1705,9 +1705,6 @@ body {
 }
 
 .service-details-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 6px 16px;
   font-size: 13px;
   color: var(--text-secondary);
 }
