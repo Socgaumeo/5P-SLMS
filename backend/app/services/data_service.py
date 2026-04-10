@@ -320,6 +320,8 @@ class DataService:
             service_type = job_data.get("service_type_code", "TRUCKING_SHORT")
 
             prefix_map = {
+                "BORDER_IMP": "BI",
+                "BORDER_EXP": "BE",
                 "SEA_DOM": "SD",
                 "SEA_IMP": "SI",
                 "SEA_EXP": "SE",
@@ -327,6 +329,7 @@ class DataService:
                 "AIR_EXP": "AE",
                 "AIR_DOM": "AD",
                 "WHS": "WHS",
+                "CUS_CO": "CO",
                 "CUS": "CC",
                 "SVC": "PKG",
             }
@@ -335,10 +338,11 @@ class DataService:
                 "TRK"
             )
 
-            # Generate job number — query MAX existing to avoid duplicates
+            # Generate job number: {PREFIX}-{customer_id}-{DDMM}-{SEQ:4}
+            customer_id = job_data.get("customer_id", 0)
             today = date.today()
             date_part = today.strftime('%d%m')
-            pattern = f"{prefix}-{date_part}-%"
+            pattern = f"{prefix}-{customer_id}-{date_part}-%"
             max_result = self.client.table('jobs').select(
                 'job_no'
             ).ilike('job_no', pattern).execute()
@@ -354,7 +358,7 @@ class DataService:
                 if seq_nums:
                     next_num = max(seq_nums) + 1
 
-            job_no = f"{prefix}-{date_part}-{next_num:04d}"
+            job_no = f"{prefix}-{customer_id}-{date_part}-{next_num:04d}"
 
             # Build description
             dims = ""

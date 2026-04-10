@@ -404,9 +404,11 @@ function JobDetailModal({ job, onClose, onUpdate }) {
     // Road Transport
     TRUCKING_DOM: 'Vận tải nội địa',
     BORDER_IMP: 'Nhập khẩu đường bộ',
+    BORDER_EXP: 'Xuất khẩu đường bộ',
     // Air Freight
     AIR_IMP: 'Hàng không - Nhập',
     AIR_EXP: 'Hàng không - Xuất',
+    AIR_DOM: 'Hàng không - Nội địa',
     // Sea Freight
     SEA_IMP: 'Đường biển - Nhập',
     SEA_EXP: 'Đường biển - Xuất',
@@ -447,7 +449,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
 
   // Service type category helpers
   const isTransportService = (serviceType) => {
-    return ['TRUCKING_DOM', 'BORDER_IMP', 'AIR_IMP', 'AIR_EXP', 'SEA_IMP', 'SEA_EXP', 'SEA_DOM'].includes(serviceType)
+    return ['TRUCKING_DOM', 'BORDER_IMP', 'BORDER_EXP', 'AIR_IMP', 'AIR_EXP', 'AIR_DOM', 'SEA_IMP', 'SEA_EXP', 'SEA_DOM'].includes(serviceType)
   }
 
   const isWarehouseService = (serviceType) => {
@@ -1688,6 +1690,10 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                           {svc.container_seal && <div><strong>Container:</strong> {svc.container_seal}</div>}
                           {svc.origin_address && <div><strong>{(svc.service_type_code || '').startsWith('AIR_') ? 'AOL' : 'Điểm đi'}:</strong> {svc.origin_address}</div>}
                           {svc.dest_address && <div><strong>{(svc.service_type_code || '').startsWith('AIR_') ? 'AOD' : 'Điểm đến'}:</strong> {svc.dest_address}</div>}
+                          {(isTransportService(svc.service_type_code) && !((svc.service_type_code || '').startsWith('AIR_')) && !((svc.service_type_code || '').startsWith('SEA_'))) && (<>
+                            {svc.route && <div><strong>Tuyến:</strong> {svc.route}</div>}
+                            {svc.weight_kg && <div><strong>Trọng tải:</strong> {svc.weight_kg} kg</div>}
+                          </>)}
                           {(svc.service_type_code || '').startsWith('AIR_') && (<>
                             {svc.route && <div><strong>Route:</strong> {svc.route}</div>}
                             {svc.seller_name && <div><strong>Shipper:</strong> {svc.seller_name}</div>}
@@ -2350,10 +2356,12 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                           <optgroup label="🚚 Vận tải Đường bộ">
                             <option value="TRUCKING_DOM">Vận tải nội địa</option>
                             <option value="BORDER_IMP">Nhập khẩu đường bộ</option>
+                            <option value="BORDER_EXP">Xuất khẩu đường bộ</option>
                           </optgroup>
                           <optgroup label="✈️ Hàng không">
                             <option value="AIR_IMP">Hàng không - Nhập</option>
                             <option value="AIR_EXP">Hàng không - Xuất</option>
+                            <option value="AIR_DOM">Hàng không - Nội địa</option>
                           </optgroup>
                           <optgroup label="🚢 Đường biển">
                             <option value="SEA_IMP">Đường biển - Nhập</option>
