@@ -44,14 +44,22 @@ def _extract_file_info(message: dict) -> Optional[dict]:
     Handles both 'document' and 'photo' message types.
     Returns dict with file_id, file_name, file_size, mime_type or None.
     """
-    # Document (PDF, Excel, Word, etc.)
+    # Document (PDF, Excel, Word, ZIP, etc.)
     if 'document' in message:
         doc = message['document']
+        file_name = doc.get('file_name', 'unnamed_file')
+        mime_type = doc.get('mime_type', 'application/octet-stream')
+        # Detect ZIP/archive
+        is_zip = (
+            mime_type in ('application/zip', 'application/x-zip-compressed', 'application/x-rar-compressed')
+            or file_name.lower().endswith(('.zip', '.rar', '.7z'))
+        )
         return {
             'file_id': doc['file_id'],
-            'file_name': doc.get('file_name', 'unnamed_file'),
+            'file_name': file_name,
             'file_size': doc.get('file_size'),
-            'mime_type': doc.get('mime_type', 'application/octet-stream'),
+            'mime_type': mime_type,
+            'is_zip': is_zip,
         }
 
     # Photo (highest resolution = last in array)
@@ -109,7 +117,7 @@ async def _handle_text_command(text: str, message: dict, chat_id: str, message_i
         job_no = bot_svc.extract_job_no(text)
         if not job_no:
             await bot_svc.send_telegram_message(
-                chat_id, "⚠️ Cú pháp: <code>/job SEA-46-2503-001</code>", message_id
+                chat_id, "⚠️ Cú pháp: <code>/job AI-1404-716</code> hoặc <code>/job SEA-46-2503-001</code>", message_id
             )
             return {"ok": True}
 
@@ -228,8 +236,11 @@ async def telegram_webhook(
         )
         return {"ok": True, "action": "job_not_found"}
 
-    # Detect doc_type
-    doc_type = bot_svc.detect_doc_type(caption, file_info['file_name'])
+    # Detect doc_type — ZIP bundle không cần caption
+    if file_info.get('is_zip'):
+        doc_type = 'ZIP_BUNDLE'
+    else:
+        doc_type = bot_svc.detect_doc_type(caption, file_info['file_name'])
 
     # Insert document record
     document = bot_svc.insert_document(

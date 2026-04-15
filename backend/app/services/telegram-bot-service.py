@@ -21,8 +21,10 @@ logger = logging.getLogger(__name__)
 
 # --- Job number patterns (match existing formats in DB) ---
 # Format: PREFIX-CUSTID-YYMM-SEQ (e.g. SEA-46-2503-001, AIR-20-2503-015)
+# Short format: PREFIX-YYMM-SEQ (e.g. AI-1404-716, SI-1404-001)
 JOB_NO_PATTERNS = [
-    re.compile(r'((?:SEA|AIR|CUS|TRK|WHS|IMP)-\d+-\d{4}-\d{3})', re.IGNORECASE),  # SEA-46-2503-001
+    re.compile(r'((?:SEA|SI|AIR|AI|AE|CUS|TRK|WHS|IMP|EXP|SD|CC)-\d+-\d{4}-\d{3,4})', re.IGNORECASE),  # SEA-46-2503-001
+    re.compile(r'((?:SEA|SI|AIR|AI|AE|CUS|TRK|WHS|IMP|EXP|SD|CC)-\d{4}-\d{3,4})', re.IGNORECASE),       # AI-1404-716 (no custid)
     re.compile(r'(LG\d{4}/\d{3})', re.IGNORECASE),           # LG2604/001
     re.compile(r'#(LG\d{7})', re.IGNORECASE),                  # #LG2604001 → LG2604/001
 ]
