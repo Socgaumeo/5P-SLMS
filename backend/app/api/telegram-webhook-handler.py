@@ -236,9 +236,11 @@ async def telegram_webhook(
         )
         return {"ok": True, "action": "job_not_found"}
 
-    # Detect doc_type — ZIP bundle không cần caption
+    # Detect doc_type — ZIP bundle không cần caption, ghi notes là 'zip_bundle'
     if file_info.get('is_zip'):
-        doc_type = 'ZIP_BUNDLE'
+        doc_type = 'OTHER'
+        if not caption:
+            caption = 'zip_bundle'
     else:
         doc_type = bot_svc.detect_doc_type(caption, file_info['file_name'])
 
