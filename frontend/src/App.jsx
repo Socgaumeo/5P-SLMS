@@ -1902,7 +1902,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                         </div>
                       )}
 
-                      {/* Cost/Revenue Summary - Only show when job_costs table has no selling data (avoid duplication) */}
+                      {/* Cost/Revenue Summary - Only show when job_costs table has no data for this service */}
                       {!editMode && (() => {
                         const totalCost = (svc.buying_price || 0) + (svc.extra_costs || []).reduce((sum, c) => sum + (c.amount || 0), 0)
                         const totalRevenue = (svc.selling_price || 0) + (svc.extra_revenues || []).reduce((sum, r) => sum + (r.amount || 0), 0)
@@ -1910,10 +1910,9 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                         // Detect currency from extra_costs/revenues (default VND)
                         const detectedCurrency = [...(svc.extra_costs || []), ...(svc.extra_revenues || [])].find(x => x.currency)?.currency || 'VND'
                         if (totalCost === 0 && totalRevenue === 0) return null
-                        // Skip JSONB summary if job_costs table already has selling data for this service
+                        // Skip JSONB summary if job_costs table already has ANY data for this service (avoid duplication)
                         const svcCosts = jobCosts.filter(c => c.svc_id === svc.svc_id)
-                        const svcCostsSelling = svcCosts.reduce((sum, c) => sum + (parseFloat(c.selling_amount) || 0), 0)
-                        if (svcCostsSelling > 0) return null
+                        if (svcCosts.length > 0) return null
                         return (
                           <div style={{
                             marginTop: '12px',
@@ -2581,12 +2580,17 @@ function JobDetailModal({ job, onClose, onUpdate }) {
         {(() => {
           const reimbursements = jobCosts.filter(c => c.is_reimbursement)
           const serviceFees = jobCosts.filter(c => !c.is_reimbursement)
+          // Use selling_amount if available, otherwise buying_amount (for cost-only lines)
+          const getAmount = (c) => (parseFloat(c.selling_amount) || 0) || (parseFloat(c.buying_amount) || 0)
+          const getRate = (c) => (parseFloat(c.selling_rate) || 0) || (parseFloat(c.buying_rate) || 0)
+          const isBuyingOnly = (c) => (parseFloat(c.selling_amount) || 0) === 0 && (parseFloat(c.buying_amount) || 0) > 0
           const totalService = serviceFees.reduce((sum, c) => sum + (parseFloat(c.selling_amount) || 0), 0)
+          const totalBuying = serviceFees.reduce((sum, c) => sum + (parseFloat(c.buying_amount) || 0), 0)
           const totalReimb = reimbursements.reduce((sum, c) => sum + (parseFloat(c.selling_amount) || 0), 0)
           const totalVAT = serviceFees.reduce((sum, c) => sum + (parseFloat(c.selling_amount) || 0) * (parseFloat(c.vat_rate) || 0) / 100, 0)
           const totalReimbVAT = reimbursements.reduce((sum, c) => sum + (parseFloat(c.selling_amount) || 0) * (parseFloat(c.vat_rate) || 0) / 100, 0)
-          // Skip when all selling_amounts are 0 (data already shown in JSONB section above)
-          if (jobCosts.length === 0 || (totalService === 0 && totalReimb === 0)) return null
+          // Skip when no financial data at all
+          if (jobCosts.length === 0 || (totalService === 0 && totalReimb === 0 && totalBuying === 0)) return null
           return (
             <div style={{ padding: '0 16px 12px' }}>
               {/* Service Fees Summary */}
@@ -2596,20 +2600,33 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                     📤 Phí dịch vụ ({serviceFees.length} mục)
                   </div>
                   <div>
-                  {serviceFees.map((c, i) => (
-                    <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr auto auto auto auto', gap: '4px', alignItems: 'baseline', fontSize: '12px', padding: '2px 0', color: 'var(--text-secondary)' }}>
-                      <span style={{ minWidth: 0 }}>{c.cost_name}</span>
+                  {serviceFees.map((c, i) => {
+                    const buying = isBuyingOnly(c)
+                    const rate = getRate(c)
+                    const amount = getAmount(c)
+                    return (
+                    <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr auto auto auto auto', gap: '4px', alignItems: 'baseline', fontSize: '12px', padding: '2px 0', color: buying ? '#EF4444' : 'var(--text-secondary)' }}>
+                      <span style={{ minWidth: 0 }}>{buying ? '📥' : '📤'} {c.cost_name}</span>
                       <span style={{ textAlign: 'right', color: '#6B7280', whiteSpace: 'nowrap' }}>{parseFloat(c.quantity) || 1} {c.unit || ''}</span>
                       <span style={{ color: '#9CA3AF' }}>×</span>
-                      <span style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{formatPrice(parseFloat(c.selling_rate) || 0)}</span>
-                      <span style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>= <b>{formatPrice(parseFloat(c.selling_amount) || 0)}</b>{c.vat_rate > 0 ? <span style={{ color: '#9CA3AF' }}> +{c.vat_rate}%</span> : ''}</span>
+                      <span style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{formatPrice(rate)}</span>
+                      <span style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>= <b>{formatPrice(amount)}</b>{c.vat_rate > 0 ? <span style={{ color: '#9CA3AF' }}> +{c.vat_rate}%</span> : ''}</span>
                     </div>
-                  ))}
+                    )
+                  })}
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: '600', marginTop: '4px', paddingTop: '4px', borderTop: '1px dashed rgba(0,0,0,0.1)', color: '#10B981' }}>
-                    <span>Tổng DV (trước VAT)</span>
-                    <span>{formatPrice(totalService)}</span>
-                  </div>
+                  {totalService > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: '600', marginTop: '4px', paddingTop: '4px', borderTop: '1px dashed rgba(0,0,0,0.1)', color: '#10B981' }}>
+                      <span>📤 Doanh thu (trước VAT)</span>
+                      <span>{formatPrice(totalService)}</span>
+                    </div>
+                  )}
+                  {totalBuying > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: '600', marginTop: totalService > 0 ? '2px' : '4px', paddingTop: totalService > 0 ? '0' : '4px', borderTop: totalService > 0 ? 'none' : '1px dashed rgba(0,0,0,0.1)', color: '#EF4444' }}>
+                      <span>📥 Chi phí</span>
+                      <span>{formatPrice(totalBuying)}</span>
+                    </div>
+                  )}
                   {totalVAT > 0 && (
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#9CA3AF' }}>
                       <span>VAT</span>
