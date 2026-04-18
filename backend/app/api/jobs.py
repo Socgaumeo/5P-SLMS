@@ -724,9 +724,12 @@ async def export_jobs_by_entity_v2(
     entity_id: int,
     from_date: Optional[str] = None,
     to_date: Optional[str] = None,
-    month: Optional[str] = None
+    month: Optional[str] = None,
+    job_ids: Optional[str] = None,  # comma-separated job_ids for multi-select
+    service_type: Optional[str] = None,  # filter by service_type_code
 ):
-    """Export jobs for a customer/vendor with full cost details from job_costs table."""
+    """Export jobs pivot format: cost names as columns, jobs as rows.
+    Separate sheets for Revenue (Doanh thu) and Cost (Chi phí)."""
     from fastapi.responses import FileResponse
     import openpyxl
     from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
@@ -765,37 +768,58 @@ async def export_jobs_by_entity_v2(
         entity = entity_result.data[0]
         entity_code = entity.get('customer_code') or entity.get('vendor_code')
 
-        # Get jobs
+        # Get jobs - support multi-select via job_ids param
+        selected_job_ids = None
+        if job_ids:
+            selected_job_ids = [int(x.strip()) for x in job_ids.split(',') if x.strip()]
+
         if entity_type == "customer":
             query = client.table('jobs').select(
                 '*, customers(customer_code, short_name)'
             ).eq('customer_id', entity_id)
-            if date_start:
+            if selected_job_ids:
+                query = query.in_('job_id', selected_job_ids)
+            elif date_start:
                 query = query.gte('etd', date_start)
-            if date_end:
+            if not selected_job_ids and date_end:
                 query = query.lte('etd', date_end)
         else:
             svc_query = client.table('job_services').select('job_id').eq('vendor_id', entity_id)
             svc_result = svc_query.execute()
-            job_ids = list(set([r['job_id'] for r in svc_result.data]))
-            if not job_ids:
+            vendor_job_ids = list(set([r['job_id'] for r in svc_result.data]))
+            if not vendor_job_ids:
                 raise HTTPException(404, "Không có dữ liệu để xuất")
+            if selected_job_ids:
+                vendor_job_ids = [jid for jid in vendor_job_ids if jid in selected_job_ids]
             query = client.table('jobs').select(
                 '*, customers(customer_code, short_name)'
-            ).in_('job_id', job_ids)
+            ).in_('job_id', vendor_job_ids)
 
         jobs = query.order('etd').execute().data
         if not jobs:
             raise HTTPException(404, "Không có dữ liệu để xuất")
 
-        job_ids = [j['job_id'] for j in jobs]
+        all_job_ids = [j['job_id'] for j in jobs]
 
         # Get services and costs
         services = client.table('job_services').select(
             '*, vendors(vendor_code, short_name)'
-        ).in_('job_id', job_ids).order('scheduled_date').execute().data
+        ).in_('job_id', all_job_ids).order('scheduled_date').execute().data
 
-        costs = client.table('job_costs').select('*').in_('job_id', job_ids).execute().data
+        costs = client.table('job_costs').select('*').in_('job_id', all_job_ids).execute().data
+
+        # Filter by service_type if specified
+        if service_type:
+            svc_job_ids = set(
+                s['job_id'] for s in services
+                if s.get('service_type_code') == service_type
+            )
+            jobs = [j for j in jobs if j['job_id'] in svc_job_ids]
+            all_job_ids = [j['job_id'] for j in jobs]
+            services = [s for s in services if s['job_id'] in set(all_job_ids)]
+            costs = [c for c in costs if c['job_id'] in set(all_job_ids)]
+            if not jobs:
+                raise HTTPException(404, "Không có dữ liệu để xuất")
 
         # Group data by job
         svc_by_job = {}
@@ -805,7 +829,61 @@ async def export_jobs_by_entity_v2(
         for c in costs:
             cost_by_job.setdefault(c['job_id'], []).append(c)
 
-        # Styles
+        # Build pivot data: collect unique cost names for revenue and cost columns
+        revenue_names = []  # ordered unique cost names with selling_amount > 0
+        cost_names = []     # ordered unique cost names with buying_amount > 0
+        rev_set = set()
+        cost_set = set()
+        for c in costs:
+            name = c.get('cost_name', '').strip()
+            if not name:
+                continue
+            if float(c.get('selling_amount') or 0) > 0 or float(c.get('selling_rate') or 0) > 0:
+                if name not in rev_set:
+                    rev_set.add(name)
+                    revenue_names.append(name)
+            if float(c.get('buying_amount') or 0) > 0 or float(c.get('buying_rate') or 0) > 0:
+                if name not in cost_set:
+                    cost_set.add(name)
+                    cost_names.append(name)
+
+        # Helper: extract vehicle plate from service
+        def _get_plate(svc):
+            sd = svc.get('service_details') or {}
+            if isinstance(sd, str):
+                try:
+                    sd = json.loads(sd)
+                except Exception:
+                    sd = {}
+            plate = sd.get('vehicle_plate', '')
+            if not plate and svc.get('route'):
+                route_str = svc['route']
+                if '(Xe:' in route_str:
+                    plate = route_str.split('(Xe:')[-1].rstrip(')')
+            if not plate:
+                vti = svc.get('vendor_text_input')
+                vti_list = []
+                if isinstance(vti, str):
+                    try:
+                        parsed = json.loads(vti)
+                        vti_list = parsed if isinstance(parsed, list) else [parsed] if isinstance(parsed, dict) else []
+                    except Exception:
+                        pass
+                elif isinstance(vti, list):
+                    vti_list = vti
+                elif isinstance(vti, dict):
+                    vti_list = [vti]
+                if vti_list:
+                    plates = [v.get('license_plate', '') for v in vti_list if v.get('license_plate')]
+                    plate = ', '.join(plates)
+            return (plate or '').strip()
+
+        # Helper: get vendor name from service
+        def _get_vendor(svc):
+            vendor = svc.get('vendors') or {}
+            return vendor.get('short_name') or vendor.get('vendor_code') or ''
+
+        # Excel styles
         wb = openpyxl.Workbook()
         hdr_font = Font(bold=True, color="FFFFFF", size=11)
         hdr_fill = PatternFill(start_color="2563EB", end_color="2563EB", fill_type="solid")
@@ -815,227 +893,252 @@ async def export_jobs_by_entity_v2(
             top=Side(style='thin'), bottom=Side(style='thin')
         )
         money_fmt = '#,##0'
-        pct_fmt = '0%'
 
-        # ── SHEET 1: Chi tiết doanh thu (1 row per cost line) ──
-        ws = wb.active
-        ws.title = "Chi tiết doanh thu"
-        headers = [
-            'STT', 'Mã Job', 'Ngày', 'Loại DV', 'Điểm đi', 'Điểm đến',
-            'Biển số xe', 'Loại hàng', 'Trọng tải (kg)', 'BL/AWB', 'Invoice',
-            'Mục chi phí', 'SL', 'ĐVT', 'Đơn giá bán', 'Thành tiền bán',
-            'VAT%', 'Tiền VAT', 'Tổng sau VAT'
-        ]
-        for col, h in enumerate(headers, 1):
-            cell = ws.cell(row=1, column=col, value=h)
+        # Fixed columns for both sheets
+        fixed_headers = ['STT', 'Mã Job', 'Ngày', 'Loại DV', 'Điểm đi', 'Điểm đến',
+                         'Biển số xe', 'NCC/Vendor', 'BL/AWB']
+        fixed_count = len(fixed_headers)
+
+        # ── SHEET 1: DOANH THU (Revenue) ──
+        ws_rev = wb.active
+        ws_rev.title = "Doanh thu"
+        rev_headers = fixed_headers + revenue_names + ['TỔNG DOANH THU', 'VAT', 'TỔNG SAU VAT']
+        for col, h in enumerate(rev_headers, 1):
+            cell = ws_rev.cell(row=1, column=col, value=h)
             cell.font = hdr_font
             cell.fill = hdr_fill
             cell.border = border
             cell.alignment = Alignment(horizontal='center', wrap_text=True)
 
         row = 2
-        data_start = row
-        stt = 0
-
-        for job in jobs:
-            job_id = job['job_id']
-            job_svcs = svc_by_job.get(job_id, [])
-            job_costs = cost_by_job.get(job_id, [])
-
-            if not job_costs:
-                continue
-
-            # Get first service for metadata
-            first_svc = job_svcs[0] if job_svcs else {}
-            svc_details = first_svc.get('service_details') or {}
-            if isinstance(svc_details, str):
-                try:
-                    svc_details = json.loads(svc_details)
-                except Exception:
-                    svc_details = {}
-
-            # Extract vehicle plate from service_details or route
-            plate = svc_details.get('vehicle_plate', '')
-            if not plate and first_svc.get('route'):
-                # Parse from route like "A → B (Xe: 51C-01912)"
-                route_str = first_svc['route']
-                if '(Xe:' in route_str:
-                    plate = route_str.split('(Xe:')[-1].rstrip(')')
-                elif '(AWB:' in route_str:
-                    plate = ''  # AWB, not vehicle
-
-            # Parse vendor_text_input for driver/plate info
-            vti_raw = first_svc.get('vendor_text_input')
-            vti_list = []
-            if isinstance(vti_raw, str):
-                try:
-                    parsed = json.loads(vti_raw)
-                    vti_list = parsed if isinstance(parsed, list) else [parsed] if isinstance(parsed, dict) else []
-                except Exception:
-                    pass
-            elif isinstance(vti_raw, list):
-                vti_list = vti_raw
-            elif isinstance(vti_raw, dict):
-                vti_list = [vti_raw]
-
-            if not plate and vti_list:
-                plates = [v.get('license_plate', '') for v in vti_list if v.get('license_plate')]
-                plate = ', '.join(plates)
-
-            stt += 1
-
-            for ci, cost in enumerate(job_costs):
-                qty = float(cost.get('quantity') or 1)
-                unit = cost.get('unit') or 'TRIP'
-                sell_rate = float(cost.get('selling_rate') or 0)
-                vat_pct = float(cost.get('vat_rate') or 0) / 100  # DB stores 8 → 0.08
-
-                # Col A-K: job info (only on first cost row)
-                if ci == 0:
-                    ws.cell(row=row, column=1, value=stt).border = border
-                    ws.cell(row=row, column=2, value=job.get('job_no')).border = border
-                    ws.cell(row=row, column=3, value=str(job.get('etd') or '')).border = border
-                    ws.cell(row=row, column=4, value=first_svc.get('service_type_code', '')).border = border
-                    ws.cell(row=row, column=5, value=first_svc.get('origin_address', '')).border = border
-                    ws.cell(row=row, column=6, value=first_svc.get('dest_address', '')).border = border
-                    ws.cell(row=row, column=7, value=plate.strip()).border = border
-                    ws.cell(row=row, column=8, value=first_svc.get('cargo_type', '')).border = border
-                    wt = first_svc.get('weight_kg')
-                    ws.cell(row=row, column=9, value=float(wt) if wt else None).border = border
-                    ws.cell(row=row, column=10, value=first_svc.get('bl_awb_no', '')).border = border
-                    ws.cell(row=row, column=11, value=first_svc.get('invoice_numbers', '')).border = border
-                else:
-                    for c in range(1, 12):
-                        ws.cell(row=row, column=c).border = border
-
-                # Col L-S: cost details with formulas
-                ws.cell(row=row, column=12, value=cost.get('cost_name', '')).border = border
-
-                c_qty = ws.cell(row=row, column=13, value=qty)
-                c_qty.border = border
-                c_qty.number_format = '#,##0.##'
-
-                ws.cell(row=row, column=14, value=unit).border = border
-
-                c_rate = ws.cell(row=row, column=15, value=sell_rate)
-                c_rate.border = border
-                c_rate.number_format = money_fmt
-
-                # Thành tiền = SL × Đơn giá (formula)
-                c_amt = ws.cell(row=row, column=16)
-                c_amt.value = f'=M{row}*O{row}'
-                c_amt.border = border
-                c_amt.number_format = money_fmt
-
-                # VAT%
-                c_vat_pct = ws.cell(row=row, column=17, value=vat_pct)
-                c_vat_pct.border = border
-                c_vat_pct.number_format = pct_fmt
-
-                # Tiền VAT = Thành tiền × VAT% (formula)
-                c_vat = ws.cell(row=row, column=18)
-                c_vat.value = f'=P{row}*Q{row}'
-                c_vat.border = border
-                c_vat.number_format = money_fmt
-
-                # Tổng sau VAT = Thành tiền + Tiền VAT (formula)
-                c_total = ws.cell(row=row, column=19)
-                c_total.value = f'=P{row}+R{row}'
-                c_total.border = border
-                c_total.number_format = money_fmt
-
-                row += 1
-
-        # Totals row with SUM formulas
-        data_end = row - 1
-        if data_end >= data_start:
-            tr = row
-            ws.cell(row=tr, column=1, value="TỔNG CỘNG").font = Font(bold=True)
-            for c in [16, 18, 19]:  # Thành tiền, VAT, Tổng sau VAT
-                col_letter = get_column_letter(c)
-                cell = ws.cell(row=tr, column=c)
-                cell.value = f'=SUM({col_letter}{data_start}:{col_letter}{data_end})'
-                cell.number_format = money_fmt
-                cell.font = Font(bold=True)
-            for c in range(1, 20):
-                ws.cell(row=tr, column=c).fill = tot_fill
-                ws.cell(row=tr, column=c).border = border
-
-        # Column widths
-        widths = [5, 18, 12, 14, 20, 20, 14, 14, 10, 16, 16, 18, 8, 8, 14, 14, 6, 12, 14]
-        for i, w in enumerate(widths, 1):
-            ws.column_dimensions[get_column_letter(i)].width = w
-        ws.freeze_panes = 'A2'
-
-        # ── SHEET 2: Tổng hợp Job (summary per job with SUM from sheet 1) ──
-        ws2 = wb.create_sheet("Tổng hợp Job")
-        h2 = ['STT', 'Mã Job', 'Ngày', 'Loại DV', 'Tuyến', 'Biển số',
-               'Loại hàng', 'BL/AWB', 'Doanh thu (trước VAT)', 'VAT', 'Tổng sau VAT', 'Trạng thái']
-        for col, h in enumerate(h2, 1):
-            cell = ws2.cell(row=1, column=col, value=h)
-            cell.font = hdr_font
-            cell.fill = hdr_fill
-            cell.border = border
-
-        r2 = 2
         for idx, job in enumerate(jobs, 1):
             job_id = job['job_id']
             job_svcs = svc_by_job.get(job_id, [])
             job_costs_list = cost_by_job.get(job_id, [])
             first_svc = job_svcs[0] if job_svcs else {}
 
-            svc_details = first_svc.get('service_details') or {}
-            if isinstance(svc_details, str):
-                try:
-                    svc_details = json.loads(svc_details)
-                except Exception:
-                    svc_details = {}
-            plate = svc_details.get('vehicle_plate', '')
-            if not plate and first_svc.get('route') and '(Xe:' in (first_svc.get('route') or ''):
-                plate = first_svc['route'].split('(Xe:')[-1].rstrip(')')
+            # Fixed columns
+            ws_rev.cell(row=row, column=1, value=idx).border = border
+            ws_rev.cell(row=row, column=2, value=job.get('job_no')).border = border
+            ws_rev.cell(row=row, column=3, value=str(job.get('etd') or '')).border = border
+            ws_rev.cell(row=row, column=4, value=first_svc.get('service_type_code', '')).border = border
+            ws_rev.cell(row=row, column=5, value=first_svc.get('origin_address', '')).border = border
+            ws_rev.cell(row=row, column=6, value=first_svc.get('dest_address', '')).border = border
+            ws_rev.cell(row=row, column=7, value=_get_plate(first_svc)).border = border
+            ws_rev.cell(row=row, column=8, value=_get_vendor(first_svc)).border = border
+            ws_rev.cell(row=row, column=9, value=first_svc.get('bl_awb_no', '')).border = border
 
-            # Calculate totals from job_costs
+            # Revenue columns: pivot cost_name → column
+            rev_by_name = {}
+            for c in job_costs_list:
+                name = c.get('cost_name', '').strip()
+                amt = float(c.get('selling_amount') or 0)
+                if amt > 0:
+                    rev_by_name[name] = rev_by_name.get(name, 0) + amt
+
+            for ci, rn in enumerate(revenue_names):
+                col_idx = fixed_count + ci + 1
+                val = rev_by_name.get(rn, 0)
+                cell = ws_rev.cell(row=row, column=col_idx, value=val if val else None)
+                cell.border = border
+                cell.number_format = money_fmt
+
+            # TỔNG DOANH THU (SUM of revenue columns)
+            total_col = fixed_count + len(revenue_names) + 1
+            if revenue_names:
+                first_cl = get_column_letter(fixed_count + 1)
+                last_cl = get_column_letter(fixed_count + len(revenue_names))
+                cell = ws_rev.cell(row=row, column=total_col)
+                cell.value = f'=SUM({first_cl}{row}:{last_cl}{row})'
+            else:
+                cell = ws_rev.cell(row=row, column=total_col, value=0)
+            cell.border = border
+            cell.number_format = money_fmt
+            cell.font = Font(bold=True)
+
+            # VAT — calculate from each cost line's vat_rate
+            vat_col = total_col + 1
+            vat_amt = 0
+            for c in job_costs_list:
+                sell_amt = float(c.get('selling_amount') or 0)
+                vat_rate = float(c.get('vat_rate') or 0) / 100
+                vat_amt += sell_amt * vat_rate
+            cell = ws_rev.cell(row=row, column=vat_col, value=round(vat_amt))
+            cell.border = border
+            cell.number_format = money_fmt
+
+            # TỔNG SAU VAT
+            after_vat_col = vat_col + 1
+            t_cl = get_column_letter(total_col)
+            v_cl = get_column_letter(vat_col)
+            cell = ws_rev.cell(row=row, column=after_vat_col)
+            cell.value = f'={t_cl}{row}+{v_cl}{row}'
+            cell.border = border
+            cell.number_format = money_fmt
+            cell.font = Font(bold=True)
+
+            row += 1
+
+        # Totals row
+        if row > 2:
+            tr = row
+            ws_rev.cell(row=tr, column=1, value="TỔNG CỘNG").font = Font(bold=True)
+            for c in range(fixed_count + 1, fixed_count + len(revenue_names) + 4):
+                cl = get_column_letter(c)
+                cell = ws_rev.cell(row=tr, column=c)
+                cell.value = f'=SUM({cl}2:{cl}{tr-1})'
+                cell.number_format = money_fmt
+                cell.font = Font(bold=True)
+            for c in range(1, len(rev_headers) + 1):
+                ws_rev.cell(row=tr, column=c).fill = tot_fill
+                ws_rev.cell(row=tr, column=c).border = border
+
+        # Column widths
+        for i in range(1, fixed_count + 1):
+            ws_rev.column_dimensions[get_column_letter(i)].width = [5, 18, 12, 14, 20, 20, 14, 14, 16][i-1]
+        for i in range(fixed_count + 1, len(rev_headers) + 1):
+            ws_rev.column_dimensions[get_column_letter(i)].width = 16
+        ws_rev.freeze_panes = 'A2'
+
+        # ── SHEET 2: CHI PHÍ (Cost) ──
+        ws_cost = wb.create_sheet("Chi phí")
+        cost_headers = fixed_headers + cost_names + ['TỔNG CHI PHÍ']
+        for col, h in enumerate(cost_headers, 1):
+            cell = ws_cost.cell(row=1, column=col, value=h)
+            cell.font = hdr_font
+            cell.fill = PatternFill(start_color="DC2626", end_color="DC2626", fill_type="solid")
+            cell.border = border
+            cell.alignment = Alignment(horizontal='center', wrap_text=True)
+
+        row = 2
+        for idx, job in enumerate(jobs, 1):
+            job_id = job['job_id']
+            job_svcs = svc_by_job.get(job_id, [])
+            job_costs_list = cost_by_job.get(job_id, [])
+            first_svc = job_svcs[0] if job_svcs else {}
+
+            # Fixed columns
+            ws_cost.cell(row=row, column=1, value=idx).border = border
+            ws_cost.cell(row=row, column=2, value=job.get('job_no')).border = border
+            ws_cost.cell(row=row, column=3, value=str(job.get('etd') or '')).border = border
+            ws_cost.cell(row=row, column=4, value=first_svc.get('service_type_code', '')).border = border
+            ws_cost.cell(row=row, column=5, value=first_svc.get('origin_address', '')).border = border
+            ws_cost.cell(row=row, column=6, value=first_svc.get('dest_address', '')).border = border
+            ws_cost.cell(row=row, column=7, value=_get_plate(first_svc)).border = border
+            ws_cost.cell(row=row, column=8, value=_get_vendor(first_svc)).border = border
+            ws_cost.cell(row=row, column=9, value=first_svc.get('bl_awb_no', '')).border = border
+
+            # Cost columns: pivot cost_name → column
+            cost_by_name = {}
+            for c in job_costs_list:
+                name = c.get('cost_name', '').strip()
+                amt = float(c.get('buying_amount') or 0)
+                if amt > 0:
+                    cost_by_name[name] = cost_by_name.get(name, 0) + amt
+
+            for ci, cn in enumerate(cost_names):
+                col_idx = fixed_count + ci + 1
+                val = cost_by_name.get(cn, 0)
+                cell = ws_cost.cell(row=row, column=col_idx, value=val if val else None)
+                cell.border = border
+                cell.number_format = money_fmt
+
+            # TỔNG CHI PHÍ
+            total_col = fixed_count + len(cost_names) + 1
+            if cost_names:
+                first_cl = get_column_letter(fixed_count + 1)
+                last_cl = get_column_letter(fixed_count + len(cost_names))
+                cell = ws_cost.cell(row=row, column=total_col)
+                cell.value = f'=SUM({first_cl}{row}:{last_cl}{row})'
+            else:
+                cell = ws_cost.cell(row=row, column=total_col, value=0)
+            cell.border = border
+            cell.number_format = money_fmt
+            cell.font = Font(bold=True)
+
+            row += 1
+
+        # Totals row
+        if row > 2:
+            tr = row
+            ws_cost.cell(row=tr, column=1, value="TỔNG CỘNG").font = Font(bold=True)
+            for c in range(fixed_count + 1, fixed_count + len(cost_names) + 2):
+                cl = get_column_letter(c)
+                cell = ws_cost.cell(row=tr, column=c)
+                cell.value = f'=SUM({cl}2:{cl}{tr-1})'
+                cell.number_format = money_fmt
+                cell.font = Font(bold=True)
+            for c in range(1, len(cost_headers) + 1):
+                ws_cost.cell(row=tr, column=c).fill = tot_fill
+                ws_cost.cell(row=tr, column=c).border = border
+
+        # Column widths
+        for i in range(1, fixed_count + 1):
+            ws_cost.column_dimensions[get_column_letter(i)].width = [5, 18, 12, 14, 20, 20, 14, 14, 16][i-1]
+        for i in range(fixed_count + 1, len(cost_headers) + 1):
+            ws_cost.column_dimensions[get_column_letter(i)].width = 16
+        ws_cost.freeze_panes = 'A2'
+
+        # ── SHEET 3: Tổng hợp (Summary: revenue, cost, profit per job) ──
+        ws3 = wb.create_sheet("Tổng hợp")
+        h3 = ['STT', 'Mã Job', 'Ngày', 'Loại DV', 'Tuyến', 'Biển số',
+               'NCC/Vendor', 'BL/AWB', 'Doanh thu', 'Chi phí', 'Lợi nhuận', 'Margin %', 'Trạng thái']
+        for col, h in enumerate(h3, 1):
+            cell = ws3.cell(row=1, column=col, value=h)
+            cell.font = hdr_font
+            cell.fill = hdr_fill
+            cell.border = border
+
+        r3 = 2
+        for idx, job in enumerate(jobs, 1):
+            job_id = job['job_id']
+            job_svcs = svc_by_job.get(job_id, [])
+            job_costs_list = cost_by_job.get(job_id, [])
+            first_svc = job_svcs[0] if job_svcs else {}
+
             revenue = sum(float(c.get('selling_amount') or 0) for c in job_costs_list)
-            vat = sum(float(c.get('selling_amount') or 0) * float(c.get('vat_rate') or 0) / 100 for c in job_costs_list)
+            cost_total = sum(float(c.get('buying_amount') or 0) for c in job_costs_list)
+            profit = revenue - cost_total
+            margin = (profit / revenue * 100) if revenue > 0 else 0
 
             route_display = first_svc.get('route') or ''
             if '(Xe:' in route_display:
                 route_display = route_display.split('(Xe:')[0].strip()
 
             row_data = [
-                idx, job.get('job_no'),
-                str(job.get('etd') or ''),
+                idx, job.get('job_no'), str(job.get('etd') or ''),
                 first_svc.get('service_type_code', ''),
-                route_display, plate.strip(),
-                first_svc.get('cargo_type', ''),
-                first_svc.get('bl_awb_no', ''),
-                revenue, vat, revenue + vat,
+                route_display, _get_plate(first_svc),
+                _get_vendor(first_svc), first_svc.get('bl_awb_no', ''),
+                revenue, cost_total, profit, round(margin, 1),
                 job.get('status_code', '')
             ]
             for col, val in enumerate(row_data, 1):
-                cell = ws2.cell(row=r2, column=col, value=val)
+                cell = ws3.cell(row=r3, column=col, value=val)
                 cell.border = border
                 if col in [9, 10, 11]:
                     cell.number_format = money_fmt
-            r2 += 1
+                if col == 12:
+                    cell.number_format = '0.0"%"'
+            r3 += 1
 
         # Summary totals
-        if r2 > 2:
-            ws2.cell(row=r2, column=1, value="TỔNG CỘNG").font = Font(bold=True)
+        if r3 > 2:
+            ws3.cell(row=r3, column=1, value="TỔNG CỘNG").font = Font(bold=True)
             for c in [9, 10, 11]:
                 cl = get_column_letter(c)
-                cell = ws2.cell(row=r2, column=c)
-                cell.value = f'=SUM({cl}2:{cl}{r2-1})'
+                cell = ws3.cell(row=r3, column=c)
+                cell.value = f'=SUM({cl}2:{cl}{r3-1})'
                 cell.number_format = money_fmt
                 cell.font = Font(bold=True)
-            for c in range(1, 13):
-                ws2.cell(row=r2, column=c).fill = tot_fill
-                ws2.cell(row=r2, column=c).border = border
+            for c in range(1, 14):
+                ws3.cell(row=r3, column=c).fill = tot_fill
+                ws3.cell(row=r3, column=c).border = border
 
-        w2 = [5, 18, 12, 14, 30, 14, 14, 16, 16, 12, 16, 12]
-        for i, w in enumerate(w2, 1):
-            ws2.column_dimensions[get_column_letter(i)].width = w
-        ws2.freeze_panes = 'A2'
+        w3 = [5, 18, 12, 14, 30, 14, 14, 16, 16, 16, 16, 10, 12]
+        for i, w in enumerate(w3, 1):
+            ws3.column_dimensions[get_column_letter(i)].width = w
+        ws3.freeze_panes = 'A2'
 
         # Save
         temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx')

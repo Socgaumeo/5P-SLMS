@@ -30,6 +30,9 @@ export default function SearchBox({ onJobSelect }) {
   const [toDate, setToDate] = useState('');
   // Custom template info
   const [templateInfo, setTemplateInfo] = useState(null);
+  // Multi-select and service type filter
+  const [selectedJobIds, setSelectedJobIds] = useState(new Set());
+  const [serviceTypeFilter, setServiceTypeFilter] = useState('');
   const inputRef = useRef(null);
   const containerRef = useRef(null);
   const debounceRef = useRef(null);
@@ -178,6 +181,14 @@ export default function SearchBox({ onJobSelect }) {
         } else {
           if (filterMonth) url += `&month=${filterMonth}`;
           filename = `${entityMatch.type}_${entityMatch.code}_${filterMonth || 'all'}_export.xlsx`;
+        }
+        // Multi-select: pass selected job_ids
+        if (selectedJobIds.size > 0) {
+          url += `&job_ids=${[...selectedJobIds].join(',')}`;
+        }
+        // Service type filter
+        if (serviceTypeFilter) {
+          url += `&service_type=${serviceTypeFilter}`;
         }
       }
 
@@ -407,6 +418,26 @@ export default function SearchBox({ onJobSelect }) {
                 )}
               </div>
               <div className="export-buttons">
+                {/* Service type filter */}
+                <select
+                  className="service-type-filter"
+                  value={serviceTypeFilter}
+                  onChange={(e) => setServiceTypeFilter(e.target.value)}
+                >
+                  <option value="">Tất cả loại DV</option>
+                  <option value="TRUCKING_DOM">Trucking nội địa</option>
+                  <option value="SEA_IMP">Nhập đường biển</option>
+                  <option value="SEA_EXP">Xuất đường biển</option>
+                  <option value="SEA_DOM">Biển nội địa</option>
+                  <option value="AIR_IMP">Nhập hàng không</option>
+                  <option value="AIR_DOM">Air nội địa</option>
+                  <option value="BORDER_IMP">Nhập cửa khẩu</option>
+                  <option value="BORDER_EXP">Xuất cửa khẩu</option>
+                  <option value="CUS_EXPORT">HQ xuất khẩu</option>
+                  <option value="CUS_IMPORT">HQ nhập khẩu</option>
+                  <option value="CUS_CO">C/O</option>
+                  <option value="CUS">Hải quan</option>
+                </select>
                 {templateInfo && (
                   <button
                     className="export-btn custom-template"
@@ -423,6 +454,7 @@ export default function SearchBox({ onJobSelect }) {
                   disabled={exporting}
                 >
                   {exporting ? '⏳ Đang xuất...' : '📥 Xuất Excel'}
+                  {selectedJobIds.size > 0 && ` (${selectedJobIds.size})`}
                 </button>
               </div>
             </div>
@@ -431,6 +463,14 @@ export default function SearchBox({ onJobSelect }) {
               <span>Tổng: <strong>{entityJobs.length}</strong> jobs
                 {filterMode === 'month' ? ` tháng ${filterMonth}` : fromDate && toDate ? ` từ ${fromDate} → ${toDate}` : ''}
               </span>
+              {selectedJobIds.size > 0 && (
+                <span style={{ color: '#2563EB' }}>Đã chọn: <strong>{selectedJobIds.size}</strong>
+                  <button
+                    onClick={() => setSelectedJobIds(new Set())}
+                    style={{ marginLeft: 6, cursor: 'pointer', color: '#EF4444', background: 'none', border: 'none', fontSize: 12 }}
+                  >Bỏ chọn</button>
+                </span>
+              )}
               <span>Doanh thu: <strong>
                 {entityJobs.reduce((s, j) => s + (parseFloat(j.total_revenue) || 0), 0).toLocaleString('vi-VN')}đ
               </strong></span>
@@ -445,6 +485,20 @@ export default function SearchBox({ onJobSelect }) {
                 <table className="entity-jobs-table">
                   <thead>
                     <tr>
+                      <th style={{ width: 36 }}>
+                        <input
+                          type="checkbox"
+                          checked={entityJobs.length > 0 && selectedJobIds.size === entityJobs.length}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedJobIds(new Set(entityJobs.map(j => j.job_id)));
+                            } else {
+                              setSelectedJobIds(new Set());
+                            }
+                          }}
+                          title="Chọn tất cả"
+                        />
+                      </th>
                       <th>Mã Job</th>
                       <th>Ngày</th>
                       <th>Trạng thái</th>
@@ -463,7 +517,23 @@ export default function SearchBox({ onJobSelect }) {
                           }
                         }}
                         style={{ cursor: 'pointer' }}
+                        className={selectedJobIds.has(job.job_id) ? 'selected-row' : ''}
                       >
+                        <td onClick={(e) => e.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            checked={selectedJobIds.has(job.job_id)}
+                            onChange={(e) => {
+                              const next = new Set(selectedJobIds);
+                              if (e.target.checked) {
+                                next.add(job.job_id);
+                              } else {
+                                next.delete(job.job_id);
+                              }
+                              setSelectedJobIds(next);
+                            }}
+                          />
+                        </td>
                         <td className="job-no">{job.job_no}</td>
                         <td>{job.etd || job.created_at?.slice(0, 10)}</td>
                         <td>
