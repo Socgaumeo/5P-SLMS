@@ -2436,11 +2436,80 @@ class ServiceQuotationRequest(BaseModel):
     extra_revenues: Optional[list] = None  # [{name, amount, vendor?, unit_price?, quantity?, unit?, currency?, exchange_rate?}, ...]
 
 
+def _sync_quotation_to_job_costs(client, job_id: int, svc_id: int, request):
+    """Sync service quotation data → job_costs table.
+    Deletes old costs for this svc_id and re-inserts from quotation data.
+    This ensures jobs.total_revenue/total_cost (generated from job_costs) stay accurate.
+    """
+    try:
+        # Delete existing costs linked to this service
+        client.table('job_costs').delete().eq('job_id', job_id).eq('svc_id', svc_id).execute()
+
+        costs_to_insert = []
+
+        # Base selling price → "Doanh thu cơ bản"
+        if request.selling_price and request.selling_price > 0:
+            costs_to_insert.append({
+                'job_id': job_id, 'svc_id': svc_id,
+                'cost_name': 'Doanh thu cơ bản',
+                'quantity': 1, 'unit': 'lô',
+                'buying_rate': 0, 'selling_rate': request.selling_price,
+                'vat_rate': 8,
+            })
+
+        # Base buying price → "Chi phí cơ bản"
+        if request.buying_price and request.buying_price > 0:
+            costs_to_insert.append({
+                'job_id': job_id, 'svc_id': svc_id,
+                'cost_name': 'Chi phí cơ bản',
+                'quantity': 1, 'unit': 'lô',
+                'buying_rate': request.buying_price, 'selling_rate': 0,
+                'vat_rate': 8,
+            })
+
+        # Extra costs
+        for c in (request.extra_costs or []):
+            amt = float(c.get('amount') or 0)
+            if amt <= 0:
+                continue
+            qty = float(c.get('qty') or 1)
+            unit_price = float(c.get('unit_price') or (amt / qty if qty else amt))
+            costs_to_insert.append({
+                'job_id': job_id, 'svc_id': svc_id,
+                'cost_name': c.get('name', 'Chi phí khác'),
+                'quantity': qty, 'unit': c.get('unit', 'lô'),
+                'buying_rate': unit_price, 'selling_rate': 0,
+                'vat_rate': 0,
+            })
+
+        # Extra revenues
+        for r in (request.extra_revenues or []):
+            amt = float(r.get('amount') or 0)
+            if amt <= 0:
+                continue
+            qty = float(r.get('qty') or 1)
+            unit_price = float(r.get('unit_price') or (amt / qty if qty else amt))
+            costs_to_insert.append({
+                'job_id': job_id, 'svc_id': svc_id,
+                'cost_name': r.get('name', 'Doanh thu khác'),
+                'quantity': qty, 'unit': r.get('unit', 'lô'),
+                'buying_rate': 0, 'selling_rate': unit_price,
+                'vat_rate': 0,
+            })
+
+        # Batch insert
+        if costs_to_insert:
+            client.table('job_costs').insert(costs_to_insert).execute()
+            logger.info(f"Synced {len(costs_to_insert)} cost lines to job_costs for job_id={job_id}, svc_id={svc_id}")
+    except Exception as e:
+        logger.error(f"Failed to sync quotation to job_costs: {e}")
+
+
 @router.put("/services/{svc_id}/quotations")
 async def update_service_quotations(svc_id: int, request: ServiceQuotationRequest):
     """
     Update buying/selling quotations for a service.
-    Stores in service_details JSONB and calculates profit.
+    Stores in service_details JSONB and syncs to job_costs table.
     """
     try:
         client = get_supabase()
@@ -2508,6 +2577,10 @@ async def update_service_quotations(svc_id: int, request: ServiceQuotationReques
             'service_details': current_details,
             'updated_at': datetime.now().isoformat()
         }).eq('svc_id', svc_id).execute()
+
+        # Sync to job_costs table (source of truth for jobs.total_revenue/total_cost)
+        job_id = svc['job_id']
+        _sync_quotation_to_job_costs(client, job_id, svc_id, request)
 
         logger.info(f"Updated quotations for service {svc_id}: buying={request.buying_price}, selling={request.selling_price}")
 
