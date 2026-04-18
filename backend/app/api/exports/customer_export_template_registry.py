@@ -29,6 +29,15 @@ CUSTOMER_TEMPLATES: Dict[str, Dict[str, Any]] = {
         "sheets": ["Bảng kê IM", "Truck", "Debit"],
         "supports_date_filter": True,
     },
+    "DAINESE": {
+        "name": "DAINESE Vietnam",
+        "description": "Bảng kê theo loại dịch vụ: Nhập SEA/AIR, CO, TC+CPN, TT, Xuất",
+        "module": "dainese_customer_export_template",
+        "supports_date_filter": True,
+        # When `templates` is present, the frontend renders ONE button per
+        # entry so the user picks which Bảng kê variant to export.
+        "templates": [],  # populated lazily below to avoid import cycles
+    },
     # Add more customer templates here:
     # "SAMSUNG": {
     #     "name": "Samsung Electronics",
@@ -38,6 +47,18 @@ CUSTOMER_TEMPLATES: Dict[str, Dict[str, Any]] = {
     #     "supports_date_filter": True,
     # },
 }
+
+
+def _populate_dainese_templates() -> None:
+    """Load DAINESE template list lazily (sub-templates live in the module)."""
+    try:
+        from app.api.exports.dainese_customer_export_template import list_dainese_templates
+        CUSTOMER_TEMPLATES["DAINESE"]["templates"] = list_dainese_templates()
+    except Exception as e:  # pragma: no cover - import guard
+        logger.warning(f"Could not load DAINESE templates: {e}")
+
+
+_populate_dainese_templates()
 
 
 def get_customer_template(customer_code: str) -> Optional[Dict[str, Any]]:
@@ -94,6 +115,10 @@ async def export_customer_jobs(
     month: Optional[str] = Query(None, description="Month filter YYYY-MM"),
     start_date: Optional[str] = Query(None, description="Start date YYYY-MM-DD"),
     end_date: Optional[str] = Query(None, description="End date YYYY-MM-DD"),
+    template: Optional[str] = Query(
+        None,
+        description="Sub-template key (required for customers with multiple templates, e.g. DAINESE)",
+    ),
 ):
     """
     Export jobs for a customer using their custom template if available.
@@ -107,33 +132,42 @@ async def export_customer_jobs(
         # Route to customer-specific export by redirecting to existing endpoint
         module_name = template_info["module"]
 
+        # Get customer_id from customer_code
+        from app.db.supabase_client import get_supabase
+        client = get_supabase()
+        result = client.table('customers').select('customer_id').eq(
+            'customer_code', customer_code.upper()
+        ).limit(1).execute()
+
+        if not result.data:
+            raise HTTPException(404, f"Customer {customer_code} not found")
+
+        customer_id = result.data[0]['customer_id']
+
         if module_name == "meiko_customer_export_template":
-            # Get customer_id from customer_code
-            from app.db.supabase_client import get_supabase
-            client = get_supabase()
-            result = client.table('customers').select('customer_id').eq(
-                'customer_code', customer_code.upper()
-            ).limit(1).execute()
-
-            if not result.data:
-                raise HTTPException(404, f"Customer {customer_code} not found")
-
-            customer_id = result.data[0]['customer_id']
-
-            # Build redirect URL to existing MEIKO export endpoint
             redirect_url = f"/api/jobs/exports/meiko?customer_id={customer_id}"
-            if month:
-                redirect_url += f"&month={month}"
-            if start_date:
-                redirect_url += f"&from_date={start_date}"
-            if end_date:
-                redirect_url += f"&to_date={end_date}"
 
-            return RedirectResponse(url=redirect_url, status_code=307)
+        elif module_name == "dainese_customer_export_template":
+            # DAINESE requires `template` to choose which Bảng kê to generate
+            from fastapi import Query as _Q
+            template = template or "nhap_sea_air"
+            redirect_url = (
+                f"/api/jobs/exports/dainese?customer_id={customer_id}&template={template}"
+            )
 
-        # Add more template handlers here as needed
-        # elif module_name == "samsung_export_template":
-        #     ...
+        else:
+            raise HTTPException(
+                501, f"Module '{module_name}' not wired in registry"
+            )
+
+        if month:
+            redirect_url += f"&month={month}"
+        if start_date:
+            redirect_url += f"&from_date={start_date}"
+        if end_date:
+            redirect_url += f"&to_date={end_date}"
+
+        return RedirectResponse(url=redirect_url, status_code=307)
 
     # No custom template - use generic export
     raise HTTPException(

@@ -159,7 +159,9 @@ export default function SearchBox({ onJobSelect }) {
   };
 
   // Export jobs to Excel - use custom template if available
-  const exportEntityJobs = async (useCustomTemplate = false) => {
+  // `templateKey` is optional - used when the customer has multiple templates
+  // (e.g. DAINESE) and the user picked a specific Bảng kê variant.
+  const exportEntityJobs = async (useCustomTemplate = false, templateKey = null) => {
     if (!entityMatch) return;
 
     setExporting(true);
@@ -170,7 +172,11 @@ export default function SearchBox({ onJobSelect }) {
       if (useCustomTemplate && templateInfo && entityMatch.type === 'customer') {
         // Use customer-specific template
         url = `${API_URL}/api/exports/customer/${entityMatch.code}?month=${filterMonth}`;
-        filename = `${entityMatch.code}_${filterMonth}_${templateInfo.name || 'export'}.xlsx`;
+        if (templateKey) {
+          url += `&template=${templateKey}`;
+        }
+        const tplLabel = templateKey || templateInfo.name || 'export';
+        filename = `${entityMatch.code}_${filterMonth}_${tplLabel}.xlsx`;
       } else {
         // Use generic export
         url = `${API_URL}/api/jobs/exports/entity?entity_type=${entityMatch.type}&entity_id=${entityMatch.id}`;
@@ -438,7 +444,23 @@ export default function SearchBox({ onJobSelect }) {
                   <option value="CUS_CO">C/O</option>
                   <option value="CUS">Hải quan</option>
                 </select>
-                {templateInfo && (
+                {templateInfo && Array.isArray(templateInfo.templates) && templateInfo.templates.length > 0 ? (
+                  // Customer has multiple sub-templates (e.g. DAINESE) → render one button per template
+                  templateInfo.templates.map((tpl) => (
+                    <button
+                      key={tpl.key}
+                      className="export-btn custom-template"
+                      onClick={() => exportEntityJobs(true, tpl.key)}
+                      disabled={exporting || tpl.implemented === false}
+                      title={tpl.implemented === false
+                        ? `${tpl.description} (chưa làm xong)`
+                        : tpl.description}
+                    >
+                      {exporting ? '⏳' : (tpl.icon || '📊')} {tpl.label}
+                      {tpl.implemented === false ? ' (WIP)' : ''}
+                    </button>
+                  ))
+                ) : templateInfo && (
                   <button
                     className="export-btn custom-template"
                     onClick={() => exportEntityJobs(true)}
