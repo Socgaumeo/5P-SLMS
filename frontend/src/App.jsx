@@ -2576,99 +2576,82 @@ function JobDetailModal({ job, onClose, onUpdate }) {
             )}
           </div>
 
-        {/* Chi hộ (Reimbursement) Section */}
+        {/* Revenue / Cost / Gross Profit Section */}
         {(() => {
-          const reimbursements = jobCosts.filter(c => c.is_reimbursement)
-          const serviceFees = jobCosts.filter(c => !c.is_reimbursement)
-          // Use selling_amount if available, otherwise buying_amount (for cost-only lines)
-          const getAmount = (c) => (parseFloat(c.selling_amount) || 0) || (parseFloat(c.buying_amount) || 0)
-          const getRate = (c) => (parseFloat(c.selling_rate) || 0) || (parseFloat(c.buying_rate) || 0)
-          const isBuyingOnly = (c) => (parseFloat(c.selling_amount) || 0) === 0 && (parseFloat(c.buying_amount) || 0) > 0
-          const totalService = serviceFees.reduce((sum, c) => sum + (parseFloat(c.selling_amount) || 0), 0)
-          const totalBuying = serviceFees.reduce((sum, c) => sum + (parseFloat(c.buying_amount) || 0), 0)
-          const totalReimb = reimbursements.reduce((sum, c) => sum + (parseFloat(c.selling_amount) || 0), 0)
-          const totalVAT = serviceFees.reduce((sum, c) => sum + (parseFloat(c.selling_amount) || 0) * (parseFloat(c.vat_rate) || 0) / 100, 0)
-          const totalReimbVAT = reimbursements.reduce((sum, c) => sum + (parseFloat(c.selling_amount) || 0) * (parseFloat(c.vat_rate) || 0) / 100, 0)
-          // Skip when no financial data at all
-          if (jobCosts.length === 0 || (totalService === 0 && totalReimb === 0 && totalBuying === 0)) return null
+          if (jobCosts.length === 0) return null
+          // Split into revenue lines (selling > 0) and cost lines (buying > 0)
+          const revenueLines = jobCosts.filter(c => (parseFloat(c.selling_amount) || 0) > 0)
+          const costLines = jobCosts.filter(c => (parseFloat(c.buying_amount) || 0) > 0)
+          const totalRevenue = revenueLines.reduce((sum, c) => sum + (parseFloat(c.selling_amount) || 0), 0)
+          const totalCost = costLines.reduce((sum, c) => sum + (parseFloat(c.buying_amount) || 0), 0)
+          const revenueVAT = revenueLines.reduce((sum, c) => sum + (parseFloat(c.selling_amount) || 0) * (parseFloat(c.vat_rate) || 0) / 100, 0)
+          const costVAT = costLines.reduce((sum, c) => sum + (parseFloat(c.buying_amount) || 0) * (parseFloat(c.vat_rate) || 0) / 100, 0)
+          const grossProfit = totalRevenue - totalCost
+          if (totalRevenue === 0 && totalCost === 0) return null
+
+          const rowStyle = { display: 'grid', gridTemplateColumns: '1fr auto auto auto auto', gap: '4px', alignItems: 'baseline', fontSize: '12px', padding: '2px 0', color: 'var(--text-secondary)' }
+
           return (
             <div style={{ padding: '0 16px 12px' }}>
-              {/* Service Fees Summary */}
-              {serviceFees.length > 0 && (
-                <div style={{ marginBottom: '10px', padding: '10px 12px', background: 'rgba(16, 185, 129, 0.06)', borderRadius: '8px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
+              {/* DOANH THU */}
+              {revenueLines.length > 0 && (
+                <div style={{ marginBottom: '8px', padding: '10px 12px', background: 'rgba(16, 185, 129, 0.06)', borderRadius: '8px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
                   <div style={{ fontWeight: '600', fontSize: '13px', marginBottom: '6px', color: '#10B981' }}>
-                    📤 Phí dịch vụ ({serviceFees.length} mục)
+                    DOANH THU ({revenueLines.length} mục)
                   </div>
-                  <div>
-                  {serviceFees.map((c, i) => {
-                    const buying = isBuyingOnly(c)
-                    const rate = getRate(c)
-                    const amount = getAmount(c)
-                    return (
-                    <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr auto auto auto auto', gap: '4px', alignItems: 'baseline', fontSize: '12px', padding: '2px 0', color: buying ? '#EF4444' : 'var(--text-secondary)' }}>
-                      <span style={{ minWidth: 0 }}>{buying ? '📥' : '📤'} {c.cost_name}</span>
-                      <span style={{ textAlign: 'right', color: '#6B7280', whiteSpace: 'nowrap' }}>{parseFloat(c.quantity) || 1} {c.unit || ''}</span>
-                      <span style={{ color: '#9CA3AF' }}>×</span>
-                      <span style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{formatPrice(rate)}</span>
-                      <span style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>= <b>{formatPrice(amount)}</b>{c.vat_rate > 0 ? <span style={{ color: '#9CA3AF' }}> +{c.vat_rate}%</span> : ''}</span>
-                    </div>
-                    )
-                  })}
-                  </div>
-                  {totalService > 0 && (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: '600', marginTop: '4px', paddingTop: '4px', borderTop: '1px dashed rgba(0,0,0,0.1)', color: '#10B981' }}>
-                      <span>📤 Doanh thu (trước VAT)</span>
-                      <span>{formatPrice(totalService)}</span>
-                    </div>
-                  )}
-                  {totalBuying > 0 && (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: '600', marginTop: totalService > 0 ? '2px' : '4px', paddingTop: totalService > 0 ? '0' : '4px', borderTop: totalService > 0 ? 'none' : '1px dashed rgba(0,0,0,0.1)', color: '#EF4444' }}>
-                      <span>📥 Chi phí</span>
-                      <span>{formatPrice(totalBuying)}</span>
-                    </div>
-                  )}
-                  {totalVAT > 0 && (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#9CA3AF' }}>
-                      <span>VAT</span>
-                      <span>{formatPrice(totalVAT)}</span>
-                    </div>
-                  )}
-                </div>
-              )}
-              {/* Reimbursement Section */}
-              {reimbursements.length > 0 && (
-                <div style={{ padding: '10px 12px', background: 'rgba(245, 158, 11, 0.06)', borderRadius: '8px', border: '1px solid rgba(245, 158, 11, 0.2)' }}>
-                  <div style={{ fontWeight: '600', fontSize: '13px', marginBottom: '6px', color: '#F59E0B' }}>
-                    🔄 Chi hộ ({reimbursements.length} mục)
-                  </div>
-                  <div>
-                  {reimbursements.map((c, i) => (
-                    <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr auto auto auto auto', gap: '4px', alignItems: 'baseline', fontSize: '12px', padding: '2px 0', color: 'var(--text-secondary)' }}>
-                      <span style={{ minWidth: 0 }}>{c.cost_name}</span>
+                  {revenueLines.map((c, i) => (
+                    <div key={i} style={rowStyle}>
+                      <span>{c.cost_name}</span>
                       <span style={{ textAlign: 'right', color: '#6B7280', whiteSpace: 'nowrap' }}>{parseFloat(c.quantity) || 1} {c.unit || ''}</span>
                       <span style={{ color: '#9CA3AF' }}>×</span>
                       <span style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{formatPrice(parseFloat(c.selling_rate) || 0)}</span>
                       <span style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>= <b>{formatPrice(parseFloat(c.selling_amount) || 0)}</b>{c.vat_rate > 0 ? <span style={{ color: '#9CA3AF' }}> +{c.vat_rate}%</span> : ''}</span>
                     </div>
                   ))}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: '600', marginTop: '4px', paddingTop: '4px', borderTop: '1px dashed rgba(0,0,0,0.1)', color: '#10B981' }}>
+                    <span>Tổng doanh thu (trước VAT)</span>
+                    <span>{formatPrice(totalRevenue)}</span>
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: '600', marginTop: '4px', paddingTop: '4px', borderTop: '1px dashed rgba(0,0,0,0.1)', color: '#F59E0B' }}>
-                    <span>Tổng chi hộ</span>
-                    <span>{formatPrice(totalReimb)}</span>
-                  </div>
-                  {totalReimbVAT > 0 && (
+                  {revenueVAT > 0 && (
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#9CA3AF' }}>
-                      <span>VAT chi hộ</span>
-                      <span>{formatPrice(totalReimbVAT)}</span>
+                      <span>VAT doanh thu</span>
+                      <span>{formatPrice(revenueVAT)}</span>
                     </div>
                   )}
                 </div>
               )}
-              {/* Grand Total */}
-              {serviceFees.length > 0 && reimbursements.length > 0 && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', fontWeight: '700', marginTop: '8px', padding: '8px 12px', background: 'var(--bg-secondary)', borderRadius: '6px' }}>
-                  <span>Tổng cộng (DV + Chi hộ)</span>
-                  <span>{formatPrice(totalService + totalVAT + totalReimb + totalReimbVAT)}</span>
+              {/* CHI PHÍ */}
+              {costLines.length > 0 && (
+                <div style={{ marginBottom: '8px', padding: '10px 12px', background: 'rgba(239, 68, 68, 0.06)', borderRadius: '8px', border: '1px solid rgba(239, 68, 68, 0.15)' }}>
+                  <div style={{ fontWeight: '600', fontSize: '13px', marginBottom: '6px', color: '#EF4444' }}>
+                    CHI PHÍ ({costLines.length} mục)
+                  </div>
+                  {costLines.map((c, i) => (
+                    <div key={i} style={rowStyle}>
+                      <span>{c.cost_name}</span>
+                      <span style={{ textAlign: 'right', color: '#6B7280', whiteSpace: 'nowrap' }}>{parseFloat(c.quantity) || 1} {c.unit || ''}</span>
+                      <span style={{ color: '#9CA3AF' }}>×</span>
+                      <span style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{formatPrice(parseFloat(c.buying_rate) || 0)}</span>
+                      <span style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>= <b>{formatPrice(parseFloat(c.buying_amount) || 0)}</b>{c.vat_rate > 0 ? <span style={{ color: '#9CA3AF' }}> +{c.vat_rate}%</span> : ''}</span>
+                    </div>
+                  ))}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: '600', marginTop: '4px', paddingTop: '4px', borderTop: '1px dashed rgba(0,0,0,0.1)', color: '#EF4444' }}>
+                    <span>Tổng chi phí (trước VAT)</span>
+                    <span>{formatPrice(totalCost)}</span>
+                  </div>
+                  {costVAT > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#9CA3AF' }}>
+                      <span>VAT chi phí</span>
+                      <span>{formatPrice(costVAT)}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+              {/* LỢI NHUẬN GỘP */}
+              {(totalRevenue > 0 || totalCost > 0) && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '14px', fontWeight: '700', padding: '10px 12px', background: grossProfit >= 0 ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)', borderRadius: '8px', color: grossProfit >= 0 ? '#059669' : '#DC2626' }}>
+                  <span>LỢI NHUẬN GỘP</span>
+                  <span>{formatPrice(grossProfit)}{totalRevenue > 0 ? ` (${(grossProfit / totalRevenue * 100).toFixed(1)}%)` : ''}</span>
                 </div>
               )}
             </div>
