@@ -38,6 +38,9 @@ from app.api.exports.dainese_template_renderer_tc_cpn import (
 from app.api.exports.dainese_template_renderer_thanh_toan_truck import (
     render_thanh_toan_truck_workbook,
 )
+from app.api.exports.dainese_template_renderer_xuat import (
+    render_xuat_workbook,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -77,9 +80,9 @@ DAINESE_TEMPLATES: Dict[str, Dict[str, Any]] = {
     "xuat": {
         "label": "Bảng kê xuất",
         "icon": "📤",
-        "description": "Xuất khẩu",
+        "description": "Chi tiết dịch vụ hàng xuất",
         "service_types": ["SEA_EXP", "AIR_EXP", "BORDER_EXP", "CUS_EXPORT"],
-        "implemented": False,
+        "implemented": True,
     },
 }
 
@@ -266,6 +269,15 @@ def export_dainese_template(
         )
     elif template == "tt":
         wb = render_thanh_toan_truck_workbook(
+            customer=customer,
+            services=services,
+            jobs_map=jobs_map,
+            costs_by_svc=costs_by_svc,
+            month=month,
+            logo_path=str(LOGO_PATH) if LOGO_PATH.exists() else None,
+        )
+    elif template == "xuat":
+        wb = render_xuat_workbook(
             customer=customer,
             services=services,
             jobs_map=jobs_map,
