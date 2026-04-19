@@ -310,6 +310,7 @@ def search_jobs_by_entity(
     to_date: Optional[str] = Query(None, description="End date YYYY-MM-DD"),
     month: Optional[str] = Query(None, description="Month filter YYYY-MM"),
     status: Optional[str] = Query(None, description="Status filter"),
+    service_type: Optional[str] = Query(None, description="service_type_code filter, e.g. SEA_IMP"),
     db: DatabaseSession = Depends(get_db)
 ):
     """
@@ -344,6 +345,16 @@ def search_jobs_by_entity(
             date_conditions += " AND j.status_code = %s"
             params.append(status.upper())
 
+        # Optional service_type filter — only return jobs that have at least
+        # one job_services row matching the selected service_type_code.
+        svc_type_condition = ""
+        if service_type:
+            svc_type_condition = (
+                " AND EXISTS (SELECT 1 FROM job_services js_f "
+                "             WHERE js_f.job_id = j.job_id "
+                "               AND js_f.service_type_code = %s)"
+            )
+
         if entity_type == "customer":
             query = f"""
                 SELECT j.job_id, j.job_no, j.status_code, j.etd, j.created_at,
@@ -353,10 +364,13 @@ def search_jobs_by_entity(
                         FROM job_services js WHERE js.job_id = j.job_id) as service_types
                 FROM jobs j
                 JOIN customers c ON j.customer_id = c.customer_id
-                WHERE j.customer_id = %s {date_conditions}
+                WHERE j.customer_id = %s {date_conditions}{svc_type_condition}
                 ORDER BY j.created_at DESC
             """
-            db.execute(query, (entity_id, *params))
+            args = [entity_id, *params]
+            if service_type:
+                args.append(service_type)
+            db.execute(query, tuple(args))
         else:
             # Vendor: find jobs where vendor provided services
             query = f"""
@@ -370,10 +384,13 @@ def search_jobs_by_entity(
                 JOIN customers c ON j.customer_id = c.customer_id
                 JOIN job_services js ON j.job_id = js.job_id
                 JOIN vendors v ON js.vendor_id = v.vendor_id
-                WHERE js.vendor_id = %s {date_conditions}
+                WHERE js.vendor_id = %s {date_conditions}{svc_type_condition}
                 ORDER BY j.created_at DESC
             """
-            db.execute(query, (entity_id, entity_id, *params))
+            args = [entity_id, entity_id, *params]
+            if service_type:
+                args.append(service_type)
+            db.execute(query, tuple(args))
 
         raw_results = db.fetchall()
         results = []

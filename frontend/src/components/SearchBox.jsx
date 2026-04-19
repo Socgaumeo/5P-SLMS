@@ -126,7 +126,9 @@ export default function SearchBox({ onJobSelect }) {
     }
   };
 
-  // Load all jobs for entity with date filter (month or range)
+  // Load all jobs for entity with date + service-type filter.
+  // `opts.serviceType` falls back to current `serviceTypeFilter` so dropdown
+  // changes can trigger a reload that immediately filters the displayed list.
   const loadEntityJobs = async (entity, opts = {}) => {
     setLoading(true);
     try {
@@ -141,6 +143,8 @@ export default function SearchBox({ onJobSelect }) {
         const month = opts.month || filterMonth;
         if (month) url += `&month=${month}`;
       }
+      const svcType = opts.serviceType !== undefined ? opts.serviceType : serviceTypeFilter;
+      if (svcType) url += `&service_type=${svcType}`;
 
       const res = await fetch(url);
       const data = await res.json();
@@ -436,11 +440,17 @@ export default function SearchBox({ onJobSelect }) {
                 )}
               </div>
               <div className="export-buttons">
-                {/* Service type filter */}
+                {/* Service type filter — also reloads list to apply server-side filter */}
                 <select
                   className="service-type-filter"
                   value={serviceTypeFilter}
-                  onChange={(e) => setServiceTypeFilter(e.target.value)}
+                  onChange={(e) => {
+                    const newVal = e.target.value;
+                    setServiceTypeFilter(newVal);
+                    if (entityMatch) {
+                      loadEntityJobs(entityMatch, { serviceType: newVal });
+                    }
+                  }}
                 >
                   <option value="">Tất cả loại DV</option>
                   <option value="TRUCKING_DOM">Trucking nội địa</option>

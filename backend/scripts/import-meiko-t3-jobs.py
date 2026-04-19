@@ -269,6 +269,10 @@ def create_job_in_db(job_data, service_type, user_id=1):
     client.table('job_services').insert(svc_record).execute()
 
     # Insert job_costs (buying_amount/selling_amount are generated columns)
+    # Excel `amount` is the SELLING price (what we charge MEIKO). Buying cost
+    # comes from vendor invoices (separate import). Setting buying_rate=0 here
+    # so profit shows '—' until real vendor cost is entered, instead of falsely
+    # implying 0% margin (which happens when buy_rate==sell_rate).
     for cost_name, amount in job_data.get('costs', {}).items():
         if amount <= 0:
             continue
@@ -276,7 +280,7 @@ def create_job_in_db(job_data, service_type, user_id=1):
             'job_id': job_id,
             'cost_name': cost_name,
             'quantity': 1,
-            'buying_rate': amount,
+            'buying_rate': 0,
             'selling_rate': amount,
         }).execute()
 

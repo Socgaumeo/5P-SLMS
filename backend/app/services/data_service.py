@@ -319,6 +319,26 @@ class DataService:
             # Determine service type and prefix
             service_type = job_data.get("service_type_code", "TRUCKING_SHORT")
 
+            # --- VALIDATOR: customs jobs MUST have loai_hinh (mã loại hình HQ) ---
+            # Enforced HERE (in service layer) so it applies to every entry path
+            # — REST endpoint /api/jobs/create, Telegram bot, batch imports.
+            # Without loai_hinh the bảng kê F3/F5 cannot reliably classify
+            # DOM (xuất nhập tại chỗ) vs INTL (real export/import).
+            svc_code_upper = (service_type or "").upper()
+            is_customs = svc_code_upper.startswith("CUS_") or svc_code_upper in ("CUS",)
+            loai_hinh_val = (job_data.get("loai_hinh") or "").strip()
+            if is_customs and not loai_hinh_val:
+                return {
+                    "success": False,
+                    "error": "missing_loai_hinh",
+                    "message": (
+                        "Job tờ khai bắt buộc phải có 'Loại hình' (mã loại hình hải quan). "
+                        "Ví dụ: A11/A12 (nhập kinh doanh), A41/A42 (nhập tại chỗ), "
+                        "B11/B12 (xuất kinh doanh), B13/E62 (xuất tại chỗ), "
+                        "G14/G24 (tạm xuất). Vui lòng bổ sung trường này."
+                    ),
+                }
+
             prefix_map = {
                 "BORDER_IMP": "BI",
                 "BORDER_EXP": "BE",

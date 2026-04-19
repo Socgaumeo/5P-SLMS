@@ -114,6 +114,9 @@ def create_job_in_db(job_data, customer_id, user_id=1):
         svc_record['bl_awb_no'] = job_data['bl_awb']
     client.table('job_services').insert(svc_record).execute()
 
+    # `amount` is selling price (revenue). Real cost (buying_rate) comes from
+    # vendor invoices imported separately. Setting buying_rate=0 here avoids
+    # the false 0% margin display caused by buy=sell.
     for cost_name, amount in job_data.get('costs', {}).items():
         if amount <= 0:
             continue
@@ -121,7 +124,7 @@ def create_job_in_db(job_data, customer_id, user_id=1):
             'job_id': job_id,
             'cost_name': cost_name,
             'quantity': 1,
-            'buying_rate': amount,
+            'buying_rate': 0,
             'selling_rate': amount,
         }).execute()
 
