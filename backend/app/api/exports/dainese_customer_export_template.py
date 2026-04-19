@@ -29,6 +29,9 @@ from app.db.session import get_db, DatabaseSession
 from app.api.exports.dainese_template_renderer_nhap_sea_air import (
     render_nhap_sea_air_workbook,
 )
+from app.api.exports.dainese_template_renderer_phi_co import (
+    render_phi_co_workbook,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -49,7 +52,7 @@ DAINESE_TEMPLATES: Dict[str, Dict[str, Any]] = {
         "icon": "📜",
         "description": "Phí Certificate of Origin",
         "service_types": ["CUS_CO"],
-        "implemented": False,
+        "implemented": True,
     },
     "tc_cpn": {
         "label": "Bảng kê TC + CPN",
@@ -202,7 +205,8 @@ def export_dainese_template(
     # Customer info
     db.execute(
         """
-        SELECT customer_id, customer_code, short_name, company_name, address, contact_name
+        SELECT customer_id, customer_code, short_name, company_name, address,
+               contact_name, tax_code
         FROM customers WHERE customer_id = %s
         """,
         (customer_id,),
@@ -229,6 +233,15 @@ def export_dainese_template(
     # Render the requested template
     if template == "nhap_sea_air":
         wb = render_nhap_sea_air_workbook(
+            customer=customer,
+            services=services,
+            jobs_map=jobs_map,
+            costs_by_svc=costs_by_svc,
+            month=month,
+            logo_path=str(LOGO_PATH) if LOGO_PATH.exists() else None,
+        )
+    elif template == "phi_co":
+        wb = render_phi_co_workbook(
             customer=customer,
             services=services,
             jobs_map=jobs_map,
