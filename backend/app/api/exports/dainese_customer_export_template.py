@@ -101,8 +101,14 @@ def _fetch_jobs_and_services(
     month: Optional[str],
     from_date: Optional[str],
     to_date: Optional[str],
-) -> tuple[List[Dict], List[Dict]]:
-    """Pull jobs + their services for the requested period and service types."""
+) -> tuple[List[Dict], List[Dict], Dict[int, List[Dict]]]:
+    """
+    Pull jobs + their services for the requested period and service types.
+
+    Also returns `costs_by_svc`: dict mapping svc_id -> list of job_cost rows.
+    The fee breakdown for each row in the Bảng kê (cols K-Y) is sourced from
+    job_costs grouped per service.
+    """
     date_clause = ""
     params: List[Any] = [customer_id]
 
@@ -131,7 +137,7 @@ def _fetch_jobs_and_services(
     )
     jobs = [dict(r) for r in db.fetchall()]
     if not jobs:
-        return [], []
+        return [], [], {}
 
     job_ids = [j["job_id"] for j in jobs]
     type_placeholders = ",".join(["%s"] * len(service_types))
@@ -149,7 +155,27 @@ def _fetch_jobs_and_services(
         tuple(job_ids + service_types),
     )
     services = [dict(r) for r in db.fetchall()]
-    return jobs, services
+
+    # Pull all job_costs for these services (one round-trip)
+    svc_ids = [s["svc_id"] for s in services]
+    costs_by_svc: Dict[int, List[Dict]] = {sid: [] for sid in svc_ids}
+    if svc_ids:
+        svc_placeholders = ",".join(["%s"] * len(svc_ids))
+        db.execute(
+            f"""
+            SELECT cost_id, svc_id, job_id, cost_name, quantity, unit,
+                   buying_amount, selling_amount, is_reimbursement, vat_rate
+            FROM job_costs
+            WHERE svc_id IN ({svc_placeholders})
+            ORDER BY svc_id, cost_id
+            """,
+            tuple(svc_ids),
+        )
+        for row in db.fetchall():
+            d = dict(row)
+            costs_by_svc.setdefault(d["svc_id"], []).append(d)
+
+    return jobs, services, costs_by_svc
 
 
 # ---- API endpoint ----
@@ -186,8 +212,8 @@ def export_dainese_template(
         raise HTTPException(404, "Customer not found")
     customer = dict(customer_row)
 
-    # Fetch data
-    jobs, services = _fetch_jobs_and_services(
+    # Fetch data (jobs, services, and per-service cost breakdown)
+    jobs, services, costs_by_svc = _fetch_jobs_and_services(
         db,
         customer_id=customer_id,
         service_types=template_def["service_types"],
@@ -206,6 +232,7 @@ def export_dainese_template(
             customer=customer,
             services=services,
             jobs_map=jobs_map,
+            costs_by_svc=costs_by_svc,
             month=month,
             logo_path=str(LOGO_PATH) if LOGO_PATH.exists() else None,
         )

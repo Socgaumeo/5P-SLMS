@@ -18,6 +18,10 @@ from openpyxl.utils import get_column_letter
 from openpyxl.utils.cell import range_boundaries
 from openpyxl.drawing.image import Image as XLImage
 
+from app.api.exports.dainese_cost_name_to_column_mapper import (
+    aggregate_costs_into_columns,
+)
+
 
 # ---- Style constants ----
 
@@ -213,45 +217,66 @@ def _build_table_header(ws) -> None:
         ws[coord].border = BORDER_ALL
 
 
-def _service_to_row(svc: Dict[str, Any], job: Dict[str, Any], idx: int) -> Dict[str, Any]:
-    """Map one service+job to the column dict used by the renderer."""
+def _service_to_row(
+    svc: Dict[str, Any],
+    job: Dict[str, Any],
+    cost_rows: List[Dict[str, Any]],
+    idx: int,
+) -> Dict[str, Any]:
+    """Map one service+job to the column dict used by the renderer.
+
+    Granular fees (cols K-Y) are aggregated from `cost_rows` (job_costs entries
+    for this service). The plain text identifiers (tờ khai, vận đơn, etc.) come
+    from job_services top-level columns or service_details JSONB as a fallback.
+    """
     d = _parse_details(svc)
     origin = svc.get("origin_address") or d.get("origin") or ""
     dest = svc.get("dest_address") or d.get("destination") or ""
-    route = d.get("route") or (f"{origin} - {dest}" if origin or dest else "")
+    route = svc.get("route") or d.get("route") or (
+        f"{origin} - {dest}" if origin or dest else ""
+    )
 
     # SEA vs AIR
     code = (svc.get("service_type_code") or "").upper()
     loai = "AIR" if "AIR" in code else "SEA"
 
+    # Fee aggregation from job_costs
+    fees = aggregate_costs_into_columns(cost_rows)
+
+    # Forwarder/reimbursement invoice numbers — service_details.invoice_hd is
+    # used for "hóa đơn trả hộ" (we keep the rest empty unless data exists)
+    hd_traho = d.get("invoice_hd") or d.get("invoice_reimburse") or ""
+
     return {
         "no": idx,
-        "to_khai": d.get("cd_no") or d.get("declaration_number") or "",
-        "hd_tm": d.get("commercial_invoice") or job.get("invoice_number") or "",
-        "van_don": d.get("bill_of_lading") or d.get("bl_awb_no") or "",
-        "ngay_tk": str(d.get("cd_date") or svc.get("scheduled_date") or ""),
+        "to_khai": svc.get("cd_no") or d.get("cd_no") or d.get("declaration_number") or "",
+        "hd_tm": svc.get("invoice_numbers") or d.get("commercial_invoice") or job.get("invoice_number") or "",
+        "van_don": svc.get("bl_awb_no") or d.get("bill_of_lading") or "",
+        "ngay_tk": str(svc.get("declaration_datetime") or svc.get("scheduled_date") or d.get("cd_date") or ""),
         "tuyen": route,
         "loai": loai,
-        "kgs": d.get("weight_kg") or "",
-        "cont": d.get("container_size") or d.get("cont_type") or "",
-        "note": d.get("notes") or d.get("note") or "",
-        "phi_mtk": _safe_float(d.get("fee_declaration")),
-        "phi_kh": _safe_float(d.get("fee_inspection")),
-        "phi_vc": _safe_float(d.get("fee_transport")),
-        "phi_lh": _safe_float(d.get("fee_handling")),
-        "phi_psk": _safe_float(d.get("fee_extra")),
-        "phi_dnn": _safe_float(d.get("fee_overseas")),
-        "cuoc_qt": _safe_float(d.get("fee_international") or d.get("fee_freight")),
-        "thc": _safe_float(d.get("fee_thc")),
-        "cfs": _safe_float(d.get("fee_cfs")),
-        "do": _safe_float(d.get("fee_do") or d.get("fee_delivery_order")),
-        "dly": _safe_float(d.get("fee_agency")),
-        "local": _safe_float(d.get("fee_local")),
-        "csht": _safe_float(d.get("fee_csht")),
-        "kho": _safe_float(d.get("fee_storage")),
-        "hd_traho": d.get("invoice_reimburse") or "",
-        "hd_fwd_1": d.get("invoice_fwd_1") or "",
-        "hd_fwd_2": d.get("invoice_fwd_2") or "",
+        "kgs": svc.get("weight_kg") or d.get("weight_kg") or "",
+        "cont": d.get("container") or d.get("container_size") or d.get("cont_type") or loai,
+        "note": d.get("note") or d.get("notes") or "",
+        # Aggregated fees from job_costs
+        "phi_mtk": fees["phi_mtk"],
+        "phi_kh": fees["phi_kh"],
+        "phi_vc": fees["phi_vc"],
+        "phi_lh": fees["phi_lh"],
+        "phi_psk": fees["phi_psk"],
+        "phi_dnn": fees["phi_dnn"],
+        "cuoc_qt": fees["cuoc_qt"],
+        "thc": fees["thc"],
+        "cfs": fees["cfs"],
+        "do": fees["do"],
+        "dly": fees["dly"],
+        "local": fees["local"],
+        "csht": fees["csht"],
+        "kho": fees["kho"],
+        "vat_amount": fees["vat_total"],
+        "hd_traho": hd_traho,
+        "hd_fwd_1": "",
+        "hd_fwd_2": "",
     }
 
 
@@ -376,6 +401,7 @@ def render_nhap_sea_air_workbook(
     customer: Dict[str, Any],
     services: List[Dict[str, Any]],
     jobs_map: Dict[Any, Dict[str, Any]],
+    costs_by_svc: Dict[Any, List[Dict[str, Any]]],
     month: Optional[str],
     logo_path: Optional[str],
 ) -> Workbook:
@@ -391,10 +417,15 @@ def render_nhap_sea_air_workbook(
     # Map services -> renderable rows. Sort by date for consistency.
     services_sorted = sorted(
         services,
-        key=lambda s: (s.get("scheduled_date") or "", s.get("service_id") or 0),
+        key=lambda s: (s.get("scheduled_date") or "", s.get("svc_id") or 0),
     )
     rows = [
-        _service_to_row(svc, jobs_map.get(svc["job_id"], {}), idx)
+        _service_to_row(
+            svc,
+            jobs_map.get(svc["job_id"], {}),
+            costs_by_svc.get(svc["svc_id"], []),
+            idx,
+        )
         for idx, svc in enumerate(services_sorted, start=1)
     ]
 
