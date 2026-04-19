@@ -176,7 +176,7 @@ def export_dainese_template(
     # Customer info
     db.execute(
         """
-        SELECT customer_id, customer_code, short_name, company_name, address, contact_person
+        SELECT customer_id, customer_code, short_name, company_name, address, contact_name
         FROM customers WHERE customer_id = %s
         """,
         (customer_id,),

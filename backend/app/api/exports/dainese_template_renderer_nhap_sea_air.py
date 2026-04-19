@@ -148,7 +148,7 @@ def _build_header(ws, customer: Dict[str, Any], logo_path: Optional[str], title_
         or customer.get("customer_code", "")
     )
     cust_addr = customer.get("address") or ""
-    cust_attn = customer.get("contact_person") or ""
+    cust_attn = customer.get("contact_name") or customer.get("contact_person") or ""
 
     ws["B7"] = f"KÍNH GỬI :  {cust_name}"
     ws["B8"] = f"Địa chỉ : {cust_addr}"
