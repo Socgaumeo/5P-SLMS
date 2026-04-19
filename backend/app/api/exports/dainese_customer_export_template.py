@@ -32,6 +32,9 @@ from app.api.exports.dainese_template_renderer_nhap_sea_air import (
 from app.api.exports.dainese_template_renderer_phi_co import (
     render_phi_co_workbook,
 )
+from app.api.exports.dainese_template_renderer_tc_cpn import (
+    render_tc_cpn_workbook,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -57,9 +60,9 @@ DAINESE_TEMPLATES: Dict[str, Dict[str, Any]] = {
     "tc_cpn": {
         "label": "Bảng kê TC + CPN",
         "icon": "📦",
-        "description": "Thủ tục hải quan + Chuyển phát nhanh",
-        "service_types": ["CUS_IMPORT"],
-        "implemented": False,
+        "description": "Nhập khẩu tại chỗ (KNQ) + Chuyển phát nhanh (DHL)",
+        "service_types": ["CUS_CO", "CUS_IMPORT"],
+        "implemented": True,
     },
     "tt": {
         "label": "Bảng kê TT",
@@ -242,6 +245,15 @@ def export_dainese_template(
         )
     elif template == "phi_co":
         wb = render_phi_co_workbook(
+            customer=customer,
+            services=services,
+            jobs_map=jobs_map,
+            costs_by_svc=costs_by_svc,
+            month=month,
+            logo_path=str(LOGO_PATH) if LOGO_PATH.exists() else None,
+        )
+    elif template == "tc_cpn":
+        wb = render_tc_cpn_workbook(
             customer=customer,
             services=services,
             jobs_map=jobs_map,
