@@ -35,6 +35,9 @@ from app.api.exports.dainese_template_renderer_phi_co import (
 from app.api.exports.dainese_template_renderer_tc_cpn import (
     render_tc_cpn_workbook,
 )
+from app.api.exports.dainese_template_renderer_thanh_toan_truck import (
+    render_thanh_toan_truck_workbook,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -67,9 +70,9 @@ DAINESE_TEMPLATES: Dict[str, Dict[str, Any]] = {
     "tt": {
         "label": "Bảng kê TT",
         "icon": "🚚",
-        "description": "Thanh toán / Trucking nội địa",
+        "description": "Thanh toán dịch vụ vận chuyển (trucking nội địa)",
         "service_types": ["TRUCKING_DOM", "TRUCKING_SHORT", "TRUCKING_LONG"],
-        "implemented": False,
+        "implemented": True,
     },
     "xuat": {
         "label": "Bảng kê xuất",
@@ -254,6 +257,15 @@ def export_dainese_template(
         )
     elif template == "tc_cpn":
         wb = render_tc_cpn_workbook(
+            customer=customer,
+            services=services,
+            jobs_map=jobs_map,
+            costs_by_svc=costs_by_svc,
+            month=month,
+            logo_path=str(LOGO_PATH) if LOGO_PATH.exists() else None,
+        )
+    elif template == "tt":
+        wb = render_thanh_toan_truck_workbook(
             customer=customer,
             services=services,
             jobs_map=jobs_map,
