@@ -80,8 +80,11 @@ DAINESE_TEMPLATES: Dict[str, Dict[str, Any]] = {
     "xuat": {
         "label": "Bảng kê xuất",
         "icon": "📤",
-        "description": "Chi tiết dịch vụ hàng xuất",
-        "service_types": ["SEA_EXP", "AIR_EXP", "BORDER_EXP", "CUS_EXPORT"],
+        "description": "Chi tiết dịch vụ hàng xuất (DAINESE S.P.A. + foreign)",
+        # CUS_CO included because DAINESE 'export tại chỗ' services to foreign
+        # buyer (DAINESE S.P.A.) are classified as CUS_CO with mode KNQ/DHL.
+        # The renderer's filter discriminates by foreign-party name in note.
+        "service_types": ["SEA_EXP", "AIR_EXP", "BORDER_EXP", "CUS_EXPORT", "CUS_CO"],
         "implemented": True,
     },
 }
@@ -199,6 +202,10 @@ def export_dainese_template(
     month: Optional[str] = Query(None, description="Month filter YYYY-MM"),
     from_date: Optional[str] = Query(None, description="Start date YYYY-MM-DD"),
     to_date: Optional[str] = Query(None, description="End date YYYY-MM-DD"),
+    service_type: Optional[str] = Query(
+        None,
+        description="Optional service_type_code filter — narrows the template's default service_types list",
+    ),
     db: DatabaseSession = Depends(get_db),
 ):
     """
@@ -225,11 +232,21 @@ def export_dainese_template(
         raise HTTPException(404, "Customer not found")
     customer = dict(customer_row)
 
+    # Allow caller to narrow the template's default service_types list with
+    # an explicit ?service_type=… filter (e.g. "TRUCKING_DOM" within tt template).
+    effective_service_types = template_def["service_types"]
+    if service_type:
+        if service_type in effective_service_types:
+            effective_service_types = [service_type]
+        else:
+            # Service type not part of this template — return empty result
+            effective_service_types = [service_type]
+
     # Fetch data (jobs, services, and per-service cost breakdown)
     jobs, services, costs_by_svc = _fetch_jobs_and_services(
         db,
         customer_id=customer_id,
-        service_types=template_def["service_types"],
+        service_types=effective_service_types,
         month=month,
         from_date=from_date,
         to_date=to_date,

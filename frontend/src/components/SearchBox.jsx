@@ -170,8 +170,8 @@ export default function SearchBox({ onJobSelect }) {
       let filename;
 
       if (useCustomTemplate && templateInfo && entityMatch.type === 'customer') {
-        // Use customer-specific template — pass date range or month based on
-        // current filter mode so the export honors the user's date selection.
+        // Use customer-specific template — pass date range / month / service type
+        // so the export honors all filters the user has selected in this panel.
         url = `${API_URL}/api/exports/customer/${entityMatch.code}?`;
         const params = [];
         if (filterMode === 'range') {
@@ -181,6 +181,7 @@ export default function SearchBox({ onJobSelect }) {
           if (filterMonth) params.push(`month=${filterMonth}`);
         }
         if (templateKey) params.push(`template=${templateKey}`);
+        if (serviceTypeFilter) params.push(`service_type=${serviceTypeFilter}`);
         url += params.join('&');
 
         const tplLabel = templateKey || templateInfo.name || 'export';
@@ -579,8 +580,12 @@ export default function SearchBox({ onJobSelect }) {
                         </td>
                         <td className="number">{(parseFloat(job.total_revenue) || 0).toLocaleString('vi-VN')}</td>
                         <td className="number reimb">{(parseFloat(job.reimbursement_total) || 0) > 0 ? (parseFloat(job.reimbursement_total) || 0).toLocaleString('vi-VN') : '-'}</td>
+                        {/* Profit hidden when cost data missing — otherwise it
+                            equals revenue and falsely implies 100% margin. */}
                         <td className="number profit">
-                          {(parseFloat(job.profit) || 0).toLocaleString('vi-VN')}
+                          {(parseFloat(job.total_cost) || 0) > 0
+                            ? (parseFloat(job.profit) || 0).toLocaleString('vi-VN')
+                            : <span title="Chưa nhập chi phí" style={{ color: '#94a3b8' }}>—</span>}
                         </td>
                       </tr>
                     ))}

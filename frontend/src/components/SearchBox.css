@@ -225,8 +225,10 @@
   background: white;
   border-radius: 16px;
   width: 100%;
-  max-width: 900px;
-  max-height: 80vh;
+  /* Wider so date filter, service-type filter, and 5 DAINESE template
+     buttons all fit on one row without wrapping awkwardly. */
+  max-width: min(95vw, 1500px);
+  max-height: 90vh;
   display: flex;
   flex-direction: column;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
@@ -365,15 +367,24 @@
   color: #94a3b8;
 }
 
-/* Entity Panel Toolbar */
+/* Entity Panel Toolbar — stacks date-filter row above export-buttons row
+   so neither gets squeezed when there are many template buttons (DAINESE has 5). */
 .entity-panel-toolbar {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
+  align-items: stretch;
   padding: 12px 24px;
   background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
   border-bottom: 1px solid #e5e7eb;
-  gap: 16px;
+  gap: 12px;
+}
+
+.entity-panel-toolbar .date-filter {
+  flex-wrap: wrap;
+}
+
+.entity-panel-toolbar .export-buttons {
+  flex-wrap: wrap;
 }
 
 .date-filter {

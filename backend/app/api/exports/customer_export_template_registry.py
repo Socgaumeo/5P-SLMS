@@ -119,6 +119,10 @@ async def export_customer_jobs(
         None,
         description="Sub-template key (required for customers with multiple templates, e.g. DAINESE)",
     ),
+    service_type: Optional[str] = Query(
+        None,
+        description="Optional service_type_code filter (e.g. SEA_IMP, TRUCKING_DOM)",
+    ),
 ):
     """
     Export jobs for a customer using their custom template if available.
@@ -166,6 +170,8 @@ async def export_customer_jobs(
             redirect_url += f"&from_date={start_date}"
         if end_date:
             redirect_url += f"&to_date={end_date}"
+        if service_type:
+            redirect_url += f"&service_type={service_type}"
 
         return RedirectResponse(url=redirect_url, status_code=307)
 

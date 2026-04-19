@@ -310,7 +310,24 @@ async def create_job(request: JobCreateFromChatRequest, req: Request):
         }
         
         logger.info(f"Job data to create: {job_data}")
-        
+
+        # --- VALIDATOR: customs jobs MUST have loai_hinh (mã loại hình HQ) ---
+        # Without it the bảng kê exports cannot reliably classify
+        # DOM (xuất nhập tại chỗ) vs INTL (real export/import).
+        svc_code = (job_data.get('service_type_code') or '').upper()
+        is_customs = svc_code.startswith('CUS_') or svc_code in ('CUS', 'CUS_CO', 'CUS_IMPORT', 'CUS_EXPORT')
+        loai_hinh_val = (job_data.get('loai_hinh') or '').strip()
+        if is_customs and not loai_hinh_val:
+            return JobResponse(
+                success=False,
+                message=(
+                    "Job tờ khai bắt buộc phải có 'Loại hình' (mã loại hình hải quan). "
+                    "Ví dụ: A11/A12 (nhập kinh doanh), A41/A42 (nhập tại chỗ), "
+                    "B11/B12 (xuất kinh doanh), B13/E62 (xuất tại chỗ), "
+                    "G14/G24 (tạm xuất). Vui lòng bổ sung trường này."
+                ),
+            )
+
         # --- DUPLICATE CHECK (strict: match cargo details, not just route) ---
         warnings = []
         if customer_id and booking_date:
