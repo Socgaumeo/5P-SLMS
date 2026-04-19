@@ -123,16 +123,46 @@ def _apply_border_to_range(ws, rng: str, fill: Optional[PatternFill] = None) -> 
 # ---- Filter for TC + CPN services ----
 
 def is_tc_or_cpn_service(svc: Dict[str, Any], cost_rows: List[Dict[str, Any]]) -> bool:
-    """A service belongs in Bảng kê TC/CPN if mode is KNQ/DHL and not a real CO."""
+    """
+    A service belongs in Bảng kê TC/CPN (xuất nhập tại chỗ + CPN) if:
+    - It has a customs declaration (cd_no) AND
+    - It's NOT a real C/O service (covered by File 2), AND EITHER
+      a) cd_no starts with '108' (nhập tại chỗ from Vietnamese sellers), OR
+      b) service_details.mode is KNQ/DHL (CUS_CO TC + CPN imports), OR
+      c) service is CUS_IMPORT (express courier).
+
+    Real international exports (cd_no starting with '308' on CUS_EXPORT
+    without KNQ/DHL mode) go to File 5.
+    """
     d = _parse_details(svc)
+    # Exclude real CO services (covered by File 2)
     if d.get("co_no"):
         return False
-    # Also skip if has 'Phí C/O' cost row
     for c in cost_rows:
-        if "phí c/o" in (c.get("cost_name") or "").lower():
+        name_lc = (c.get("cost_name") or "").lower()
+        if "phí c/o" in name_lc or "phi co" in name_lc:
             return False
+
+    cd_no = str(svc.get("cd_no") or "").strip()
+    if not cd_no:
+        return False
+
+    code = (svc.get("service_type_code") or "").upper()
     mode = (d.get("mode") or "").upper()
-    return mode in ("KNQ", "DHL", "TC", "CPN")
+
+    # CUS_CO with KNQ/DHL = TC/CPN imports
+    if code == "CUS_CO" and mode in ("KNQ", "DHL", "TC", "CPN"):
+        return True
+
+    # CUS_IMPORT = always express courier import → File 3
+    if code == "CUS_IMPORT":
+        return True
+
+    # CUS_EXPORT with cd_no starting '108' = xuất nhập tại chỗ from VN seller
+    if code == "CUS_EXPORT" and cd_no.startswith("108"):
+        return True
+
+    return False
 
 
 def _format_luong(channel: Optional[str]) -> str:

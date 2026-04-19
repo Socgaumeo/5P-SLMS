@@ -424,8 +424,24 @@ def render_xuat_workbook(
     _build_header(ws, customer, logo_path, title_month)
     _build_table_header(ws)
 
+    # Filter to ONLY real exports: CUS_EXPORT with cd_no starting '308' (real
+    # export declaration to foreign buyer or DAINESE S.P.A.). Services with
+    # cd_no '108' = xuất nhập tại chỗ → covered by File 3.
+    def _is_real_export(svc):
+        code = (svc.get("service_type_code") or "").upper()
+        cd_no = str(svc.get("cd_no") or "").strip()
+        # Real exports: 308xxx CUS_EXPORT (foreign buyer)
+        if code == "CUS_EXPORT" and cd_no.startswith("308"):
+            return True
+        # Other export-type service codes (currently unused in DB but supported)
+        if code in ("SEA_EXP", "AIR_EXP", "BORDER_EXP"):
+            return True
+        return False
+
     services_with_costs = sorted(
-        [(svc, costs_by_svc.get(svc["svc_id"], [])) for svc in services],
+        [(svc, costs_by_svc.get(svc["svc_id"], []))
+         for svc in services
+         if _is_real_export(svc)],
         key=lambda pair: (pair[0].get("scheduled_date") or "", pair[0].get("svc_id") or 0),
     )
 

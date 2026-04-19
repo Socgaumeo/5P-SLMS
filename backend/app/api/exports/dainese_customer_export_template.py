@@ -66,8 +66,8 @@ DAINESE_TEMPLATES: Dict[str, Dict[str, Any]] = {
     "tc_cpn": {
         "label": "Bảng kê TC + CPN",
         "icon": "📦",
-        "description": "Nhập khẩu tại chỗ (KNQ) + Chuyển phát nhanh (DHL)",
-        "service_types": ["CUS_CO", "CUS_IMPORT"],
+        "description": "Xuất nhập tại chỗ (KNQ) + Chuyển phát nhanh (DHL)",
+        "service_types": ["CUS_CO", "CUS_IMPORT", "CUS_EXPORT"],
         "implemented": True,
     },
     "tt": {
