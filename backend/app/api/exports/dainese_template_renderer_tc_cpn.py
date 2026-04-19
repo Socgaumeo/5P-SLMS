@@ -122,17 +122,30 @@ def _apply_border_to_range(ws, rng: str, fill: Optional[PatternFill] = None) -> 
 
 # ---- Filter for TC + CPN services ----
 
+_FOREIGN_NAME_MARKERS = (
+    "dainese s.p.a", "dainese spa", "s.p.a", "s.r.l", "co.,ltd", "corporation",
+    "gmbh", "limited", "ltd.", "inc.", "sas", "pte ltd", "co. ltd",
+)
+
+
+def _is_foreign_party(note: Optional[str]) -> bool:
+    """Heuristic: returns True if `note` looks like a foreign company name."""
+    if not note:
+        return False
+    n = note.lower().strip()
+    return any(m in n for m in _FOREIGN_NAME_MARKERS)
+
+
 def is_tc_or_cpn_service(svc: Dict[str, Any], cost_rows: List[Dict[str, Any]]) -> bool:
     """
     A service belongs in Bảng kê TC/CPN (xuất nhập tại chỗ + CPN) if:
-    - It has a customs declaration (cd_no) AND
-    - It's NOT a real C/O service (covered by File 2), AND EITHER
-      a) cd_no starts with '108' (nhập tại chỗ from Vietnamese sellers), OR
-      b) service_details.mode is KNQ/DHL (CUS_CO TC + CPN imports), OR
-      c) service is CUS_IMPORT (express courier).
+    - It has a customs declaration (cd_no), AND
+    - It's NOT a real C/O service (covered by File 2), AND
+    - Buyer/seller (service_details.note) is a Vietnamese company.
 
-    Real international exports (cd_no starting with '308' on CUS_EXPORT
-    without KNQ/DHL mode) go to File 5.
+    DB has no explicit "DOM" / "tại chỗ" flag — buyer/seller name is the
+    only reliable discriminator. Foreign company names (DAINESE S.P.A.,
+    MAVETS S.R.L., etc.) → File 5 (real exports).
     """
     d = _parse_details(svc)
     # Exclude real CO services (covered by File 2)
@@ -143,26 +156,19 @@ def is_tc_or_cpn_service(svc: Dict[str, Any], cost_rows: List[Dict[str, Any]]) -
         if "phí c/o" in name_lc or "phi co" in name_lc:
             return False
 
-    cd_no = str(svc.get("cd_no") or "").strip()
-    if not cd_no:
+    if not str(svc.get("cd_no") or "").strip():
         return False
 
     code = (svc.get("service_type_code") or "").upper()
-    mode = (d.get("mode") or "").upper()
+    if code not in ("CUS_CO", "CUS_IMPORT", "CUS_EXPORT"):
+        return False
 
-    # CUS_CO with KNQ/DHL = TC/CPN imports
-    if code == "CUS_CO" and mode in ("KNQ", "DHL", "TC", "CPN"):
-        return True
+    # Foreign buyer/seller → File 5 (real export)
+    if _is_foreign_party(d.get("note")):
+        return False
 
-    # CUS_IMPORT = always express courier import → File 3
-    if code == "CUS_IMPORT":
-        return True
-
-    # CUS_EXPORT with cd_no starting '108' = xuất nhập tại chỗ from VN seller
-    if code == "CUS_EXPORT" and cd_no.startswith("108"):
-        return True
-
-    return False
+    # Vietnamese seller (or unspecified note) → File 3
+    return True
 
 
 def _format_luong(channel: Optional[str]) -> str:

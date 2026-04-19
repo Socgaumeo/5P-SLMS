@@ -424,16 +424,27 @@ def render_xuat_workbook(
     _build_header(ws, customer, logo_path, title_month)
     _build_table_header(ws)
 
-    # Filter to ONLY real exports: CUS_EXPORT with cd_no starting '308' (real
-    # export declaration to foreign buyer or DAINESE S.P.A.). Services with
-    # cd_no '108' = xuất nhập tại chỗ → covered by File 3.
+    # Filter to real exports: services where buyer/seller (service_details.note)
+    # is a foreign company (DAINESE S.P.A., MAVETS S.R.L., TOPKEY CORP, etc.).
+    # Services with VN buyer/seller go to File 3 (xuất nhập tại chỗ).
+    _FOREIGN_NAME_MARKERS = (
+        "dainese s.p.a", "dainese spa", "s.p.a", "s.r.l", "co.,ltd",
+        "corporation", "gmbh", "limited", "ltd.", "inc.", "sas",
+        "pte ltd", "co. ltd",
+    )
+
     def _is_real_export(svc):
         code = (svc.get("service_type_code") or "").upper()
-        cd_no = str(svc.get("cd_no") or "").strip()
-        # Real exports: 308xxx CUS_EXPORT (foreign buyer)
-        if code == "CUS_EXPORT" and cd_no.startswith("308"):
+        d = _parse_details(svc)
+        # Real CO services go to File 2
+        if d.get("co_no"):
+            return False
+        note = (d.get("note") or "").lower().strip()
+        is_foreign = any(m in note for m in _FOREIGN_NAME_MARKERS)
+        # Match if foreign party + has a customs declaration
+        if str(svc.get("cd_no") or "").strip() and is_foreign:
             return True
-        # Other export-type service codes (currently unused in DB but supported)
+        # Future-proof: service codes for real exports
         if code in ("SEA_EXP", "AIR_EXP", "BORDER_EXP"):
             return True
         return False

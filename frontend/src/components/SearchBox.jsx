@@ -170,13 +170,24 @@ export default function SearchBox({ onJobSelect }) {
       let filename;
 
       if (useCustomTemplate && templateInfo && entityMatch.type === 'customer') {
-        // Use customer-specific template
-        url = `${API_URL}/api/exports/customer/${entityMatch.code}?month=${filterMonth}`;
-        if (templateKey) {
-          url += `&template=${templateKey}`;
+        // Use customer-specific template — pass date range or month based on
+        // current filter mode so the export honors the user's date selection.
+        url = `${API_URL}/api/exports/customer/${entityMatch.code}?`;
+        const params = [];
+        if (filterMode === 'range') {
+          if (fromDate) params.push(`start_date=${fromDate}`);
+          if (toDate) params.push(`end_date=${toDate}`);
+        } else {
+          if (filterMonth) params.push(`month=${filterMonth}`);
         }
+        if (templateKey) params.push(`template=${templateKey}`);
+        url += params.join('&');
+
         const tplLabel = templateKey || templateInfo.name || 'export';
-        filename = `${entityMatch.code}_${filterMonth}_${tplLabel}.xlsx`;
+        const periodTag = filterMode === 'range'
+          ? `${fromDate || ''}_${toDate || ''}`
+          : (filterMonth || 'all');
+        filename = `${entityMatch.code}_${periodTag}_${tplLabel}.xlsx`;
       } else {
         // Use generic export
         url = `${API_URL}/api/jobs/exports/entity?entity_type=${entityMatch.type}&entity_id=${entityMatch.id}`;
