@@ -71,9 +71,9 @@ DAINESE_TEMPLATES: Dict[str, Dict[str, Any]] = {
         "implemented": True,
     },
     "tt": {
-        "label": "Bảng kê TT",
+        "label": "Bảng kê Vận chuyển đường bộ (trucking)",
         "icon": "🚚",
-        "description": "Thanh toán dịch vụ vận chuyển (trucking nội địa)",
+        "description": "Bảng kê thanh toán dịch vụ vận chuyển đường bộ nội địa",
         "service_types": ["TRUCKING_DOM", "TRUCKING_SHORT", "TRUCKING_LONG"],
         "implemented": True,
     },

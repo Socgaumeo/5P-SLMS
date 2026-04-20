@@ -266,9 +266,10 @@ def create_job_in_db(job_data, service_type, user_id=1):
     if job_data.get('vehicle_plate'):
         svc_record['route'] = f"{job_data.get('depart', '')} → Meiko HN (Xe: {job_data['vehicle_plate']})"
 
-    client.table('job_services').insert(svc_record).execute()
+    svc_insert = client.table('job_services').insert(svc_record).execute()
+    svc_id = svc_insert.data[0]['svc_id'] if svc_insert.data else None
 
-    # Insert job_costs (buying_amount/selling_amount are generated columns)
+    # Insert job_costs with svc_id set so renderers can find them.
     # Excel `amount` is the SELLING price (what we charge MEIKO). Buying cost
     # comes from vendor invoices (separate import). Setting buying_rate=0 here
     # so profit shows '—' until real vendor cost is entered, instead of falsely
@@ -278,6 +279,7 @@ def create_job_in_db(job_data, service_type, user_id=1):
             continue
         client.table('job_costs').insert({
             'job_id': job_id,
+            'svc_id': svc_id,
             'cost_name': cost_name,
             'quantity': 1,
             'buying_rate': 0,
