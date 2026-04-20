@@ -1262,16 +1262,16 @@ async def get_recent_jobs(limit: int = 10, status: Optional[str] = None):
                 jid = job['job_id']
                 reimb_rev = reimb_rev_map.get(jid, 0)
                 reimb_cost = reimb_cost_map.get(jid, 0)
-                total_rev = job.get('total_revenue') or 0
-                total_cost = job.get('total_cost') or 0
+                # jobs.total_revenue / total_cost are kept by a DB trigger that
+                # already excludes is_reimbursement rows — do NOT subtract again.
+                total_rev = float(job.get('total_revenue') or 0)
+                total_cost = float(job.get('total_cost') or 0)
                 job['service_type'] = svc_map.get(jid)
-                # Keep legacy field name for BC
-                job['reimbursement_total'] = reimb_rev
+                job['reimbursement_total'] = reimb_rev          # legacy name for BC
                 job['reimbursement_cost_total'] = reimb_cost
-                # Net figures for display (exclude at-cost pass-through)
-                job['net_revenue'] = max(total_rev - reimb_rev, 0)
-                job['net_cost'] = max(total_cost - reimb_cost, 0)
-                job['profit'] = job['net_revenue'] - job['net_cost']
+                job['net_revenue'] = total_rev                  # already net of chi hộ
+                job['net_cost'] = total_cost                    # already net of chi hộ
+                job['profit'] = total_rev - total_cost
 
         return {"jobs": jobs}
 

@@ -3538,11 +3538,10 @@ function MainDashboard() {
                 </thead>
                 <tbody>
                   {recentJobs.length > 0 ? recentJobs.map((job, i) => {
-                    // Prefer backend-computed net fields; fallback to raw totals for BC
-                    const netRev = job.net_revenue != null ? parseFloat(job.net_revenue) || 0
-                      : Math.max((parseFloat(job.total_revenue) || 0) - (parseFloat(job.reimbursement_total) || 0), 0)
-                    const netCost = job.net_cost != null ? parseFloat(job.net_cost) || 0
-                      : Math.max((parseFloat(job.total_cost) || 0) - (parseFloat(job.reimbursement_cost_total) || 0), 0)
+                    // jobs.total_revenue / total_cost from DB already exclude chi hộ (DB trigger).
+                    // Use backend net_* if present; else fall back to raw totals as-is.
+                    const netRev = parseFloat(job.net_revenue ?? job.total_revenue) || 0
+                    const netCost = parseFloat(job.net_cost ?? job.total_cost) || 0
                     const profit = job.profit != null ? parseFloat(job.profit) || 0 : netRev - netCost
                     const reimb = parseFloat(job.reimbursement_total) || 0
                     return (

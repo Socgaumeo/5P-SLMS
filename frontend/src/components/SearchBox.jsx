@@ -516,11 +516,9 @@ export default function SearchBox({ onJobSelect }) {
                 </span>
               )}
               <span>Doanh thu: <strong>
-                {entityJobs.reduce((s, j) => {
-                  const nr = j.net_revenue != null ? parseFloat(j.net_revenue) || 0
-                    : Math.max((parseFloat(j.total_revenue) || 0) - (parseFloat(j.reimbursement_total) || 0), 0);
-                  return s + nr;
-                }, 0).toLocaleString('vi-VN')}đ
+                {entityJobs.reduce((s, j) =>
+                  s + (parseFloat(j.net_revenue ?? j.total_revenue) || 0), 0
+                ).toLocaleString('vi-VN')}đ
               </strong></span>
               {entityJobs.some(j => (parseFloat(j.reimbursement_total) || 0) > 0) && (
                 <span style={{ color: '#F59E0B' }}>Chi hộ: <strong>
@@ -528,11 +526,9 @@ export default function SearchBox({ onJobSelect }) {
                 </strong></span>
               )}
               <span style={{ color: '#EF4444' }}>Chi phí: <strong>
-                {entityJobs.reduce((s, j) => {
-                  const nc = j.net_cost != null ? parseFloat(j.net_cost) || 0
-                    : Math.max((parseFloat(j.total_cost) || 0) - (parseFloat(j.reimbursement_cost_total) || 0), 0);
-                  return s + nc;
-                }, 0).toLocaleString('vi-VN')}đ
+                {entityJobs.reduce((s, j) =>
+                  s + (parseFloat(j.net_cost ?? j.total_cost) || 0), 0
+                ).toLocaleString('vi-VN')}đ
               </strong></span>
               <span style={{ color: '#059669' }}>Lợi nhuận: <strong>
                 {entityJobs.reduce((s, j) => s + (parseFloat(j.profit) || 0), 0).toLocaleString('vi-VN')}đ
@@ -568,10 +564,9 @@ export default function SearchBox({ onJobSelect }) {
                   </thead>
                   <tbody>
                     {entityJobs.map(job => {
-                      const netRev = job.net_revenue != null ? parseFloat(job.net_revenue) || 0
-                        : Math.max((parseFloat(job.total_revenue) || 0) - (parseFloat(job.reimbursement_total) || 0), 0);
-                      const netCost = job.net_cost != null ? parseFloat(job.net_cost) || 0
-                        : Math.max((parseFloat(job.total_cost) || 0) - (parseFloat(job.reimbursement_cost_total) || 0), 0);
+                      // jobs.total_revenue / total_cost from DB already exclude chi hộ.
+                      const netRev = parseFloat(job.net_revenue ?? job.total_revenue) || 0;
+                      const netCost = parseFloat(job.net_cost ?? job.total_cost) || 0;
                       const profit = job.profit != null ? parseFloat(job.profit) || 0 : netRev - netCost;
                       const reimb = parseFloat(job.reimbursement_total) || 0;
                       return (
