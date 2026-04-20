@@ -126,23 +126,42 @@ def _build_table_header(ws, header_row: int = 13) -> None:
 
 
 def _service_to_row(svc: Dict[str, Any], job: Dict[str, Any], cost_rows: List[Dict], idx: int) -> Dict[str, Any]:
-    """Map one service+job+cost_rows to the column dict used by the renderer."""
+    """
+    Map one service+job+cost_rows to renderer column dict.
+
+    Revenue resolution order (first non-zero wins):
+      1. job_costs aggregation (itemized — best quality)
+      2. service_details.unit_price / selling_price (single-line fallback)
+      3. service_details.grand_total minus vat (computed fallback)
+
+    This lets us export ANY customer even when costs haven't been imported
+    into job_costs — as long as at least service_details has pricing.
+    """
     d = parse_details(svc)
-    pickup_loc, _ = split_address(svc.get("origin_address") or "")
-    drop_loc, _ = split_address(svc.get("dest_address") or "")
 
     buckets = _bucket_trucking_costs(cost_rows)
+
+    # Fallback #1: service_details.unit_price / selling_price when cost rows empty
+    if buckets["cuoc_vc"] == 0 and buckets["xang_dau"] == 0 and buckets["phat_sinh"] == 0:
+        unit_price_fb = safe_float(d.get("unit_price")) or safe_float(d.get("selling_price"))
+        if unit_price_fb > 0:
+            buckets["cuoc_vc"] = unit_price_fb
+        else:
+            # Fallback #2: grand_total (before VAT) — back-compute from vat
+            gt = safe_float(d.get("total_revenue")) or safe_float(d.get("grand_total"))
+            if gt > 0:
+                vat_rate = safe_float(d.get("vat_rate")) or 0
+                # If grand_total includes VAT, strip it out
+                buckets["cuoc_vc"] = gt / (1 + vat_rate / 100.0) if vat_rate else gt
 
     qty = safe_float(d.get("quantity")) or 1
     unit = d.get("vehicle_type") or "Chuyến"
     bks = d.get("vehicle_plate") or ""
     note = d.get("note") or d.get("notes") or ""
 
-    # Concat origin and dest into pickup/dest text including province if present
     pickup_full = svc.get("origin_address") or ""
     drop_full = svc.get("dest_address") or ""
 
-    # Type: pull from service_type_code (TRUCKING_DOM → "DOM", etc.)
     type_str = (svc.get("service_type_code") or "").replace("TRUCKING_", "")
 
     return {
@@ -155,10 +174,8 @@ def _service_to_row(svc: Dict[str, Any], job: Dict[str, Any], cost_rows: List[Di
         "qty": int(qty) if qty == int(qty) else qty,
         "unit": unit,
         "don_gia": buckets["cuoc_vc"],
-        # thanh_tien is formula =I*G
         "phat_sinh": buckets["phat_sinh"] + buckets["boc_xep"],
         "xang_dau": buckets["xang_dau"],
-        # tong is formula
         "job_no": job.get("job_no", ""),
         "note": note,
     }

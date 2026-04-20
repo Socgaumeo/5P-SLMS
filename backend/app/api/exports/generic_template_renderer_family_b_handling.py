@@ -113,6 +113,35 @@ def _expand_service_to_cost_rows(
             "note": note,
             "is_reim": bool(c.get("is_reimbursement")),
         })
+
+    # Fallback: if no cost rows had non-zero selling, synthesize ONE row from
+    # service_details (selling_price/unit_price/grand_total). Keeps the bảng kê
+    # non-empty when job_costs wasn't populated during import.
+    if not out:
+        unit_price_fb = safe_float(d.get("unit_price")) or safe_float(d.get("selling_price"))
+        qty_fb = safe_float(d.get("quantity")) or 1
+        vat_rate_fb = safe_float(d.get("vat_rate"))
+        sell_amt_fb = unit_price_fb * qty_fb
+        if sell_amt_fb == 0:
+            gt = safe_float(d.get("total_revenue")) or safe_float(d.get("grand_total"))
+            if gt > 0:
+                sell_amt_fb = gt / (1 + vat_rate_fb / 100.0) if vat_rate_fb else gt
+                unit_price_fb = sell_amt_fb
+                qty_fb = 1
+        if sell_amt_fb > 0:
+            out.append({
+                "ngay": svc.get("scheduled_date") or job.get("etd"),
+                "bks": bks_or_vehicle,
+                "noi_dung": d.get("note") or f"Dịch vụ {svc.get('service_type_code', '')}",
+                "qty": qty_fb,
+                "unit": d.get("unit") or "lô",
+                "don_gia": unit_price_fb,
+                "thanh_tien": sell_amt_fb,
+                "vat_pct": vat_rate_fb,
+                "invoice": invoice,
+                "note": note,
+                "is_reim": False,
+            })
     return out
 
 
