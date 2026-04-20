@@ -21,7 +21,62 @@ router = APIRouter()
 
 # Registry of customer-specific export templates
 # Key: customer_code (uppercase), Value: template info
+# --------------------------------------------------------------------------
+# Generic family templates (Phase 1+2 of customer-bang-ke roadmap).
+# Add a customer here to enable "Mẫu {Code}" export buttons in the UI.
+#
+# Keys per template:
+#   key, label, icon, description       — shown to user
+#   family                              — 'trucking' | 'handling' (dispatched
+#                                         to generic_customer_export_endpoint)
+#   service_types                       — DB filter list
+#   config (optional)                   — per-customer overrides for the
+#                                         family renderer (sheet_name,
+#                                         title_template, vat_rate, etc.)
+# --------------------------------------------------------------------------
+
+_TRUCKING_SERVICE_TYPES = ["TRUCKING_DOM", "TRUCKING_SHORT", "TRUCKING_LONG"]
+# Handling family is service-type agnostic — it lists every cost line as one
+# row regardless of underlying service. Default = all common service types.
+_HANDLING_DEFAULT_TYPES = [
+    "TRUCKING_DOM", "TRUCKING_SHORT", "TRUCKING_LONG",
+    "CUS_CO", "CUS_IMPORT", "CUS_EXPORT",
+    "SEA_IMP", "SEA_EXP", "SEA_DOM",
+    "AIR_IMP", "AIR_EXP", "AIR_DOM",
+    "BORDER_IMP", "BORDER_EXP",
+    "SVC_OTHER", "SVC_PACK", "SVC_FUMI", "SVC_VACUUM",
+    "WHS_STORAGE", "WHS_HANDLE", "WHS_VAS",
+]
+
+
+def _trucking_template(label_suffix: str = "") -> Dict[str, Any]:
+    suffix = f" — {label_suffix}" if label_suffix else ""
+    return {
+        "key": "trucking",
+        "label": f"Bảng kê Vận chuyển đường bộ{suffix}",
+        "icon": "🚚",
+        "description": "Bảng kê dịch vụ vận chuyển đường bộ nội địa",
+        "family": "trucking",
+        "service_types": _TRUCKING_SERVICE_TYPES,
+        "implemented": True,
+    }
+
+
+def _handling_template(label_suffix: str = "", service_types: Optional[List[str]] = None) -> Dict[str, Any]:
+    suffix = f" — {label_suffix}" if label_suffix else ""
+    return {
+        "key": "handling",
+        "label": f"Bảng kê Dịch vụ làm hàng{suffix}",
+        "icon": "📋",
+        "description": "Bảng kê chi tiết phí dịch vụ làm hàng (1 dòng/cost)",
+        "family": "handling",
+        "service_types": service_types or _HANDLING_DEFAULT_TYPES,
+        "implemented": True,
+    }
+
+
 CUSTOMER_TEMPLATES: Dict[str, Dict[str, Any]] = {
+    # ---- Special customers with custom dedicated modules ----
     "MEIKO": {
         "name": "MEIKO Electronics Vietnam",
         "description": "Bảng kê 3 sheets: Bảng kê IM, Truck, Debit",
@@ -34,18 +89,82 @@ CUSTOMER_TEMPLATES: Dict[str, Dict[str, Any]] = {
         "description": "Bảng kê theo loại dịch vụ: Nhập SEA/AIR, CO, TC+CPN, TT, Xuất",
         "module": "dainese_customer_export_template",
         "supports_date_filter": True,
-        # When `templates` is present, the frontend renders ONE button per
-        # entry so the user picks which Bảng kê variant to export.
-        "templates": [],  # populated lazily below to avoid import cycles
+        "templates": [],  # populated lazily below
     },
-    # Add more customer templates here:
-    # "SAMSUNG": {
-    #     "name": "Samsung Electronics",
-    #     "description": "Custom Samsung export format",
-    #     "module": "samsung_export_template",
-    #     "sheets": ["Summary", "Details"],
-    #     "supports_date_filter": True,
-    # },
+
+    # ---- FAMILY A: Trucking (7 customers) ----
+    "BINHMINH": {
+        "name": "Bình Minh - ATC", "module": "generic_customer_export",
+        "supports_date_filter": True,
+        "templates": [_trucking_template()],
+    },
+    "KK": {
+        "name": "K+K Fashion", "module": "generic_customer_export",
+        "supports_date_filter": True,
+        "templates": [_trucking_template()],
+    },
+    "KKFASHION": {
+        "name": "K+K Fashion", "module": "generic_customer_export",
+        "supports_date_filter": True,
+        "templates": [_trucking_template()],
+    },
+    "DONGSUNG": {
+        "name": "Dongsung", "module": "generic_customer_export",
+        "supports_date_filter": True,
+        "templates": [_trucking_template()],
+    },
+    "UPGAIN": {
+        "name": "Upgain Vietnam", "module": "generic_customer_export",
+        "supports_date_filter": True,
+        "templates": [_trucking_template()],
+    },
+    "UTRACON": {
+        "name": "Utracon Vietnam", "module": "generic_customer_export",
+        "supports_date_filter": True,
+        "templates": [_trucking_template()],
+    },
+    "TVC": {
+        "name": "Thái Việt Trung Logistics", "module": "generic_customer_export",
+        "supports_date_filter": True,
+        "templates": [_trucking_template()],
+    },
+
+    # ---- FAMILY B: Handling (7 customers) ----
+    "HUNGPHAT": {
+        "name": "Hưng Phát", "module": "generic_customer_export",
+        "supports_date_filter": True,
+        "templates": [_handling_template()],
+    },
+    "VINTECH": {
+        "name": "Vintech Automation", "module": "generic_customer_export",
+        "supports_date_filter": True,
+        "templates": [_handling_template()],
+    },
+    "KTXL": {
+        "name": "Xây Lắp VN", "module": "generic_customer_export",
+        "supports_date_filter": True,
+        "templates": [_handling_template()],
+    },
+    "LOGIMARKHN": {
+        "name": "Logimark HN", "module": "generic_customer_export",
+        "supports_date_filter": True,
+        "templates": [_handling_template()],
+    },
+    "MESSERHP": {
+        "name": "Messer Hải Phòng", "module": "generic_customer_export",
+        "supports_date_filter": True,
+        "templates": [_handling_template()],
+    },
+    "GANGTHEPTN": {
+        "name": "Gang Thép TN", "module": "generic_customer_export",
+        "supports_date_filter": True,
+        "templates": [_handling_template()],
+    },
+    "LAS": {
+        "name": "LAS", "module": "generic_customer_export",
+        "supports_date_filter": True,
+        "templates": [_handling_template()],
+    },
 }
 
 
@@ -153,10 +272,24 @@ async def export_customer_jobs(
 
         elif module_name == "dainese_customer_export_template":
             # DAINESE requires `template` to choose which Bảng kê to generate
-            from fastapi import Query as _Q
             template = template or "nhap_sea_air"
             redirect_url = (
                 f"/api/jobs/exports/dainese?customer_id={customer_id}&template={template}"
+            )
+
+        elif module_name == "generic_customer_export":
+            # Family-A/B customers — pick template by `template` key
+            templates_list = template_info.get("templates", [])
+            if not templates_list:
+                raise HTTPException(400, f"Customer {customer_code} has no templates configured")
+            # Default to first template if none specified
+            tpl = next((t for t in templates_list if t["key"] == template), templates_list[0])
+            family = tpl.get("family")
+            svc_types = ",".join(tpl.get("service_types", []))
+            redirect_url = (
+                f"/api/jobs/exports/generic"
+                f"?customer_id={customer_id}&family={family}"
+                f"&service_types={svc_types}"
             )
 
         else:
