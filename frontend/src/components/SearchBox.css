@@ -489,6 +489,12 @@
   font-weight: 500;
 }
 
+/* Cost column */
+.entity-jobs-table .cost {
+  color: #EF4444;
+  font-weight: 500;
+}
+
 /* Filter mode toggle */
 .filter-mode-toggle {
   display: flex;

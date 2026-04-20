@@ -398,18 +398,22 @@ def search_jobs_by_entity(
         # Collect all job_ids for batch reimbursement query
         all_job_ids = [dict(r)['job_id'] for r in raw_results]
 
-        # Batch fetch reimbursement totals
-        reimb_map = {}
+        # Batch fetch reimbursement (at-cost / chi hộ) totals — split selling vs buying
+        reimb_rev_map = {}
+        reimb_cost_map = {}
         if all_job_ids:
             placeholders = ','.join(['%s'] * len(all_job_ids))
             db.execute(f"""
-                SELECT job_id, SUM(selling_amount) as reimb_total
+                SELECT job_id,
+                       SUM(selling_amount) as reimb_rev,
+                       SUM(buying_amount)  as reimb_cost
                 FROM job_costs
                 WHERE job_id IN ({placeholders}) AND is_reimbursement = true
                 GROUP BY job_id
             """, tuple(all_job_ids))
             for r in db.fetchall():
-                reimb_map[r['job_id']] = float(r['reimb_total'] or 0)
+                reimb_rev_map[r['job_id']] = float(r['reimb_rev'] or 0)
+                reimb_cost_map[r['job_id']] = float(r['reimb_cost'] or 0)
 
         # For each job, calculate totals from service_details if jobs table has 0
         for row in raw_results:
@@ -439,7 +443,17 @@ def search_jobs_by_entity(
                 job['total_cost'] = calc_cost
                 job['profit'] = calc_revenue - calc_cost
 
-            job['reimbursement_total'] = reimb_map.get(job_id, 0)
+            reimb_rev = reimb_rev_map.get(job_id, 0)
+            reimb_cost = reimb_cost_map.get(job_id, 0)
+            total_rev = float(job.get('total_revenue') or 0)
+            total_cost = float(job.get('total_cost') or 0)
+            # Keep legacy name for BC
+            job['reimbursement_total'] = reimb_rev
+            job['reimbursement_cost_total'] = reimb_cost
+            # Net figures exclude at-cost pass-through
+            job['net_revenue'] = max(total_rev - reimb_rev, 0)
+            job['net_cost'] = max(total_cost - reimb_cost, 0)
+            job['profit'] = job['net_revenue'] - job['net_cost']
             results.append(job)
 
         # Get entity info

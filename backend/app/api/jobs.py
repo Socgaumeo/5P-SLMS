@@ -1244,21 +1244,34 @@ async def get_recent_jobs(limit: int = 10, status: Optional[str] = None):
                 if svc['job_id'] not in svc_map:
                     svc_map[svc['job_id']] = svc['service_type_code']
 
-            # Get reimbursement totals from job_costs
-            reimb_map = {}
+            # Get reimbursement (at-cost / chi hộ) totals from job_costs — split selling vs buying
+            reimb_rev_map = {}   # selling side → "CHI HỘ" billed to customer
+            reimb_cost_map = {}  # buying side → pass-through cost paid to vendor
             try:
                 costs_result = client.table('job_costs').select(
-                    'job_id, selling_amount, is_reimbursement'
+                    'job_id, selling_amount, buying_amount, is_reimbursement'
                 ).in_('job_id', job_ids).eq('is_reimbursement', True).execute()
                 for c in costs_result.data:
                     jid = c['job_id']
-                    reimb_map[jid] = reimb_map.get(jid, 0) + float(c.get('selling_amount') or 0)
+                    reimb_rev_map[jid] = reimb_rev_map.get(jid, 0) + float(c.get('selling_amount') or 0)
+                    reimb_cost_map[jid] = reimb_cost_map.get(jid, 0) + float(c.get('buying_amount') or 0)
             except Exception:
                 pass
 
             for job in jobs:
-                job['service_type'] = svc_map.get(job['job_id'])
-                job['reimbursement_total'] = reimb_map.get(job['job_id'], 0)
+                jid = job['job_id']
+                reimb_rev = reimb_rev_map.get(jid, 0)
+                reimb_cost = reimb_cost_map.get(jid, 0)
+                total_rev = job.get('total_revenue') or 0
+                total_cost = job.get('total_cost') or 0
+                job['service_type'] = svc_map.get(jid)
+                # Keep legacy field name for BC
+                job['reimbursement_total'] = reimb_rev
+                job['reimbursement_cost_total'] = reimb_cost
+                # Net figures for display (exclude at-cost pass-through)
+                job['net_revenue'] = max(total_rev - reimb_rev, 0)
+                job['net_cost'] = max(total_cost - reimb_cost, 0)
+                job['profit'] = job['net_revenue'] - job['net_cost']
 
         return {"jobs": jobs}
 

@@ -2576,18 +2576,30 @@ function JobDetailModal({ job, onClose, onUpdate }) {
             )}
           </div>
 
-        {/* Revenue / Cost / Gross Profit Section */}
+        {/* Revenue / Cost / Reimbursement / Gross Profit Section */}
         {(() => {
           if (jobCosts.length === 0) return null
-          // Split into revenue lines (selling > 0) and cost lines (buying > 0)
-          const revenueLines = jobCosts.filter(c => (parseFloat(c.selling_amount) || 0) > 0)
-          const costLines = jobCosts.filter(c => (parseFloat(c.buying_amount) || 0) > 0)
+          // Detect at-cost / chi hộ / thu hộ — by flag OR by cost_name pattern (defensive against bad imports)
+          const isAtCost = (c) => {
+            if (c.is_reimbursement === true) return true
+            const n = (c.cost_name || '').toLowerCase().trim()
+            return n === 'at cost' || n.startsWith('at cost ') ||
+                   n.includes('chi hộ') || n.includes('thu hộ') || n.includes('trả hộ')
+          }
+          const reimbursementLines = jobCosts.filter(isAtCost)
+          // Real revenue/cost lines — exclude reimbursements
+          const nonReimbLines = jobCosts.filter(c => !isAtCost(c))
+          const revenueLines = nonReimbLines.filter(c => (parseFloat(c.selling_amount) || 0) > 0)
+          const costLines = nonReimbLines.filter(c => (parseFloat(c.buying_amount) || 0) > 0)
+
           const totalRevenue = revenueLines.reduce((sum, c) => sum + (parseFloat(c.selling_amount) || 0), 0)
           const totalCost = costLines.reduce((sum, c) => sum + (parseFloat(c.buying_amount) || 0), 0)
           const revenueVAT = revenueLines.reduce((sum, c) => sum + (parseFloat(c.selling_amount) || 0) * (parseFloat(c.vat_rate) || 0) / 100, 0)
           const costVAT = costLines.reduce((sum, c) => sum + (parseFloat(c.buying_amount) || 0) * (parseFloat(c.vat_rate) || 0) / 100, 0)
+          const reimbRevenue = reimbursementLines.reduce((sum, c) => sum + (parseFloat(c.selling_amount) || 0), 0)
+          const reimbCost = reimbursementLines.reduce((sum, c) => sum + (parseFloat(c.buying_amount) || 0), 0)
           const grossProfit = totalRevenue - totalCost
-          if (totalRevenue === 0 && totalCost === 0) return null
+          if (totalRevenue === 0 && totalCost === 0 && reimbursementLines.length === 0) return null
 
           const rowStyle = { display: 'grid', gridTemplateColumns: '1fr auto auto auto auto', gap: '4px', alignItems: 'baseline', fontSize: '12px', padding: '2px 0', color: 'var(--text-secondary)' }
 
@@ -2643,6 +2655,39 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#9CA3AF' }}>
                       <span>VAT chi phí</span>
                       <span>{formatPrice(costVAT)}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+              {/* CHI HỘ / THU HỘ (At-cost pass-through — not counted in profit) */}
+              {reimbursementLines.length > 0 && (
+                <div style={{ marginBottom: '8px', padding: '10px 12px', background: 'rgba(245, 158, 11, 0.06)', borderRadius: '8px', border: '1px solid rgba(245, 158, 11, 0.2)' }}>
+                  <div style={{ fontWeight: '600', fontSize: '13px', marginBottom: '6px', color: '#D97706' }}>
+                    CHI HỘ / THU HỘ ({reimbursementLines.length} mục) <span style={{ fontWeight: 400, fontSize: '11px', color: '#9CA3AF' }}>· at cost, không tính lợi nhuận</span>
+                  </div>
+                  {reimbursementLines.map((c, i) => {
+                    const sell = parseFloat(c.selling_amount) || 0
+                    const buy = parseFloat(c.buying_amount) || 0
+                    const displayAmount = sell > 0 ? sell : buy
+                    const displayRate = sell > 0 ? (parseFloat(c.selling_rate) || 0) : (parseFloat(c.buying_rate) || 0)
+                    return (
+                      <div key={i} style={rowStyle}>
+                        <span>{c.cost_name}</span>
+                        <span style={{ textAlign: 'right', color: '#6B7280', whiteSpace: 'nowrap' }}>{parseFloat(c.quantity) || 1} {c.unit || ''}</span>
+                        <span style={{ color: '#9CA3AF' }}>×</span>
+                        <span style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{formatPrice(displayRate)}</span>
+                        <span style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>= <b>{formatPrice(displayAmount)}</b>{c.vat_rate > 0 ? <span style={{ color: '#9CA3AF' }}> +{c.vat_rate}%</span> : ''}</span>
+                      </div>
+                    )
+                  })}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: '600', marginTop: '4px', paddingTop: '4px', borderTop: '1px dashed rgba(0,0,0,0.1)', color: '#D97706' }}>
+                    <span>Tổng thu hộ (khách)</span>
+                    <span>{formatPrice(reimbRevenue)}</span>
+                  </div>
+                  {reimbCost > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#9CA3AF' }}>
+                      <span>Tổng chi hộ (NCC)</span>
+                      <span>{formatPrice(reimbCost)}</span>
                     </div>
                   )}
                 </div>
@@ -3486,26 +3531,43 @@ function MainDashboard() {
                     <th>Date</th>
                     <th>Doanh thu</th>
                     <th>Chi hộ</th>
+                    <th>Chi phí</th>
+                    <th>Lợi nhuận</th>
                     <th>Status</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {recentJobs.length > 0 ? recentJobs.map((job, i) => (
-                    <tr key={i} onClick={() => handleViewJob(job)} style={{ cursor: 'pointer' }} className="job-row-clickable">
-                      <td className="job-number">{job.job_no}</td>
-                      <td>{job.customer_code || job.customer_name}</td>
-                      <td>{getServiceIcon(job.service_type)} {job.service_type}</td>
-                      <td>{job.etd || job.created_at?.split('T')[0]}</td>
-                      <td style={{ textAlign: 'right', color: '#10B981', fontWeight: job.total_revenue > 0 ? '600' : '400' }}>
-                        {job.total_revenue > 0 ? formatPrice(job.total_revenue) : '-'}
-                      </td>
-                      <td style={{ textAlign: 'right', color: '#F59E0B', fontWeight: job.reimbursement_total > 0 ? '600' : '400' }}>
-                        {job.reimbursement_total > 0 ? formatPrice(job.reimbursement_total) : '-'}
-                      </td>
-                      <td><StatusBadge status={job.status_code || 'PENDING'} /></td>
-                    </tr>
-                  )) : (
-                    <tr><td colSpan="7" className="no-data">No jobs found</td></tr>
+                  {recentJobs.length > 0 ? recentJobs.map((job, i) => {
+                    // Prefer backend-computed net fields; fallback to raw totals for BC
+                    const netRev = job.net_revenue != null ? parseFloat(job.net_revenue) || 0
+                      : Math.max((parseFloat(job.total_revenue) || 0) - (parseFloat(job.reimbursement_total) || 0), 0)
+                    const netCost = job.net_cost != null ? parseFloat(job.net_cost) || 0
+                      : Math.max((parseFloat(job.total_cost) || 0) - (parseFloat(job.reimbursement_cost_total) || 0), 0)
+                    const profit = job.profit != null ? parseFloat(job.profit) || 0 : netRev - netCost
+                    const reimb = parseFloat(job.reimbursement_total) || 0
+                    return (
+                      <tr key={i} onClick={() => handleViewJob(job)} style={{ cursor: 'pointer' }} className="job-row-clickable">
+                        <td className="job-number">{job.job_no}</td>
+                        <td>{job.customer_code || job.customer_name}</td>
+                        <td>{getServiceIcon(job.service_type)} {job.service_type}</td>
+                        <td>{job.etd || job.created_at?.split('T')[0]}</td>
+                        <td style={{ textAlign: 'right', color: '#10B981', fontWeight: netRev > 0 ? '600' : '400' }}>
+                          {netRev > 0 ? formatPrice(netRev) : '-'}
+                        </td>
+                        <td style={{ textAlign: 'right', color: '#F59E0B', fontWeight: reimb > 0 ? '600' : '400' }}>
+                          {reimb > 0 ? formatPrice(reimb) : '-'}
+                        </td>
+                        <td style={{ textAlign: 'right', color: '#EF4444', fontWeight: netCost > 0 ? '600' : '400' }}>
+                          {netCost > 0 ? formatPrice(netCost) : '-'}
+                        </td>
+                        <td style={{ textAlign: 'right', color: netCost > 0 ? (profit >= 0 ? '#059669' : '#DC2626') : '#94a3b8', fontWeight: '700' }}>
+                          {netCost > 0 ? formatPrice(profit) : <span title="Chưa nhập chi phí">—</span>}
+                        </td>
+                        <td><StatusBadge status={job.status_code || 'PENDING'} /></td>
+                      </tr>
+                    )
+                  }) : (
+                    <tr><td colSpan="9" className="no-data">No jobs found</td></tr>
                   )}
                 </tbody>
               </table>

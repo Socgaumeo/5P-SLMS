@@ -516,13 +516,27 @@ export default function SearchBox({ onJobSelect }) {
                 </span>
               )}
               <span>Doanh thu: <strong>
-                {entityJobs.reduce((s, j) => s + (parseFloat(j.total_revenue) || 0), 0).toLocaleString('vi-VN')}đ
+                {entityJobs.reduce((s, j) => {
+                  const nr = j.net_revenue != null ? parseFloat(j.net_revenue) || 0
+                    : Math.max((parseFloat(j.total_revenue) || 0) - (parseFloat(j.reimbursement_total) || 0), 0);
+                  return s + nr;
+                }, 0).toLocaleString('vi-VN')}đ
               </strong></span>
               {entityJobs.some(j => (parseFloat(j.reimbursement_total) || 0) > 0) && (
                 <span style={{ color: '#F59E0B' }}>Chi hộ: <strong>
                   {entityJobs.reduce((s, j) => s + (parseFloat(j.reimbursement_total) || 0), 0).toLocaleString('vi-VN')}đ
                 </strong></span>
               )}
+              <span style={{ color: '#EF4444' }}>Chi phí: <strong>
+                {entityJobs.reduce((s, j) => {
+                  const nc = j.net_cost != null ? parseFloat(j.net_cost) || 0
+                    : Math.max((parseFloat(j.total_cost) || 0) - (parseFloat(j.reimbursement_cost_total) || 0), 0);
+                  return s + nc;
+                }, 0).toLocaleString('vi-VN')}đ
+              </strong></span>
+              <span style={{ color: '#059669' }}>Lợi nhuận: <strong>
+                {entityJobs.reduce((s, j) => s + (parseFloat(j.profit) || 0), 0).toLocaleString('vi-VN')}đ
+              </strong></span>
             </div>
             <div className="entity-panel-body">
               {entityJobs.length > 0 ? (
@@ -548,11 +562,19 @@ export default function SearchBox({ onJobSelect }) {
                       <th>Trạng thái</th>
                       <th>Doanh thu</th>
                       <th>Chi hộ</th>
+                      <th>Chi phí</th>
                       <th>Lợi nhuận</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {entityJobs.map(job => (
+                    {entityJobs.map(job => {
+                      const netRev = job.net_revenue != null ? parseFloat(job.net_revenue) || 0
+                        : Math.max((parseFloat(job.total_revenue) || 0) - (parseFloat(job.reimbursement_total) || 0), 0);
+                      const netCost = job.net_cost != null ? parseFloat(job.net_cost) || 0
+                        : Math.max((parseFloat(job.total_cost) || 0) - (parseFloat(job.reimbursement_cost_total) || 0), 0);
+                      const profit = job.profit != null ? parseFloat(job.profit) || 0 : netRev - netCost;
+                      const reimb = parseFloat(job.reimbursement_total) || 0;
+                      return (
                       <tr
                         key={job.job_id}
                         onClick={() => {
@@ -588,17 +610,19 @@ export default function SearchBox({ onJobSelect }) {
                             {job.status_code}
                           </span>
                         </td>
-                        <td className="number">{(parseFloat(job.total_revenue) || 0).toLocaleString('vi-VN')}</td>
-                        <td className="number reimb">{(parseFloat(job.reimbursement_total) || 0) > 0 ? (parseFloat(job.reimbursement_total) || 0).toLocaleString('vi-VN') : '-'}</td>
-                        {/* Profit hidden when cost data missing — otherwise it
-                            equals revenue and falsely implies 100% margin. */}
+                        <td className="number">{netRev.toLocaleString('vi-VN')}</td>
+                        <td className="number reimb">{reimb > 0 ? reimb.toLocaleString('vi-VN') : '-'}</td>
+                        <td className="number cost">{netCost > 0 ? netCost.toLocaleString('vi-VN') : '-'}</td>
+                        {/* Profit shown as "—" when cost is missing, since it
+                            would equal revenue and falsely imply 100% margin. */}
                         <td className="number profit">
-                          {(parseFloat(job.total_cost) || 0) > 0
-                            ? (parseFloat(job.profit) || 0).toLocaleString('vi-VN')
+                          {netCost > 0
+                            ? profit.toLocaleString('vi-VN')
                             : <span title="Chưa nhập chi phí" style={{ color: '#94a3b8' }}>—</span>}
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               ) : (
