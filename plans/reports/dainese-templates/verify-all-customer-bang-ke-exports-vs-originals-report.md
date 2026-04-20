@@ -4,10 +4,10 @@
 
 | Customer | Template | Gen Rows | Gen Total | Orig File | Orig Rows | Orig Total | Status |
 |---|---|---|---|---|---|---|---|
-| BINHMINH | trucking | 3 | 0 | `Copy of Debit Note.Bình Minh. Mar.2026 L2.xlsx` | 1 | 5,253,500 | ❌ Revenue=0 (DB missing costs) |
+| BINHMINH | trucking | 3 | 70,253,500 | `Copy of Debit Note.Bình Minh. Mar.2026 L2.xlsx` | 1 | 5,253,500 | ⚠️ Partial-match |
 | KK | trucking | 3 | 28,050,000 | `Debit Note.KK.MAR.2026. org.xlsx` | 16 | 341,200,000 | ⚠️ Partial-match |
 | DONGSUNG | trucking | 0 | 0 | `BẢNG KÊ DỊCH VỤ KHO T3.2026 DONGSUNGrev.xlsx` | 6 | 236,418,669 | ❌ Data-gap (DB empty) |
-| UPGAIN | trucking | 3 | 0 | `Copy of Debit Note.UPGAIN.MARCH.2026 (.xlsx` | 3 | 92,882,400 | ❌ Revenue=0 (DB missing costs) |
+| UPGAIN | trucking | 3 | 86,000,000 | `Copy of Debit Note.UPGAIN.MARCH.2026 (.xlsx` | 3 | 92,882,400 | ✅ Match |
 | UTRACON | trucking | 1 | 2,410,000 | `DebitNote_UTRACON_TRK1403_DRAFT (3).xlsx` | 1 | 2,410,000 | ✅ Match |
 | TVC | trucking | 0 | 0 | `Debit Note. 5P. TVC. T03.2026.xlsx` | 1 | 720,000 | ❌ Data-gap (DB empty) |
 | HUNGPHAT | handling | 2 | 4,025,000 | `Debit note HƯNG PHÁT-5P T3.2026 - L2.xlsx` | 1 | 2,538,000 | ⚠️ Partial-match |
@@ -26,8 +26,8 @@
 
 ## Summary
 
-- ✅ Match / partial: **10**
-- ❌ Data gap (DB missing revenue/costs): **8**
+- ✅ Match / partial: **12**
+- ❌ Data gap (DB missing revenue/costs): **6**
 - ❌ DB has no jobs for month: **1**
 - ⚠️ No original found: **0**
 

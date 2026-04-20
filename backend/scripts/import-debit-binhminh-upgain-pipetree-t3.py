@@ -112,16 +112,21 @@ def create_job_in_db(job_data, customer_id, user_id=1):
     }
     if job_data.get('bl_awb'):
         svc_record['bl_awb_no'] = job_data['bl_awb']
-    client.table('job_services').insert(svc_record).execute()
+    svc_insert = client.table('job_services').insert(svc_record).execute()
+    svc_id = svc_insert.data[0]['svc_id'] if svc_insert.data else None
 
     # `amount` is selling price (revenue). Real cost (buying_rate) comes from
     # vendor invoices imported separately. Setting buying_rate=0 here avoids
     # the false 0% margin display caused by buy=sell.
+    # IMPORTANT: set svc_id so renderers (which filter by svc_id IN (...))
+    # can find the costs. Missing this caused bảng kê revenue=0 for
+    # BINHMINH/UPGAIN/PIPETREE imports before.
     for cost_name, amount in job_data.get('costs', {}).items():
         if amount <= 0:
             continue
         client.table('job_costs').insert({
             'job_id': job_id,
+            'svc_id': svc_id,
             'cost_name': cost_name,
             'quantity': 1,
             'buying_rate': 0,
