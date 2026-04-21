@@ -3,6 +3,7 @@ Data Service - Database lookups and enrichment using Supabase SDK
 """
 
 import logging
+import importlib
 from typing import Optional, Dict, Any, List
 from datetime import date, time
 import json
@@ -11,6 +12,11 @@ import traceback
 from app.db.supabase_client import get_supabase
 from app.ai.utils.smart_parser import (
     format_date_iso, format_time_str, parse_number
+)
+
+# Shared customs codes + validator — kebab-case filename, imported via importlib
+_customs_validator = importlib.import_module(
+    "app.core.vietnamese-customs-declaration-codes-and-validator"
 )
 
 logger = logging.getLogger(__name__)
@@ -319,25 +325,16 @@ class DataService:
             # Determine service type and prefix
             service_type = job_data.get("service_type_code", "TRUCKING_SHORT")
 
-            # --- VALIDATOR: customs jobs MUST have loai_hinh (mã loại hình HQ) ---
-            # Enforced HERE (in service layer) so it applies to every entry path
-            # — REST endpoint /api/jobs/create, Telegram bot, batch imports.
-            # Without loai_hinh the bảng kê F3/F5 cannot reliably classify
-            # DOM (xuất nhập tại chỗ) vs INTL (real export/import).
-            svc_code_upper = (service_type or "").upper()
-            is_customs = svc_code_upper.startswith("CUS_") or svc_code_upper in ("CUS",)
-            loai_hinh_val = (job_data.get("loai_hinh") or "").strip()
-            if is_customs and not loai_hinh_val:
-                return {
-                    "success": False,
-                    "error": "missing_loai_hinh",
-                    "message": (
-                        "Job tờ khai bắt buộc phải có 'Loại hình' (mã loại hình hải quan). "
-                        "Ví dụ: A11/A12 (nhập kinh doanh), A41/A42 (nhập tại chỗ), "
-                        "B11/B12 (xuất kinh doanh), B13/E62 (xuất tại chỗ), "
-                        "G14/G24 (tạm xuất). Vui lòng bổ sung trường này."
-                    ),
-                }
+            # --- CHOKEPOINT VALIDATOR: customs jobs MUST have a valid loai_hinh.
+            # Enforced HERE (service layer) so ALL entry paths get validated —
+            # REST endpoint, Telegram bot, batch imports. Shared whitelist in
+            # app.core.vietnamese-customs-declaration-codes-and-validator so the
+            # endpoint wrapper and this chokepoint return the same shape.
+            loai_hinh_error = _customs_validator.validate_loai_hinh_for_service(
+                service_type, job_data.get("loai_hinh")
+            )
+            if loai_hinh_error is not None:
+                return loai_hinh_error
 
             prefix_map = {
                 "BORDER_IMP": "BI",
@@ -525,7 +522,8 @@ class DataService:
                     'storage_start_date': storage_start,
                     'storage_end_date': storage_end,
                     'cd_no': job_data.get("cd_no"),
-                    'loai_hinh': job_data.get("loai_hinh"),
+                    # Normalize so DB stores canonical uppercase (e.g. "a11 " → "A11")
+                    'loai_hinh': _customs_validator.normalize_loai_hinh(job_data.get("loai_hinh")) or None,
                     'customs_type': job_data.get("customs_type"),
                     'customs_port': job_data.get("customs_port"),
                     'buyer_name': job_data.get("buyer_name"),

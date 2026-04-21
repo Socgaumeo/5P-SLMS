@@ -16,7 +16,13 @@ from app.ai.utils.service_type_detector import normalize_service_code
 from app.services.message_service import get_message_service
 from app.db.supabase_client import get_supabase
 from app.api.dependencies import get_current_user_optional
+import importlib
 import re
+
+# Shared Vietnamese customs codes + validator (kebab-case filename → importlib)
+customs_validator = importlib.import_module(
+    "app.core.vietnamese-customs-declaration-codes-and-validator"
+)
 
 logger = logging.getLogger(__name__)
 
@@ -112,6 +118,10 @@ class JobResponse(BaseModel):
     status: Optional[str] = None
     message: Optional[str] = None
     enriched_data: Optional[Dict[str, Any]] = None
+    # Validation error details (e.g. missing_loai_hinh) — includes error code
+    # + suggestion list so frontend can render chip UI without hardcoding codes.
+    error: Optional[str] = None
+    suggestions: Optional[list] = None
 
 # Endpoints
 
@@ -311,21 +321,20 @@ async def create_job(request: JobCreateFromChatRequest, req: Request):
         
         logger.info(f"Job data to create: {job_data}")
 
-        # --- VALIDATOR: customs jobs MUST have loai_hinh (mã loại hình HQ) ---
-        # Without it the bảng kê exports cannot reliably classify
-        # DOM (xuất nhập tại chỗ) vs INTL (real export/import).
-        svc_code = (job_data.get('service_type_code') or '').upper()
-        is_customs = svc_code.startswith('CUS_') or svc_code in ('CUS', 'CUS_CO', 'CUS_IMPORT', 'CUS_EXPORT')
-        loai_hinh_val = (job_data.get('loai_hinh') or '').strip()
-        if is_customs and not loai_hinh_val:
+        # --- VALIDATOR: customs jobs MUST have a valid loai_hinh (mã loại hình HQ).
+        # Defense-in-depth: duplicates service-layer check so malformed requests
+        # don't even reach the DB layer. Shared whitelist in
+        # app.core.vietnamese-customs-declaration-codes-and-validator.
+        loai_hinh_error = customs_validator.validate_loai_hinh_for_service(
+            job_data.get('service_type_code'),
+            job_data.get('loai_hinh'),
+        )
+        if loai_hinh_error is not None:
             return JobResponse(
                 success=False,
-                message=(
-                    "Job tờ khai bắt buộc phải có 'Loại hình' (mã loại hình hải quan). "
-                    "Ví dụ: A11/A12 (nhập kinh doanh), A41/A42 (nhập tại chỗ), "
-                    "B11/B12 (xuất kinh doanh), B13/E62 (xuất tại chỗ), "
-                    "G14/G24 (tạm xuất). Vui lòng bổ sung trường này."
-                ),
+                message=loai_hinh_error["message"],
+                error=loai_hinh_error["error"],
+                suggestions=loai_hinh_error["suggestions"],
             )
 
         # --- DUPLICATE CHECK (strict: match cargo details, not just route) ---

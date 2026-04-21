@@ -351,6 +351,9 @@ class UnifiedProcessor:
 
                     created_jobs = []  # List of (job_no, booking_data) tuples
                     all_assigned_vehicles = []
+                    # Capture the first validator rejection so we can show the
+                    # user a specific Vietnamese message instead of a generic error.
+                    first_rejection: Optional[Dict] = None
 
                     for booking in bookings:
                         # Merge with base entities for common fields
@@ -409,8 +412,15 @@ class UnifiedProcessor:
                                             logger.warning(f"[UNIFIED] Failed to assign {v.get('license_plate')}: {assign.text}")
                             else:
                                 logger.warning(f"[UNIFIED] Failed to create job: {result.get('message')}")
+                                if first_rejection is None:
+                                    first_rejection = result
                         else:
                             logger.warning(f"[UNIFIED] API error creating job: {response.text}")
+                            if first_rejection is None:
+                                try:
+                                    first_rejection = response.json()
+                                except Exception:
+                                    first_rejection = {"message": response.text}
 
                     # Build vendor-ready response for all created jobs
                     if created_jobs:
@@ -427,6 +437,20 @@ class UnifiedProcessor:
                             resp_text += f"🚛 Đã gán xe: {', '.join(all_assigned_vehicles)}"
 
                         return {"success": True, "response": resp_text}
+
+                    # No job created — surface the specific rejection to the user.
+                    # For missing_loai_hinh / invalid_loai_hinh we include the
+                    # code list so user can pick one directly in the reply.
+                    if first_rejection:
+                        msg = first_rejection.get("message") or "Không tạo được job."
+                        suggestions = first_rejection.get("suggestions") or []
+                        if suggestions and first_rejection.get("error") in (
+                            "missing_loai_hinh", "invalid_loai_hinh"
+                        ):
+                            msg += "\n\n**Các mã loại hình hải quan thường dùng:**"
+                            for s in suggestions:
+                                msg += f"\n- `{s['code']}` — {s['label']}"
+                        return {"success": False, "response": msg}
                     return {"success": False, "response": "Lỗi tạo job"}
 
                 elif state.intent == "assign_vehicle":

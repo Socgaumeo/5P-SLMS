@@ -156,6 +156,25 @@ Trả về JSON với cấu trúc:
   * AIR_EXP: Hàng không xuất (air export, xuất hàng không)
   * SEA_IMP: Đường biển nhập (sea import, container nhập, cảng, B/L, FCL, LCL)
   * SEA_EXP: Đường biển xuất (sea export, container xuất)
+  * CUS_IMPORT: Dịch vụ mở tờ khai hải quan NHẬP (khai báo HQ, tờ khai nhập)
+  * CUS_EXPORT: Dịch vụ mở tờ khai hải quan XUẤT (khai báo HQ, tờ khai xuất)
+  * CUS_CO: Dịch vụ cấp Certificate of Origin (CO, CO form B/E/AK...)
+- loai_hinh: Mã loại hình hải quan (**BẮT BUỘC** khi service_type = CUS_IMPORT hoặc CUS_EXPORT).
+  Trích xuất từ các cụm như "loại hình A11", "tờ khai B11", "mở tờ khai E31"...
+  Các mã chuẩn của Tổng cục Hải quan (TT 38/2015, TT 39/2018):
+  * A11: Nhập kinh doanh tiêu dùng
+  * A12: Nhập kinh doanh SX
+  * A41: Nhập kinh doanh tại chỗ
+  * A42: Chuyển tiêu thụ nội địa
+  * B11: Xuất kinh doanh
+  * B12: Xuất sau khi đã tạm xuất
+  * B13: Xuất kinh doanh tại chỗ
+  * E11/E21/E31: Nhập gia công / SXXK / sản phẩm GC
+  * E42/E52/E62: Xuất SXXK / sản phẩm GC / sau sửa chữa-BH
+  * G14/G24/G51: Tạm xuất / Tái xuất / Tái xuất TNTX
+  * H11/H21: Hàng nhập/xuất khẩu khác
+  Nếu user không ghi loai_hinh, ĐỪNG đoán bừa — để trống và đặt ready_to_execute=false,
+  hỏi user chọn mã nào.
 
 **Vehicle:**
 - job_number: Mã job (TRK-YYMM-XXX hoặc 3 số cuối)
