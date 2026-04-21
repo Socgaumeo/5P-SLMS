@@ -872,23 +872,66 @@ async def export_jobs_by_entity_v2(
         for c in costs:
             cost_by_job.setdefault(c['job_id'], []).append(c)
 
-        # Build pivot data: collect unique cost names for revenue and cost columns
-        revenue_names = []  # ordered unique cost names with selling_amount > 0
-        cost_names = []     # ordered unique cost names with buying_amount > 0
+        # ------------------------------------------------------------------
+        # Normalize cost_name so unique receipt numbers don't spawn one
+        # column per cost. Example:
+        #   "Thu hộ: Lệ phí hải quan - GNT: 0360356"
+        #   "Thu hộ: Lệ phí hải quan - GNT: 0459109"
+        # both collapse to canonical "Thu hộ: Lệ phí hải quan"; the receipt
+        # numbers are collected per job into a separate "Chứng từ" column.
+        # ------------------------------------------------------------------
+        _RECEIPT_MARKERS = (
+            r"\s*-\s*GNT\s*:",
+            r"\s*-\s*HĐ\s*:",
+            r"\s*-\s*HD\s*:",
+            r"\s*-\s*Hóa\s+đơn\s*:",
+            r"\s*-\s*Hoa\s+don\s*:",
+            r"\s*-\s*BL\s*:",
+            r"\s*-\s*Bill\s*:",
+            r"\s*-\s*Invoice\s*:",
+        )
+        _RECEIPT_SPLIT_RE = re.compile("|".join(_RECEIPT_MARKERS), re.IGNORECASE)
+
+        def _canonical_cost_name(raw: str) -> tuple[str, str]:
+            """
+            Split `raw` cost_name into (canonical_name, receipt_number).
+            If no receipt marker is present, returns (raw_stripped, '').
+            """
+            if not raw:
+                return '', ''
+            parts = _RECEIPT_SPLIT_RE.split(raw, maxsplit=1)
+            canonical = (parts[0] or '').strip()
+            receipt = (parts[1].strip() if len(parts) > 1 else '')
+            return canonical, receipt
+
+        # Build pivot data: collect unique CANONICAL cost names for revenue + cost columns
+        revenue_names = []  # ordered unique canonical names with selling_amount > 0
+        cost_names = []     # ordered unique canonical names with buying_amount > 0
         rev_set = set()
         cost_set = set()
+        # receipts_by_job[job_id] = ordered list of receipt numbers (no dup)
+        receipts_by_job: Dict[int, list] = {}
+        has_any_receipt = False
         for c in costs:
-            name = c.get('cost_name', '').strip()
-            if not name:
+            raw_name = (c.get('cost_name') or '').strip()
+            if not raw_name:
+                continue
+            canonical, receipt = _canonical_cost_name(raw_name)
+            if not canonical:
                 continue
             if float(c.get('selling_amount') or 0) > 0 or float(c.get('selling_rate') or 0) > 0:
-                if name not in rev_set:
-                    rev_set.add(name)
-                    revenue_names.append(name)
+                if canonical not in rev_set:
+                    rev_set.add(canonical)
+                    revenue_names.append(canonical)
             if float(c.get('buying_amount') or 0) > 0 or float(c.get('buying_rate') or 0) > 0:
-                if name not in cost_set:
-                    cost_set.add(name)
-                    cost_names.append(name)
+                if canonical not in cost_set:
+                    cost_set.add(canonical)
+                    cost_names.append(canonical)
+            if receipt:
+                has_any_receipt = True
+                bucket = receipts_by_job.setdefault(c.get('job_id'), [])
+                if receipt not in bucket:
+                    bucket.append(receipt)
 
         # Helper: extract vehicle plate from service
         def _get_plate(svc):
@@ -945,7 +988,12 @@ async def export_jobs_by_entity_v2(
         # ── SHEET 1: DOANH THU (Revenue) ──
         ws_rev = wb.active
         ws_rev.title = "Doanh thu"
-        rev_headers = fixed_headers + revenue_names + ['TỔNG DOANH THU', 'VAT', 'TỔNG SAU VAT']
+        # "Chứng từ" column goes after the pivot columns (only when at least one
+        # cost has a receipt marker — keeps headers tidy for trucking customers).
+        tail_headers = ['TỔNG DOANH THU', 'VAT', 'TỔNG SAU VAT']
+        if has_any_receipt:
+            tail_headers = ['Chứng từ'] + tail_headers
+        rev_headers = fixed_headers + revenue_names + tail_headers
         for col, h in enumerate(rev_headers, 1):
             cell = ws_rev.cell(row=1, column=col, value=h)
             cell.font = hdr_font
@@ -971,13 +1019,16 @@ async def export_jobs_by_entity_v2(
             ws_rev.cell(row=row, column=8, value=_get_vendor(first_svc)).border = border
             ws_rev.cell(row=row, column=9, value=first_svc.get('bl_awb_no', '')).border = border
 
-            # Revenue columns: pivot cost_name → column
+            # Revenue columns: pivot by CANONICAL cost_name so GNT-numbered
+            # variants of the same fee collapse to a single column.
             rev_by_name = {}
             for c in job_costs_list:
-                name = c.get('cost_name', '').strip()
+                canonical, _ = _canonical_cost_name(c.get('cost_name') or '')
+                if not canonical:
+                    continue
                 amt = float(c.get('selling_amount') or 0)
                 if amt > 0:
-                    rev_by_name[name] = rev_by_name.get(name, 0) + amt
+                    rev_by_name[canonical] = rev_by_name.get(canonical, 0) + amt
 
             for ci, rn in enumerate(revenue_names):
                 col_idx = fixed_count + ci + 1
@@ -986,8 +1037,19 @@ async def export_jobs_by_entity_v2(
                 cell.border = border
                 cell.number_format = money_fmt
 
-            # TỔNG DOANH THU (SUM of revenue columns)
-            total_col = fixed_count + len(revenue_names) + 1
+            # "Chứng từ" column (if any cost carries a GNT/HĐ/BL receipt number)
+            cursor = fixed_count + len(revenue_names)
+            if has_any_receipt:
+                cursor += 1
+                cell = ws_rev.cell(
+                    row=row, column=cursor,
+                    value=", ".join(receipts_by_job.get(job_id, [])) or None,
+                )
+                cell.border = border
+                cell.alignment = Alignment(wrap_text=True)
+
+            # TỔNG DOANH THU (SUM of pivot columns — excludes Chứng từ column)
+            total_col = cursor + 1
             if revenue_names:
                 first_cl = get_column_letter(fixed_count + 1)
                 last_cl = get_column_letter(fixed_count + len(revenue_names))
@@ -1022,11 +1084,15 @@ async def export_jobs_by_entity_v2(
 
             row += 1
 
-        # Totals row
+        # Totals row — sum over numeric columns (pivot fees + TỔNG + VAT +
+        # TỔNG SAU VAT). Skip the "Chứng từ" column since it's text.
         if row > 2:
             tr = row
             ws_rev.cell(row=tr, column=1, value="TỔNG CỘNG").font = Font(bold=True)
-            for c in range(fixed_count + 1, fixed_count + len(revenue_names) + 4):
+            chungtu_col = (fixed_count + len(revenue_names) + 1) if has_any_receipt else None
+            for c in range(fixed_count + 1, len(rev_headers) + 1):
+                if c == chungtu_col:
+                    continue  # Chứng từ is text, don't SUM
                 cl = get_column_letter(c)
                 cell = ws_rev.cell(row=tr, column=c)
                 cell.value = f'=SUM({cl}2:{cl}{tr-1})'
@@ -1039,7 +1105,16 @@ async def export_jobs_by_entity_v2(
         # Column widths
         for i in range(1, fixed_count + 1):
             ws_rev.column_dimensions[get_column_letter(i)].width = [5, 18, 12, 14, 20, 20, 14, 14, 16][i-1]
-        for i in range(fixed_count + 1, len(rev_headers) + 1):
+        # Pivot cost columns
+        for i in range(fixed_count + 1, fixed_count + len(revenue_names) + 1):
+            ws_rev.column_dimensions[get_column_letter(i)].width = 16
+        # Chứng từ column — wider because it may hold multiple receipt numbers
+        if has_any_receipt:
+            chungtu_col_letter = get_column_letter(fixed_count + len(revenue_names) + 1)
+            ws_rev.column_dimensions[chungtu_col_letter].width = 26
+        # Tail total/vat columns
+        for i in range(fixed_count + len(revenue_names) + (2 if has_any_receipt else 1),
+                       len(rev_headers) + 1):
             ws_rev.column_dimensions[get_column_letter(i)].width = 16
         ws_rev.freeze_panes = 'A2'
 
@@ -1071,13 +1146,15 @@ async def export_jobs_by_entity_v2(
             ws_cost.cell(row=row, column=8, value=_get_vendor(first_svc)).border = border
             ws_cost.cell(row=row, column=9, value=first_svc.get('bl_awb_no', '')).border = border
 
-            # Cost columns: pivot cost_name → column
+            # Cost columns: pivot by CANONICAL cost_name
             cost_by_name = {}
             for c in job_costs_list:
-                name = c.get('cost_name', '').strip()
+                canonical, _ = _canonical_cost_name(c.get('cost_name') or '')
+                if not canonical:
+                    continue
                 amt = float(c.get('buying_amount') or 0)
                 if amt > 0:
-                    cost_by_name[name] = cost_by_name.get(name, 0) + amt
+                    cost_by_name[canonical] = cost_by_name.get(canonical, 0) + amt
 
             for ci, cn in enumerate(cost_names):
                 col_idx = fixed_count + ci + 1
