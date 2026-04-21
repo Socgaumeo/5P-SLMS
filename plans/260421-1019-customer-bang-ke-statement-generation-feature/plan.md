@@ -97,12 +97,12 @@ Maintained in `dainese_cost_name_to_column_mapper.py`. Works for any customer be
 - "Phí xếp dỡ (THC)" → THC
 - ... (27 unit tests pass)
 
-## Open questions
+## Decisions (chốt ngày 2026-04-21)
 
-1. **Vendor cost import workflow** — chưa rõ ai/khi nào nhập vendor invoices vào DB. Cần workflow/UI riêng.
-2. **Multi-sheet output preference** — KH muốn 1 file nhiều sheets hay nhiều file riêng?
-3. **TDI BẢNG THEO DÕI** — internal tracking sheet hay bảng kê thật?
-4. **Bank info variant** — có customer nào dùng STK khác Techcombank ĐĐ 346886?
-5. **VAT rate per service** — 8% phổ biến, CO=0%, có gì khác không?
-6. **Customer code disambiguation** — KK vs KKFASHION (cùng K+K Fashion), MESSERHP/HD/DQ/TN — gộp hay tách?
-7. **Frontend admin UI** — cần page CRUD registry config hay chỉ edit Python file?
+1. **Vendor cost import** → 3 input methods: (a) manual entry UI, (b) upload file invoice (PDF/Excel), (c) paste URL link to invoice. Phase 7 triển khai cả 3.
+2. **Multi-sheet** → **1 file nhiều sheets** với các KH có yêu cầu theo template.
+3. **TDI BẢNG THEO DÕI** → là dịch vụ riêng, tên chính thức **"Bảng kê Thủ tục hải quan"**, là deliverable gửi KH (không phải internal tracking).
+4. **Bank info** → chỉ 1 số tài khoản (Techcombank ĐĐ 346886). No variant.
+5. **VAT rate** → chỉ 2 loại phổ biến: **8%** (services) và **0%** (CO).
+6. **MESSER 4 codes (HD/HP/DQ/TN)** → **giữ tách 4 entity riêng** vì MST + đối tượng xuất hóa đơn khác nhau.
+7. **Admin UI** → **Option B (DB-backed registry + admin CRUD UI)** — non-DEV (manager) sẽ phụ trách thêm/sửa customer. Phase 8 triển khai migrate config từ Python file sang DB table + trang admin.

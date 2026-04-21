@@ -39,11 +39,11 @@
 - `PUT /api/admin/customer-templates/{code}` — update
 - `DELETE /api/admin/customer-templates/{code}` — disable
 
-### Storage decision
-- **Option A**: Keep registry in `customer_export_template_registry.py` Python file (current). Simple but requires deploy to add customer.
-- **Option B**: Move to DB table `customer_template_configs`. Allows runtime add via UI without deploy.
+### Storage decision — **CHỐT Option B** (2026-04-21)
 
-**Recommend Option B** for true admin self-service.
+- Non-DEV (manager) sẽ phụ trách quản lý customer templates.
+- Move registry sang DB table `customer_template_configs` → admin CRUD qua UI, không cần deploy.
+- Python file `customer_export_template_registry.py` → chuyển thành **fallback/seed** (đọc DB trước, file sau).
 
 ## Files to create / modify
 
@@ -59,12 +59,13 @@
 
 ## Implementation steps
 
-1. UX polish (1-2 hours).
-2. Decide A vs B for storage.
-3. If B: create DB table + migration + API CRUD.
-4. Build admin frontend page.
-5. Migrate existing registry entries to DB.
-6. Update `customer_export_template_registry.py` to read from DB (with file fallback).
+1. UX polish SearchBox (1-2 hours).
+2. Schema migration: `customer_template_configs` table (customer_code, family, sheet_name, title_template, vat_rate, include_bank, enabled, options JSONB, created_at, updated_at, created_by).
+3. API CRUD `/api/admin/customer-templates` (ADMIN role check via existing `require_manager_or_admin` or new `require_admin`).
+4. Migrate 16 existing registry entries → seed DB.
+5. Refactor `customer_export_template_registry.py` → `load_config(code)` đọc DB trước, file fallback.
+6. Build React admin page + form (dropdown customer, family, title template, VAT, options).
+7. Audit log: append-only `customer_template_configs_audit` table.
 
 ## Todo list
 

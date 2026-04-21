@@ -16,13 +16,15 @@
 - BUT: real margin can't be computed until vendor invoices imported.
 - Vendor invoices come from a SEPARATE workflow (vendor side, not customer bảng kê).
 
-## Sources of vendor cost data
+## Sources of vendor cost data (chốt 2026-04-21)
 
-| Source | Format | Status |
+3 input methods — tất cả đều triển khai:
+
+| Source | Format | Priority |
 |---|---|---|
-| Vendor invoices PDF/Excel | Per-vendor format | Need import script |
-| Vendor portal exports | Varies | Need API integration if exists |
-| Manual entry via UI | Form-based | Need form |
+| **Manual entry via UI** | Form per cost line | 1 (phổ biến nhất — nhân viên nhập tay) |
+| **Upload file invoice** | PDF / Excel upload | 2 (batch entry, AI parse to extract amounts) |
+| **Paste URL link** | HTTP(S) link tới invoice online | 3 (reference-only, lưu link vào `job_costs.invoice_url`) |
 
 ## Requirements
 
@@ -39,31 +41,45 @@
 ## Architecture
 
 ```
-3 entry points for buying_amount:
+4 entry points for buying_amount:
 
-A. Bulk import (vendor invoice → DB)
-   backend/scripts/import-vendor-invoices.py
-     → reads vendor's invoice file
-     → matches to job_services by svc_id or invoice number
-     → UPDATE job_costs SET buying_amount = ... WHERE ...
-
-B. Manual entry (UI)
+A. Manual entry (UI) — PRIMARY
    frontend/src/components/JobCostEditor.jsx (NEW)
      → opens for a service
-     → user enters per-line buying_amount
+     → user enters per-line buying_amount + vendor_id + invoice_no
      → POST /api/jobs/services/{svc_id}/costs/{cost_id}/buying
      → backend updates job_costs.buying_rate
 
-C. Quotation-driven (existing)
-   backend/app/api/jobs.py:_sync_quotation_to_job_costs already supports
-   buying via ServiceQuotationRequest. Underused — wire into UI.
+B. File upload (PDF/Excel invoice)
+   frontend/src/components/VendorInvoiceUpload.jsx (NEW)
+     → drag-drop invoice file
+     → backend uploads to S3/storage
+     → AI/OCR parses amounts + suggests cost-line mapping
+     → user reviews + confirms → writes to job_costs
+
+C. URL link reference
+   job_costs.invoice_url column (NEW schema add)
+     → user pastes link to online invoice (Drive, Onedrive, vendor portal)
+     → stored as reference; buying_amount still entered via A
+
+D. Bulk import script (per-vendor)
+   backend/scripts/import-vendor-invoices-{VENDOR}.py
+     → reads vendor's invoice format
+     → matches to job_services by svc_id / invoice_no
+     → UPDATE job_costs SET buying_amount = ... WHERE ...
+
+E. Quotation-driven (existing)
+   _sync_quotation_to_job_costs already supports buying via ServiceQuotationRequest.
 ```
 
 ## Files to create
 
-- `backend/scripts/import-vendor-invoices.py` (template)
-- `backend/app/api/jobs.py` — add PATCH endpoint for cost.buying
-- `frontend/src/components/JobCostEditor.jsx`
+- `backend/migrations/add_invoice_url_and_upload_fields_to_job_costs.sql` — schema add (invoice_url, invoice_file_id, vendor_id if missing)
+- `backend/app/api/jobs.py` — add PATCH endpoint for cost.buying + invoice_url
+- `backend/app/api/vendor_invoices.py` (NEW) — upload + parse endpoints
+- `backend/scripts/import-vendor-invoices-template.py` — per-vendor parser starter
+- `frontend/src/components/JobCostEditor.jsx` — manual entry form
+- `frontend/src/components/VendorInvoiceUpload.jsx` — drag-drop file upload
 
 ## Implementation steps
 
@@ -93,8 +109,12 @@ C. Quotation-driven (existing)
 - **Risk**: Cost name fuzzy matching false positives. Mitigation: require svc_id exact match.
 - **Risk**: Manual entry slow for high-volume customers. Mitigation: bulk paste mode in UI.
 
+## Resolved (2026-04-21)
+
+- ✅ 3 input methods đều triển khai: manual form / file upload / URL link.
+
 ## Open questions
 
-- Where do vendor invoices come from currently?
-- Is there a vendor portal integration possibility?
-- Audit trail required for buying_amount changes?
+- AI/OCR engine cho file-upload parse — dùng Gemini multimodal (đã có trong skill `ai-multimodal`) hay tự làm?
+- Audit trail (who/when/old→new) cho buying_amount changes — cần bắt buộc?
+- Vendor portal integration (future) — có vendor nào có API không?
