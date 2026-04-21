@@ -39,12 +39,17 @@ BANK_INFO = [
     "Tại Ngân hàng: Ngân hàng TMCP Kỹ thương Việt Nam - Techcombank Chi nhánh Đông Đô",
 ]
 
-# Path to the 5P star logo extracted from customer reference files
-DEFAULT_LOGO_PATH = (
-    Path(__file__).resolve().parent.parent.parent.parent.parent
-    / "plans" / "reports" / "dainese-templates" / "logos"
-    / "Bảng_kê_nhập_tháng_3_2026_sea_air__image1.png"
-)
+# Canonical 5P brand logo — shared with the frontend so exports and the web app
+# show the same image. Falls back to the DAINESE-extracted placeholder only if
+# the frontend asset has been moved/deleted, since Family A/B/C renderers all
+# depend on this path.
+_WORKTREE_ROOT = Path(__file__).resolve().parent.parent.parent.parent.parent
+DEFAULT_LOGO_PATH = _WORKTREE_ROOT / "frontend" / "public" / "logo.png"
+if not DEFAULT_LOGO_PATH.exists():
+    DEFAULT_LOGO_PATH = (
+        _WORKTREE_ROOT / "plans" / "reports" / "dainese-templates" / "logos"
+        / "Bảng_kê_nhập_tháng_3_2026_sea_air__image1.png"
+    )
 
 
 # ---------- Style primitives ----------
@@ -199,8 +204,14 @@ def build_company_header_block(
     if logo_path:
         try:
             img = XLImage(logo_path)
-            img.width = 90
-            img.height = 90
+            # Preserve aspect ratio — the 5P brand logo is wider than tall (≈4:1).
+            # Constrain by height, compute width from the original pixel ratio,
+            # capped at 220px so wide logos don't overflow into data columns.
+            target_h = 72
+            aspect = (img.width / img.height) if img.height else 1.0
+            target_w = min(int(round(target_h * aspect)), 220)
+            img.width = target_w
+            img.height = target_h
             ws.add_image(img, logo_anchor)
         except Exception:
             pass
