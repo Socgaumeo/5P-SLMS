@@ -53,8 +53,11 @@ A. Manual entry (UI) — PRIMARY
 B. File upload (PDF/Excel invoice)
    frontend/src/components/VendorInvoiceUpload.jsx (NEW)
      → drag-drop invoice file
-     → backend uploads to S3/storage
-     → AI/OCR parses amounts + suggests cost-line mapping
+     → backend uploads to storage
+     → Parse pipeline (REUSE existing):
+         - Excel (.xlsx/.xls) → openpyxl + custom Excel parser script (đã có cho import scripts)
+         - PDF / image / free-text Telegram forward → Claude Sonnet API (đã tích hợp qua telegram-webhook-handler + AI pipeline)
+     → AI suggests cost-line mapping + amounts
      → user reviews + confirms → writes to job_costs
 
 C. URL link reference
@@ -75,11 +78,13 @@ E. Quotation-driven (existing)
 ## Files to create
 
 - `backend/migrations/add_invoice_url_and_upload_fields_to_job_costs.sql` — schema add (invoice_url, invoice_file_id, vendor_id if missing)
-- `backend/app/api/jobs.py` — add PATCH endpoint for cost.buying + invoice_url
+- `backend/migrations/create_job_costs_audit_table_and_trigger.sql` — audit Level 2
+- `backend/app/api/jobs.py` — add PATCH endpoint for cost.buying + invoice_url + GET history
 - `backend/app/api/vendor_invoices.py` (NEW) — upload + parse endpoints
 - `backend/scripts/import-vendor-invoices-template.py` — per-vendor parser starter
-- `frontend/src/components/JobCostEditor.jsx` — manual entry form
+- `frontend/src/components/JobCostEditor.jsx` — manual entry form + history drawer
 - `frontend/src/components/VendorInvoiceUpload.jsx` — drag-drop file upload
+- `frontend/src/components/JobCostHistoryDrawer.jsx` — display audit trail per cost line
 
 ## Implementation steps
 
@@ -112,9 +117,13 @@ E. Quotation-driven (existing)
 ## Resolved (2026-04-21)
 
 - ✅ 3 input methods đều triển khai: manual form / file upload / URL link.
+- ✅ Parse engine **tái sử dụng pipeline hiện có**: Excel → openpyxl + excel_parser; PDF/text/Telegram → Claude Sonnet (đã tích hợp qua telegram-webhook-handler).
+- ✅ **Audit trail Level 2 — Full audit table**:
+  - Tạo bảng `job_costs_audit` (audit_id, cost_id, job_id, svc_id, action [INSERT/UPDATE/DELETE], old_value JSONB, new_value JSONB, changed_by user_id, changed_at timestamp, reason text nullable)
+  - Trigger: mỗi INSERT/UPDATE/DELETE trên `job_costs` tự động append 1 row audit.
+  - API endpoint `GET /api/jobs/costs/{cost_id}/history` trả history để UI hiển thị khi cần.
+  - UI: icon clock bên cạnh mỗi cost line → click mở drawer xem history.
 
 ## Open questions
 
-- AI/OCR engine cho file-upload parse — dùng Gemini multimodal (đã có trong skill `ai-multimodal`) hay tự làm?
-- Audit trail (who/when/old→new) cho buying_amount changes — cần bắt buộc?
 - Vendor portal integration (future) — có vendor nào có API không?

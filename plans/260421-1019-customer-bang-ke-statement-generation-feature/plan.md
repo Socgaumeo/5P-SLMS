@@ -106,3 +106,6 @@ Maintained in `dainese_cost_name_to_column_mapper.py`. Works for any customer be
 5. **VAT rate** → chỉ 2 loại phổ biến: **8%** (services) và **0%** (CO).
 6. **MESSER 4 codes (HD/HP/DQ/TN)** → **giữ tách 4 entity riêng** vì MST + đối tượng xuất hóa đơn khác nhau.
 7. **Admin UI** → **Option B (DB-backed registry + admin CRUD UI)** — non-DEV (manager) sẽ phụ trách thêm/sửa customer. Phase 8 triển khai migrate config từ Python file sang DB table + trang admin.
+8. **Export scope** → **TẤT CẢ customer** phải xuất được bảng kê. Không skip KWE / NIPPON / DONSUNG-warehouse.
+9. **Invoice parse engine** → **tái sử dụng pipeline hiện có**: openpyxl + excel parser cho Excel; Claude Sonnet (qua Telegram pipeline đã tích hợp) cho PDF / text / image.
+10. **Audit trail** → **Level 2 — Full audit table** (`job_costs_audit`): mỗi INSERT/UPDATE/DELETE tự động ghi row (who/when/action/old/new) qua DB trigger. API + UI drawer xem history per cost line.

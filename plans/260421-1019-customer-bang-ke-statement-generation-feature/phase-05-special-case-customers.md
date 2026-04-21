@@ -20,11 +20,15 @@
 | **DONSUNG warehouse** | "BẢNG KÊ DỊCH VỤ KHO" — kho-specific (storage), 8 sheets, no cluster match. |
 | **NIPPON** | Multi-tab raw data, not standard debit format. |
 
-## Strategy
-- **NOT every customer needs custom code**. Some (like TDI BẢNG THEO DÕI) might be internal tracking, NOT debit notes — confirm with user first.
-- **MESSER 4 codes** — check if they share format → 1 module covers all 4.
-- **TDI** — only template that genuinely needs multi-sheet output beyond Family C/D capabilities.
-- **KWE** — may be view-only data sheet (KH self-service), might not need export from DB at all.
+## Strategy (updated 2026-04-21)
+
+**Mục tiêu: TẤT CẢ customer đều phải xuất được bảng kê** (per user). Không skip KWE/NIPPON/DONSUNG-warehouse.
+
+- **MESSER 4 codes** — giữ tách 4 entity (MST khác nhau), mỗi mã 1 registry entry.
+- **TDI** — 2 templates riêng: (a) multi-sheet air 3 sheets, (b) Bảng kê Thủ tục hải quan.
+- **KWE** — hiện nhìn như data dump 6 sheets. Cần trao đổi lại với KH: đây là file họ tự dump hay là bảng kê 5P gửi? → nếu 5P gửi, build template render 6 sheets (tái sử dụng Family renderer hiện có).
+- **NIPPON** — multi-tab raw data. Xây template riêng render đủ tabs.
+- **DONSUNG warehouse** — "BẢNG KÊ DỊCH VỤ KHO" 8 sheets. Xây Family E warehouse renderer nếu có ≥2 KH pattern tương tự; không thì build dedicated.
 
 ## Requirements
 
@@ -58,28 +62,36 @@
 
 ```
 backend/app/api/exports/
-├── tdi_special_multi_sheet_air_template.py
-└── messer_special_handling_template.py  (if doesn't fit Family B)
+├── tdi_special_multi_sheet_air_template.py        # TDI 3-sheet air
+├── tdi_thu_tuc_hai_quan_template.py               # TDI TTHQ (deliverable)
+├── messer_special_handling_template.py            # MESSER HD/HP/DQ/TN (4 entries registry, 1 renderer)
+├── kwe_data_dump_template.py                      # KWE 6-sheet data dump
+├── nippon_multi_tab_template.py                   # NIPPON raw data tabs
+└── donsung_warehouse_8_sheet_template.py          # DONSUNG kho service (or Family E if pattern repeats)
 ```
 
-KWE/NIPPON/DONSUNG warehouse — likely SKIP (confirm with user).
+All customers in scope → all render via registry. No skip.
 
 ## Implementation steps
 
-1. **First**: ask user which special customers truly need export (TDI yes; KWE maybe; etc.).
-2. **MESSER**: try Family B first → if fits, just register. If not, build dedicated.
-3. **TDI**: dedicated multi-sheet renderer.
-4. Register in `customer_export_template_registry.py`.
-5. Verify each against original.
+1. **MESSER**: try Family B first → if fits, register 4 entries. If not, build dedicated handling renderer (still 1 module, 4 registry entries pointing to it with per-entity config: MST, bank, company_name).
+2. **TDI**: 2 templates — (a) multi-sheet air 3-sheet, (b) TTHQ deliverable (likely Family C customs).
+3. **KWE**: trao đổi KH — 6 sheets là dump họ gửi ngược hay mình phải render? Nếu render, xây renderer theo cluster tương ứng.
+4. **NIPPON**: identify từng tab là gì → route tab tương ứng sang Family đã có, tổng hợp thành 1 file multi-sheet.
+5. **DONSUNG warehouse**: đếm pattern các kho KH — nếu ≥2 KH giống pattern → Family E warehouse. Không thì dedicated.
+6. Register all in `customer_export_template_registry.py` (or DB via Phase 8 nếu đã xong).
+7. Verify each against original Excel mẫu.
 
 ## Todo list
 
-- [ ] Confirm with user which special customers need export
-- [ ] Try Family B for MESSER → register if fits
-- [ ] Build TDI multi-sheet renderer (if user confirms need)
-- [ ] Skip KWE/NIPPON/DONSUNG-warehouse (per user direction)
-- [ ] Register all confirmed
-- [ ] Verify
+- [ ] MESSER: try Family B first (register 4 entries HD/HP/DQ/TN with per-entity MST/bank config)
+- [ ] TDI multi-sheet air renderer
+- [ ] TDI Bảng kê Thủ tục hải quan template (confirm Family C fit)
+- [ ] KWE 6-sheet renderer (confirm direction with KH first)
+- [ ] NIPPON multi-tab renderer
+- [ ] DONSUNG warehouse 8-sheet (evaluate Family E vs dedicated)
+- [ ] Register all in registry (Python file or DB-backed per Phase 8)
+- [ ] Verify each against original Excel mẫu
 
 ## Success criteria
 - All confirmed special customers exportable.
@@ -92,8 +104,9 @@ KWE/NIPPON/DONSUNG warehouse — likely SKIP (confirm with user).
 ## Resolved (2026-04-21)
 
 - ✅ TDI "BẢNG THEO DÕI" = **Bảng kê Thủ tục hải quan**, deliverable → xây template riêng.
-- ✅ MESSER 4 codes → **giữ tách** (MST khác nhau) → 4 registry entry riêng.
+- ✅ MESSER 4 codes → **giữ tách** (MST khác nhau) → 4 registry entry riêng, 1 renderer dùng chung.
+- ✅ KWE / NIPPON / DONSUNG-warehouse → **tất cả đều cần export**. Không skip customer nào.
 
 ## Open questions
 
-- KWE/NIPPON/DONSUNG-warehouse — sheets are multi-tab data dumps. Need export at all? (chưa chốt)
+- KWE 6-sheet format: đây là file KH gửi ngược về 5P, hay bảng kê 5P phải generate gửi KH? (cần hỏi lại)
