@@ -160,12 +160,26 @@ async def create_job(request: JobCreateFromChatRequest, req: Request):
     try:
         data_service = get_data_service()
 
-        # Get current user if authenticated
+        # Auth — accept either a valid Bearer token (direct REST caller) or
+        # enriched_data.created_by (internal chat loopback from unified_processor,
+        # which itself requires auth at /api/message). Reject if neither.
         current_user = await get_current_user_optional(req)
-        user_id = current_user['user_id'] if current_user else 1
-        
         entities = request.entities
         enriched = request.enriched_data or {}
+        if current_user:
+            user_id = current_user['user_id']
+        else:
+            # Internal loopback fallback — trust created_by when set.
+            created_by_claim = enriched.get('created_by')
+            if created_by_claim is None:
+                raise HTTPException(
+                    status_code=401,
+                    detail="Yêu cầu đăng nhập để tạo job.",
+                )
+            try:
+                user_id = int(created_by_claim)
+            except (TypeError, ValueError):
+                raise HTTPException(status_code=401, detail="created_by không hợp lệ.")
         
         # If user_id or user_code provided in enriched_data (e.g., from chat bot),
         # use it instead of default admin (1)
@@ -556,6 +570,9 @@ async def create_job(request: JobCreateFromChatRequest, req: Request):
             message=msg
         )
         
+    except HTTPException:
+        # Let auth 401s / other explicit HTTP errors propagate with proper status
+        raise
     except Exception as e:
         logger.error(f"Error creating job: {e}")
         logger.error(traceback.format_exc())
@@ -2327,6 +2344,9 @@ class AddServiceRequest(BaseModel):
     driver_name: Optional[str] = None
     driver_phone: Optional[str] = None
     notes: Optional[str] = None
+    # Customs declaration code — required by validator when service_type_code is CUS/CUS_IMPORT/CUS_EXPORT.
+    loai_hinh: Optional[str] = None
+    cd_no: Optional[str] = None  # Tờ khai number
 
 
 @router.put("/{job_id}/customer")
@@ -2383,12 +2403,33 @@ async def change_job_customer(job_id: int, request: CustomerChangeRequest):
 
 
 @router.post("/{job_id}/services")
-async def add_job_service(job_id: int, request: AddServiceRequest):
+async def add_job_service(job_id: int, request: AddServiceRequest, req: Request):
     """
     Add new service to existing job.
+    Requires authenticated user so created_by audit trail is populated.
     """
     try:
         client = get_supabase()
+
+        # Auth — required so we can set created_by. Frontend authFetch injects the
+        # Bearer token automatically; unsigned requests get rejected.
+        current_user = await get_current_user_optional(req)
+        if not current_user:
+            raise HTTPException(status_code=401, detail="Yêu cầu đăng nhập để thêm dịch vụ.")
+        user_id = current_user['user_id']
+
+        # --- VALIDATOR: customs services MUST have a valid loai_hinh ---
+        # Uses shared module so endpoint + service layer + DB constraint stay in sync.
+        loai_hinh_error = customs_validator.validate_loai_hinh_for_service(
+            request.service_type_code, request.loai_hinh
+        )
+        if loai_hinh_error is not None:
+            return {
+                "success": False,
+                "message": loai_hinh_error["message"],
+                "error": loai_hinh_error["error"],
+                "suggestions": loai_hinh_error["suggestions"],
+            }
 
         # Verify job exists
         job_result = client.table('jobs').select(
@@ -2432,7 +2473,13 @@ async def add_job_service(job_id: int, request: AddServiceRequest):
             'package_quantity': request.package_quantity,
             'package_unit': request.package_unit,
             'special_requirements': request.special_requirements,
-            'status_code': 'PENDING'
+            'status_code': 'PENDING',
+            # Audit — who added this service
+            'created_by': user_id,
+            'updated_by': user_id,
+            # Customs declaration fields (normalized uppercase, null when empty)
+            'loai_hinh': customs_validator.normalize_loai_hinh(request.loai_hinh) or None,
+            'cd_no': (request.cd_no or '').strip() or None,
         }
 
         # Add vendor if provided
@@ -2817,12 +2864,20 @@ async def update_service_notes(svc_id: int, request: ServiceNotesRequest):
 
 @router.put("/services/{svc_id}/details")
 async def update_service_details(svc_id: int, request: Request):
-    """Update editable service details: cargo, route, date, invoice, package info."""
+    """Update editable service details: cargo, route, date, invoice, package info.
+    Requires authenticated user (records updated_by audit).
+    """
     try:
         client = get_supabase()
         body = await request.json()
 
-        # Whitelist of editable columns
+        # Auth required — so updated_by gets set and created_by chain stays intact.
+        current_user = await get_current_user_optional(request)
+        if not current_user:
+            raise HTTPException(status_code=401, detail="Yêu cầu đăng nhập để cập nhật dịch vụ.")
+        user_id = current_user['user_id']
+
+        # Whitelist of editable columns — loai_hinh now included (customs services).
         allowed = {
             'cargo_type', 'package_quantity', 'package_unit',
             'origin_address', 'dest_address', 'destination_address',
@@ -2831,12 +2886,40 @@ async def update_service_details(svc_id: int, request: Request):
             'service_type_code', 'weight_kg', 'volume_cbm',
             'bl_awb_no', 'co_no',
             'route', 'chargeable_weight_kg', 'quotation_no',
-            'seller_name', 'buyer_name', 'cd_no', 'customs_status'
+            'seller_name', 'buyer_name', 'cd_no', 'customs_status',
+            'loai_hinh',
         }
         update_data = {k: v for k, v in body.items() if k in allowed}
         # Map alias: destination_address → dest_address (DB column)
         if 'destination_address' in update_data:
             update_data['dest_address'] = update_data.pop('destination_address')
+
+        # --- VALIDATOR: if the caller is changing service_type_code to customs OR
+        # updating loai_hinh, re-check against the whitelist. Need to know the
+        # resulting service_type_code + loai_hinh after this update.
+        if 'service_type_code' in update_data or 'loai_hinh' in update_data:
+            # Fetch current row so we know the resulting state (allowing partial updates)
+            current_row = client.table('job_services').select(
+                'service_type_code, loai_hinh'
+            ).eq('svc_id', svc_id).limit(1).execute()
+            cur = current_row.data[0] if current_row.data else {}
+            final_svc_code = update_data.get('service_type_code', cur.get('service_type_code'))
+            final_loai_hinh = update_data.get('loai_hinh', cur.get('loai_hinh'))
+            loai_hinh_error = customs_validator.validate_loai_hinh_for_service(
+                final_svc_code, final_loai_hinh
+            )
+            if loai_hinh_error is not None:
+                return {
+                    "success": False,
+                    "message": loai_hinh_error["message"],
+                    "error": loai_hinh_error["error"],
+                    "suggestions": loai_hinh_error["suggestions"],
+                }
+            # Normalize loai_hinh if being set
+            if 'loai_hinh' in update_data:
+                update_data['loai_hinh'] = (
+                    customs_validator.normalize_loai_hinh(update_data['loai_hinh']) or None
+                )
 
         # Store extra_info and/or SEA_DOM fields in service_details JSONB
         jsonb_fields = {k: body[k] for k in SEA_DOM_FIELDS if k in body}
@@ -2859,6 +2942,7 @@ async def update_service_details(svc_id: int, request: Request):
             return {"success": False, "message": "No valid fields to update"}
 
         update_data['updated_at'] = datetime.now().isoformat()
+        update_data['updated_by'] = user_id  # Audit trail
         client.table('job_services').update(update_data).eq('svc_id', svc_id).execute()
         logger.info(f"Updated details for service {svc_id}: {list(update_data.keys())}")
 
@@ -2903,6 +2987,8 @@ async def update_service_details(svc_id: int, request: Request):
         if doc_warnings:
             result["warnings"] = doc_warnings
         return result
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error updating service details: {e}")
         return {"success": False, "message": str(e)}

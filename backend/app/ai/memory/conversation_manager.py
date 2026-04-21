@@ -103,7 +103,11 @@ class ConversationManager:
         # Route to unified processor if configured
         if self.conversation_mode == "unified" and self.unified_processor:
             logger.info(f"[PROCESS] Routing to UNIFIED processor, session={session_id[:8]}")
-            unified_result = await self.unified_processor.process(session_id, message, context)
+            # Forward user_id so unified_processor can stamp created_by on side-effect requests
+            uid_int = user_id if isinstance(user_id, int) else None
+            unified_result = await self.unified_processor.process(
+                session_id, message, context, user_id=uid_int
+            )
             # Convert UnifiedResult to ProcessResult
             return ProcessResult(
                 response=unified_result.response,

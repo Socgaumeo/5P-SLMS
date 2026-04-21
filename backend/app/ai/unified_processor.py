@@ -30,6 +30,9 @@ class UnifiedState:
     history: list = field(default_factory=list)
     ready_to_execute: bool = False
     needs_confirmation: bool = False
+    # Authenticated user id — propagated from chat endpoint, used by _prepare_action
+    # to stamp created_by on side-effectful requests.
+    user_id: Optional[int] = None
 
 
 @dataclass
@@ -75,7 +78,8 @@ class UnifiedProcessor:
         self,
         session_id: str,
         message: str,
-        context: Optional[Dict] = None
+        context: Optional[Dict] = None,
+        user_id: Optional[int] = None,
     ) -> UnifiedResult:
         """
         Process user message with unified AI approach.
@@ -84,11 +88,17 @@ class UnifiedProcessor:
             session_id: Session identifier
             message: User message
             context: Additional context from frontend
+            user_id: Authenticated user id — stored on state so _prepare_action
+                can stamp created_by on outgoing job-creation requests.
 
         Returns:
             UnifiedResult with response and state
         """
         state = self._get_state(session_id)
+        # Track the user behind this session so any side-effectful actions
+        # (POST /jobs/create, PUT /services/.../details) are audited correctly.
+        if user_id is not None:
+            state.user_id = user_id
 
         logger.info(f"[UNIFIED] session={session_id[:8]}, message={message[:50]}...")
         logger.info(f"[UNIFIED] current_intent={state.intent}, entities={len(state.entities)}")
@@ -360,13 +370,18 @@ class UnifiedProcessor:
                         merged_entities = {**state.entities, **booking}
                         # Remove bookings array to avoid recursion
                         merged_entities.pop("bookings", None)
+                        # Stamp created_by so the endpoint can audit who triggered
+                        # this chat-originated job creation (internal loopback has no token).
+                        enriched = {**merged_entities}
+                        if state.user_id is not None:
+                            enriched['created_by'] = state.user_id
 
                         response = await client.post(
                             f"{API_BASE_URL}/api/jobs/create",
                             json={
                                 "session_id": state.session_id,
                                 "entities": merged_entities,
-                                "enriched_data": merged_entities
+                                "enriched_data": enriched
                             },
                             timeout=30.0
                         )

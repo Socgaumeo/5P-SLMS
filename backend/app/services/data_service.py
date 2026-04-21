@@ -476,7 +476,9 @@ class DataService:
                         'dimension_height_cm': item.get("height_cm") or job_data.get("dimension_height_cm"),
                         'invoice_numbers': item.get("invoice_no") or job_data.get("invoice_numbers"),
                         'special_requirements': job_data.get("special_requirements"),
-                        'service_details': service_details_json
+                        'service_details': service_details_json,
+                        'created_by': user_id,
+                        'updated_by': user_id,
                     }).execute()
                 services = []
 
@@ -538,7 +540,9 @@ class DataService:
                     'vacuum_pack': job_data.get("vacuum_pack") or False,
                     'lashing': job_data.get("lashing") or False,
                     'fumigation': job_data.get("fumigation") or False,
-                    'service_details': service_details_json
+                    'service_details': service_details_json,
+                    'created_by': user_id,
+                    'updated_by': user_id,
                 }).execute()
 
                 logger.info(f"Created job_service for type={svc_type}")

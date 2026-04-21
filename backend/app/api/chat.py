@@ -2,7 +2,7 @@
 Chat API - Main endpoints for Chat UI with Conversation Memory
 """
 
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends, Request
 from pydantic import BaseModel
 from typing import Optional, Dict, Any, List
 import json
@@ -16,6 +16,7 @@ from app.ai.clients import get_ai_client
 from app.ai.memory import ConversationManager, ProcessResult
 from app.services.data_service import get_data_service
 from app.ai.utils.service_type_detector import detect_from_excel_data
+from app.api.dependencies import get_current_user
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -59,17 +60,20 @@ class ChatResponse(BaseModel):
 @router.post("/process", response_model=ChatResponse) # Alias for legacy support
 async def send_message(
     request: ChatRequest,
+    current_user: Dict[str, Any] = Depends(get_current_user),
     manager: ConversationManager = Depends(get_conversation_manager)
 ):
     """
-    Send a chat message with conversation memory
+    Send a chat message with conversation memory. Requires authentication so
+    any side-effectful action (create job, update service) is stamped with
+    the initiating user_id — needed for the loai_hinh audit trail.
     """
     # Use provided session_id or generate one
-    # If using auth, append user_id. Here we generate simple UUID if missing.
     is_new_session = not request.session_id
     session_id = request.session_id or str(uuid.uuid4())
 
-    logger.info(f"[CHAT] Received message, session_id={session_id}, is_new={is_new_session}")
+    user_id = current_user['user_id']
+    logger.info(f"[CHAT] Received message, session_id={session_id}, is_new={is_new_session}, user_id={user_id}")
     logger.info(f"[CHAT] Message: {request.message[:100]}...")
 
     user_message = request.message
@@ -78,7 +82,7 @@ async def send_message(
         result = await manager.process(
             session_id=session_id,
             message=user_message,
-            user_id="anonymous", # Replace with actual user ID if auth enabled
+            user_id=user_id,  # int — enables created_by audit downstream
             context=request.context
         )
 
@@ -104,16 +108,17 @@ async def send_message(
 @router.post("/confirm/{session_id}")
 async def confirm_action(
     session_id: str,
+    current_user: Dict[str, Any] = Depends(get_current_user),
     manager: ConversationManager = Depends(get_conversation_manager)
 ):
     """
-    Confirm pending action in a session
+    Confirm pending action in a session (auth-required — confirms create-job side effects).
     """
     try:
         result = await manager.process(
             session_id=session_id,
             message="ok",  # Confirmation trigger
-            user_id="anonymous"
+            user_id=current_user['user_id']
         )
         
         return {
@@ -129,16 +134,17 @@ async def confirm_action(
 @router.post("/cancel/{session_id}")
 async def cancel_task(
     session_id: str,
+    current_user: Dict[str, Any] = Depends(get_current_user),
     manager: ConversationManager = Depends(get_conversation_manager)
 ):
     """
-    Cancel current task in a session
+    Cancel current task in a session.
     """
     try:
         result = await manager.process(
             session_id=session_id,
             message="hủy",  # Cancellation trigger
-            user_id="anonymous"
+            user_id=current_user['user_id']
         )
         
         return {
@@ -415,6 +421,7 @@ def _format_quotation_result(filename: str, parse_result: dict, detected_service
 async def process_file(
     file: UploadFile = File(...),
     context: str = Form(default="{}"),
+    current_user: Dict[str, Any] = Depends(get_current_user),
     manager: ConversationManager = Depends(get_conversation_manager)
 ):
     try:
@@ -493,9 +500,9 @@ async def process_file(
         # Send to chat as a message
         session_id = context_dict.get("session_id") or str(uuid.uuid4())
         result = await manager.process(
-            session_id=session_id, 
-            message=content, 
-            user_id="anonymous",
+            session_id=session_id,
+            message=content,
+            user_id=current_user['user_id'],
             context=context_dict
         )
         
@@ -518,6 +525,7 @@ async def process_file(
 async def process_image(
     image: UploadFile = File(...),
     context: str = Form(default="{}"),
+    current_user: Dict[str, Any] = Depends(get_current_user),
     manager: ConversationManager = Depends(get_conversation_manager)
 ):
     try:
@@ -544,7 +552,7 @@ async def process_image(
         result = await manager.process(
             session_id=session_id,
             message=msg_content,
-            user_id="anonymous",
+            user_id=current_user['user_id'],
             context=context_dict
         )
         
