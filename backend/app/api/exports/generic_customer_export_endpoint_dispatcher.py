@@ -27,6 +27,9 @@ from app.api.exports.generic_template_renderer_family_a_trucking import (
 from app.api.exports.generic_template_renderer_family_b_handling import (
     render_handling_workbook,
 )
+from app.api.exports.generic_template_renderer_family_c_customs import (
+    render_customs_workbook,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -38,8 +41,8 @@ router = APIRouter()
 FAMILY_RENDERERS = {
     "trucking": render_trucking_workbook,
     "handling": render_handling_workbook,
-    # 'customs': render_customs_workbook,    # TODO Family C
-    # 'international': render_intl_workbook, # TODO Family D
+    "customs": render_customs_workbook,        # Family C — customs multi-sheet
+    # 'international': render_intl_workbook,   # TODO Family D
 }
 
 

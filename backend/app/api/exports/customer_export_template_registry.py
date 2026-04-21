@@ -47,6 +47,9 @@ _HANDLING_DEFAULT_TYPES = [
     "SVC_OTHER", "SVC_PACK", "SVC_FUMI", "SVC_VACUUM",
     "WHS_STORAGE", "WHS_HANDLE", "WHS_VAS",
 ]
+# Customs family — only services whose fee statement is a customs-declaration
+# bảng kê (no transport / no warehouse). CUS_CO handled by other templates.
+_CUSTOMS_SERVICE_TYPES = ["CUS_IMPORT", "CUS_EXPORT", "CUS"]
 
 
 def _trucking_template(label_suffix: str = "") -> Dict[str, Any]:
@@ -71,6 +74,24 @@ def _handling_template(label_suffix: str = "", service_types: Optional[List[str]
         "description": "Bảng kê chi tiết phí dịch vụ làm hàng (1 dòng/cost)",
         "family": "handling",
         "service_types": service_types or _HANDLING_DEFAULT_TYPES,
+        "implemented": True,
+    }
+
+
+def _customs_template(label_suffix: str = "") -> Dict[str, Any]:
+    """
+    Customs-declaration bảng kê (Family C).
+    Output = 1..3 sheets split by cd_no prefix (108→NHAP KHAU, 308→XNK TAI CHO).
+    Covers GLOREX, THÁI HOÀ, GANG THÉP TN (customs variant), and similar customers.
+    """
+    suffix = f" — {label_suffix}" if label_suffix else ""
+    return {
+        "key": "customs",
+        "label": f"Bảng kê Thủ tục hải quan{suffix}",
+        "icon": "📜",
+        "description": "Bảng kê lệ phí hải quan — tách sheet NHAP KHAU / XNK TAI CHO theo cd_no prefix",
+        "family": "customs",
+        "service_types": _CUSTOMS_SERVICE_TYPES,
         "implemented": True,
     }
 
@@ -158,12 +179,26 @@ CUSTOMER_TEMPLATES: Dict[str, Dict[str, Any]] = {
     "GANGTHEPTN": {
         "name": "Gang Thép TN", "module": "generic_customer_export",
         "supports_date_filter": True,
-        "templates": [_handling_template()],
+        # Gang Thép has BOTH customs-declaration bảng kê (Family C) and a
+        # general handling bảng kê — user picks which to export.
+        "templates": [_customs_template(), _handling_template()],
     },
     "LAS": {
         "name": "LAS", "module": "generic_customer_export",
         "supports_date_filter": True,
         "templates": [_handling_template()],
+    },
+
+    # ---- FAMILY C: Customs declaration (multi-sheet) ----
+    "GLOREX": {
+        "name": "Glorex Vietnam", "module": "generic_customer_export",
+        "supports_date_filter": True,
+        "templates": [_customs_template()],
+    },
+    "THAIHOA": {
+        "name": "Thái Hoà", "module": "generic_customer_export",
+        "supports_date_filter": True,
+        "templates": [_customs_template()],
     },
 }
 
