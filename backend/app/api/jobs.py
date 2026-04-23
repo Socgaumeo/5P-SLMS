@@ -873,12 +873,18 @@ async def export_jobs_by_entity_v2(
             cost_by_job.setdefault(c['job_id'], []).append(c)
 
         # ------------------------------------------------------------------
-        # Normalize cost_name so unique receipt numbers don't spawn one
-        # column per cost. Example:
-        #   "Thu hộ: Lệ phí hải quan - GNT: 0360356"
-        #   "Thu hộ: Lệ phí hải quan - GNT: 0459109"
-        # both collapse to canonical "Thu hộ: Lệ phí hải quan"; the receipt
-        # numbers are collected per job into a separate "Chứng từ" column.
+        # Normalize cost_name so near-duplicate variants don't spawn one
+        # column per cost. Two kinds of noise get stripped:
+        #
+        # (1) Receipt numbers — "Thu hộ: Lệ phí hải quan - GNT: 0360356"
+        #     both collapse to "Thu hộ: Lệ phí hải quan"; the numbers go into
+        #     a separate "Chứng từ" column.
+        #
+        # (2) Route info after a transport-fee prefix — "Cước vận chuyển KCN
+        #     Yên Bình → KCN Đồng Lạng" collapses to just "Cước vận chuyển"
+        #     because the route is already visible in the Điểm đi / Điểm đến
+        #     columns. Rule: if the name starts with a known transport prefix
+        #     AND has more content after it, keep only the prefix.
         # ------------------------------------------------------------------
         _RECEIPT_MARKERS = (
             r"\s*-\s*GNT\s*:",
@@ -892,16 +898,73 @@ async def export_jobs_by_entity_v2(
         )
         _RECEIPT_SPLIT_RE = re.compile("|".join(_RECEIPT_MARKERS), re.IGNORECASE)
 
+        # Two classes of prefix rules:
+        # - DISCARD: tail is route info that's already visible in Điểm đi /
+        #   Điểm đến columns — throw it away.
+        # - CAPTURE: tail is a document reference (CO number, tờ khai number,
+        #   invoice ref) — canonicalize and push the tail into the Chứng từ
+        #   column so the receipt list stays per-job.
+        _DISCARD_TAIL_PREFIXES = (
+            "Cước vận chuyển",
+            "Cước vận tải",
+            "Phí vận chuyển",
+            "Phí vận tải",
+            "Chi phí vận chuyển",
+            "Chi phí vận tải",
+            "Cước xe",
+        )
+        _CAPTURE_TAIL_PREFIXES = (
+            "Phí C/O",
+            "Phí CO",
+            "Phí mở tờ khai",
+            "Phí mở TK",
+        )
+
+        def _build_prefix_re(prefixes):
+            # Matches when `prefix` is followed by at least one non-prefix
+            # character — signaling there's a tail to strip.
+            return re.compile(
+                r"^(" + "|".join(re.escape(p) for p in prefixes) + r")\b[\s\-–—:,.]*(\S.*)?$",
+                re.IGNORECASE,
+            )
+
+        _DISCARD_TAIL_RE = _build_prefix_re(_DISCARD_TAIL_PREFIXES)
+        _CAPTURE_TAIL_RE = _build_prefix_re(_CAPTURE_TAIL_PREFIXES)
+
         def _canonical_cost_name(raw: str) -> tuple[str, str]:
             """
             Split `raw` cost_name into (canonical_name, receipt_number).
-            If no receipt marker is present, returns (raw_stripped, '').
+            Handles 3 kinds of noise:
+              1. explicit receipt markers  — "- GNT: 0360356"
+              2. discard-tail prefixes     — route suffix after "Cước vận chuyển ..."
+              3. capture-tail prefixes     — doc ref after "Phí C/O VEI2600046"
             """
             if not raw:
                 return '', ''
             parts = _RECEIPT_SPLIT_RE.split(raw, maxsplit=1)
             canonical = (parts[0] or '').strip()
             receipt = (parts[1].strip() if len(parts) > 1 else '')
+
+            m = _DISCARD_TAIL_RE.match(canonical)
+            if m and m.group(2):
+                canonical = m.group(1)
+
+            m = _CAPTURE_TAIL_RE.match(canonical)
+            if m and m.group(2):
+                tail = m.group(2).strip().rstrip(",;")
+                # Only treat the tail as a document reference if it has 3+
+                # chars AND at least one digit. Keeps abbreviations like "HQ"
+                # (hải quan) or "VN" from polluting the Chứng từ column.
+                is_ref_like = len(tail) >= 3 and any(ch.isdigit() for ch in tail)
+                canonical = m.group(1)
+                if is_ref_like and tail and not receipt:
+                    receipt = tail
+
+            # Normalize leading letter casing so "cước vận chuyển" and
+            # "Cước vận chuyển" land in the same pivot column.
+            if canonical:
+                canonical = canonical[:1].upper() + canonical[1:]
+
             return canonical, receipt
 
         # Build pivot data: collect unique CANONICAL cost names for revenue + cost columns
