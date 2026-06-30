@@ -355,11 +355,11 @@ class DataService:
                 "TRK"
             )
 
-            # Generate job number: {PREFIX}-{customer_id}-{DDMM}-{SEQ:4}
-            customer_id = job_data.get("customer_id", 0)
+            # Generate job number: {PREFIX}-{DDMM}-{SEQ:4}
+            # (Removed customer_id segment for readability — sequence is global per (prefix, date))
             today = date.today()
             date_part = today.strftime('%d%m')
-            pattern = f"{prefix}-{customer_id}-{date_part}-%"
+            pattern = f"{prefix}-{date_part}-%"
             max_result = self.client.table('jobs').select(
                 'job_no'
             ).ilike('job_no', pattern).execute()
@@ -369,13 +369,16 @@ class DataService:
                 seq_nums = []
                 for row in max_result.data:
                     try:
-                        seq_nums.append(int(row['job_no'].rsplit('-', 1)[-1]))
+                        # job_no format: PREFIX-DDMM-SEQ → 3 parts; reject old format (4 parts) to avoid mixing
+                        parts = row['job_no'].split('-')
+                        if len(parts) == 3:
+                            seq_nums.append(int(parts[-1]))
                     except (ValueError, IndexError):
                         pass
                 if seq_nums:
                     next_num = max(seq_nums) + 1
 
-            job_no = f"{prefix}-{customer_id}-{date_part}-{next_num:04d}"
+            job_no = f"{prefix}-{date_part}-{next_num:04d}"
 
             # Build description
             dims = ""
