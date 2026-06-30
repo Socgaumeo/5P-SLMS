@@ -40,9 +40,9 @@ VALID_SERVICE_CODES = {
     # Trucking (domestic only)
     "TRUCKING_DOM",
     # Border (cross-border by road)
-    "BORDER_IMP",
+    "BORDER_IMP", "BORDER_EXP",
     # Air freight
-    "AIR_IMP", "AIR_EXP",
+    "AIR_IMP", "AIR_EXP", "AIR_DOM",
     # Sea freight
     "SEA_IMP", "SEA_EXP", "SEA_DOM",
     # Warehouse

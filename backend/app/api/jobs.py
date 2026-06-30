@@ -583,20 +583,24 @@ async def create_job(request: JobCreateFromChatRequest, req: Request):
 
 
 @router.post("/{job_id}/assign-vehicle", response_model=JobResponse)
-async def assign_vehicle(job_id: int, request: VehicleAssignRequest):
+async def assign_vehicle(job_id: int, request: VehicleAssignRequest, req: Request):
     """
     Assign vehicle to job and generate customer confirmation message
     """
     try:
         data_service = get_data_service()
-        
+
         # Check job exists
         job_data = await data_service.get_job(job_id)
         if not job_data:
             raise HTTPException(404, f"Job {job_id} not found")
-        
+
+        # Resolve user from JWT (no hardcode user_id=1)
+        current_user = await get_current_user_optional(req)
+        user_id = current_user['user_id'] if current_user else 1
+
         # Assign vehicle
-        await data_service.assign_vehicle(job_id, request.dict(), user_id=1)
+        await data_service.assign_vehicle(job_id, request.dict(), user_id=user_id)
         
         # Get updated job with full details for frontend template
         # Re-using get_job_details logic to fetch everything needed for the message
@@ -746,12 +750,21 @@ async def complete_job(job_id: int, delivery_time: Optional[datetime] = None):
     if not job_data:
         raise HTTPException(404, f"Job {job_id} not found")
     
-    # TODO: Update job status to COMPLETED
-    
+    # Update job status to COMPLETED in DB
+    try:
+        client = get_supabase()
+        update_data = {"status_code": "COMPLETED"}
+        if delivery_time:
+            update_data["actual_delivery_time"] = delivery_time.isoformat()
+        client.table('jobs').update(update_data).eq('job_id', job_id).execute()
+    except Exception as e:
+        logger.error(f"Failed to complete job {job_id}: {e}")
+        raise HTTPException(500, f"Không cập nhật được trạng thái: {e}")
+
     return JobResponse(
         success=True,
         job_id=job_id,
-        job_number=job_data.get("job_number"),
+        job_number=job_data.get("job_no") or job_data.get("job_number"),
         status="COMPLETED",
         message="Job đã hoàn thành!"
     )
