@@ -1359,21 +1359,26 @@ async def export_jobs_by_entity_v2(
 
 # NOTE: This route MUST be defined BEFORE /{job_id} to avoid path matching conflict
 @router.get("/recent")
-async def get_recent_jobs(limit: int = 10, status: Optional[str] = None):
+async def get_recent_jobs(limit: int = 10, status: Optional[str] = None, offset: int = 0):
     """
-    Get recent jobs for dashboard, optionally filtered by status
+    Get recent jobs for dashboard, optionally filtered by status.
+    limit: max 500 (default 10 for dashboard widget)
+    offset: for pagination
     """
     try:
+        # Cap limit for safety
+        limit = max(1, min(int(limit or 10), 500))
+        offset = max(0, int(offset or 0))
         client = get_supabase()
         # Fetch jobs with customer info (created_by join added when column exists)
         query = client.table('jobs').select(
-            'job_id, job_no, status_code, etd, created_at, customer_id, created_by, updated_by, '
+            'job_id, job_no, status_code, etd, created_at, updated_at, customer_id, created_by, updated_by, '
             'total_revenue, total_cost, '
             'customers(customer_code, short_name)'
         )
         if status:
             query = query.eq('status_code', status)
-        result = query.order('created_at', desc=True).limit(limit).execute()
+        result = query.order('created_at', desc=True).range(offset, offset + limit - 1).execute()
 
         # Get user info for created_by and updated_by if any jobs have them
         creator_ids = [r.get('created_by') for r in result.data if r.get('created_by')]
@@ -1398,6 +1403,7 @@ async def get_recent_jobs(limit: int = 10, status: Optional[str] = None):
                 'status_code': row['status_code'],
                 'etd': row['etd'],
                 'created_at': row['created_at'],
+                'updated_at': row.get('updated_at'),
                 'customer_id': row.get('customer_id'),
                 'customer_code': customer.get('customer_code'),
                 'customer_name': customer.get('short_name'),
