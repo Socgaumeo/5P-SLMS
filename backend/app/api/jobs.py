@@ -1936,6 +1936,30 @@ async def get_service_data(service_type: str):
     if not codes:
         return {"services": [], "error": f"Unknown service type: {service_type}"}
 
+    # Map job_no prefix → primary service group (dịch vụ đại diện ban đầu)
+    # Multimodal jobs (SI + TRK + CUS) MUST stay in their original tab (SI → sea)
+    prefix_to_group = {
+        'TR': 'trucking', 'TRK': 'trucking',
+        'BI': 'trucking', 'BE': 'trucking',  # BORDER_IMP/EXP (biên mậu — vẫn thuộc trucking)
+        'AI': 'air', 'AE': 'air',
+        'SI': 'sea', 'SE': 'sea', 'SD': 'sea',
+        'CI': 'customs', 'CE': 'customs', 'CT': 'customs',
+        'CC': 'co',
+        'WH': 'warehouse', 'WS': 'warehouse',
+        'PK': 'packing',
+        'FM': 'special', 'VC': 'special', 'SH': 'special', 'LS': 'special',
+        'LO': 'container', 'LF': 'container',
+    }
+    def _primary_group(job_no: str) -> Optional[str]:
+        if not job_no: return None
+        # job_no format: {PREFIX}-{CUSTOMER}-{DDMM}-{SEQ} → tách prefix trước dấu -
+        head = job_no.split('-', 1)[0].upper()
+        # Ưu tiên match 3 ký tự (TRK) trước 2 ký tự
+        for p_len in (3, 2):
+            if len(head) >= p_len and head[:p_len] in prefix_to_group:
+                return prefix_to_group[head[:p_len]]
+        return None
+
     try:
         client = get_supabase()
 
@@ -1945,7 +1969,7 @@ async def get_service_data(service_type: str):
             'vendors(short_name), employees(full_name)'
         ).in_('service_type_code', codes).order(
             'scheduled_date', desc=True, nullsfirst=False
-        ).limit(50).execute()
+        ).limit(200).execute()
 
         services = []
         for row in result.data:
@@ -1953,6 +1977,13 @@ async def get_service_data(service_type: str):
             vendor = row.pop('vendors', {}) or {}
             employee = row.pop('employees', {}) or {}
             customer = job.pop('customers', {}) or {} if job else {}
+
+            # Filter: chỉ giữ svc thuộc job có primary group = service_type hiện tại.
+            # Multimodal: job SI-46 dù có svc TRUCKING vẫn KHÔNG hiện ở tab trucking.
+            job_no = job.get('job_no') or ''
+            primary = _primary_group(job_no)
+            if primary and primary != service_type:
+                continue
 
             # Determine assignment type
             if row.get('vendor_id'):

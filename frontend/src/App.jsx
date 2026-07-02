@@ -1894,6 +1894,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                           ) : (
                             <>
                               <div><strong>🚗 Biển số:</strong> {svc.license_plate}</div>
+                              {svc.truck_capacity && <div><strong>🚛 Tải trọng:</strong> {svc.truck_capacity}</div>}
                               {svc.driver_name && <div><strong>👤 Tài xế:</strong> {svc.driver_name}</div>}
                               {svc.driver_phone && <div><strong>📞 SĐT:</strong> {svc.driver_phone}</div>}
                               {svc.driver_id_card && <div><strong>🆔 CCCD:</strong> {svc.driver_id_card}</div>}
@@ -3121,6 +3122,8 @@ function MainDashboard() {
 
   // Filter states
   const [statusFilter, setStatusFilter] = useState('')
+  const [jobsPageLimit, setJobsPageLimit] = useState(50)
+  const [jobsHasMore, setJobsHasMore] = useState(true)
 
   // Modal states
   const [selectedJob, setSelectedJob] = useState(null)
@@ -3198,13 +3201,18 @@ function MainDashboard() {
           setStats(statsData)
         }
 
+        // All Jobs page dùng limit lớn; các trang khác chỉ cần 10 job gần nhất
+        const isAllJobsView = activeNav === 'jobs'
+        const useLimit = isAllJobsView ? jobsPageLimit : 10
         const jobsUrl = statusFilter
-          ? `${API_URL}/api/jobs/recent?limit=100&status=${statusFilter}`
-          : `${API_URL}/api/jobs/recent?limit=10`
+          ? `${API_URL}/api/jobs/recent?limit=${useLimit}&status=${statusFilter}`
+          : `${API_URL}/api/jobs/recent?limit=${useLimit}`
         const jobsRes = await authFetch(jobsUrl)
         if (jobsRes.ok) {
           const jobsData = await jobsRes.json()
-          setRecentJobs(jobsData.jobs || [])
+          const arr = jobsData.jobs || []
+          setRecentJobs(arr)
+          setJobsHasMore(arr.length >= useLimit)
         }
       } catch (error) {
         console.error('Failed to fetch dashboard data:', error)
@@ -3216,7 +3224,7 @@ function MainDashboard() {
     fetchData()
     const interval = setInterval(fetchData, 30000)
     return () => clearInterval(interval)
-  }, [statusFilter])
+  }, [statusFilter, activeNav, jobsPageLimit])
 
   // Fetch service-specific data
   useEffect(() => {
@@ -3483,6 +3491,11 @@ function MainDashboard() {
                       </td>
                       <td>{svc.scheduled_date || svc.etd}</td>
                       <td className="service-details">
+                        {svc.truck_capacity && (
+                          <span style={{ background: '#eff6ff', color: '#1e40af', padding: '2px 6px', borderRadius: '4px', fontSize: '11px', fontWeight: 600, marginRight: '6px' }}>
+                            🚛 {svc.truck_capacity}
+                          </span>
+                        )}
                         {svc.cd_no && <span>TK: {svc.cd_no}</span>}
                         {svc.bl_awb_no && <span>{svc.cd_no ? ' • ' : ''}BL: {svc.bl_awb_no}</span>}
                         {svc.cargo_type && <span>{(svc.cd_no || svc.bl_awb_no) ? ' • ' : ''}{svc.cargo_type}</span>}
@@ -3507,32 +3520,42 @@ function MainDashboard() {
         {activeNav === 'jobs' && (
           <div className="service-content">
             <div className="card full-width">
-              <div className="card-header">
+              <div className="card-header" style={{ flexWrap: 'wrap', gap: '12px' }}>
                 <h3 className="card-title">
                   📋 All Jobs
-                  {statusFilter && (
-                    <span style={{ fontSize: '0.75em', marginLeft: '8px', padding: '2px 8px', borderRadius: '12px', backgroundColor: statusColors[statusFilter] || theme.primary, color: '#fff' }}>
-                      {statusFilter.replace(/_/g, ' ')}
-                      <span style={{ marginLeft: '6px', cursor: 'pointer' }} onClick={() => {
-                        setStatusFilter('')
-                        authFetch(`${API_URL}/api/jobs/recent?limit=10`).then(r => r.json()).then(d => setRecentJobs(d.jobs || []))
-                      }}>✕</span>
-                    </span>
-                  )}
+                  <span style={{ fontSize: '0.7em', marginLeft: '10px', color: '#64748b', fontWeight: 400 }}>
+                    ({recentJobs.length} shown)
+                  </span>
                 </h3>
-                <button className="add-job-btn" onClick={() => setShowJobCreate(true)}>+ New Job</button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <label style={{ fontSize: '13px', color: '#64748b' }}>Trạng thái:</label>
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => { setStatusFilter(e.target.value); setJobsPageLimit(50) }}
+                    style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', background: '#fff' }}
+                  >
+                    <option value="">Tất cả</option>
+                    <option value="PENDING">⏳ Chờ xử lý</option>
+                    <option value="IN_PROGRESS">🔄 Đang xử lý</option>
+                    <option value="COMPLETED">✅ Hoàn thành</option>
+                    <option value="CANCELLED">❌ Đã hủy</option>
+                  </select>
+                  <button className="add-job-btn" onClick={() => setShowJobCreate(true)}>+ New Job</button>
+                </div>
               </div>
               <table className="services-table">
                 <thead>
                   <tr>
                     <th>Job No</th>
                     <th>Customer</th>
-                    <th>Service Type</th>
-                    <th>Date</th>
+                    <th>Service</th>
+                    <th>Ngày</th>
                     <th>Doanh thu</th>
                     <th>Chi hộ</th>
                     <th>Chi phí</th>
                     <th>Lợi nhuận</th>
+                    <th>Người tạo</th>
+                    <th>Sửa cuối</th>
                     <th>Status</th>
                   </tr>
                 </thead>
@@ -3562,14 +3585,39 @@ function MainDashboard() {
                         <td style={{ textAlign: 'right', color: netCost > 0 ? (profit >= 0 ? '#059669' : '#DC2626') : '#94a3b8', fontWeight: '700' }}>
                           {netCost > 0 ? formatPrice(profit) : <span title="Chưa nhập chi phí">—</span>}
                         </td>
+                        <td style={{ fontSize: '12px', color: '#334155' }} title={job.creator_code || ''}>
+                          {job.creator_name || <span style={{ color: '#cbd5e1' }}>—</span>}
+                        </td>
+                        <td style={{ fontSize: '12px', color: '#334155' }}>
+                          {job.updater_name ? (
+                            <span title={`${job.updater_code || ''} @ ${job.updated_at || ''}`}>
+                              {job.updater_name}
+                              {job.updated_at && (
+                                <div style={{ fontSize: '10px', color: '#94a3b8' }}>
+                                  {new Date(job.updated_at).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}
+                                </div>
+                              )}
+                            </span>
+                          ) : <span style={{ color: '#cbd5e1' }}>—</span>}
+                        </td>
                         <td><StatusBadge status={job.status_code || 'PENDING'} /></td>
                       </tr>
                     )
                   }) : (
-                    <tr><td colSpan="9" className="no-data">No jobs found</td></tr>
+                    <tr><td colSpan="11" className="no-data">No jobs found</td></tr>
                   )}
                 </tbody>
               </table>
+              {jobsHasMore && recentJobs.length > 0 && (
+                <div style={{ padding: '16px', textAlign: 'center' }}>
+                  <button
+                    onClick={() => setJobsPageLimit(jobsPageLimit + 50)}
+                    style={{ padding: '8px 20px', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#fff', cursor: 'pointer', fontSize: '13px' }}
+                  >
+                    ⬇ Xem thêm 50 job
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}
