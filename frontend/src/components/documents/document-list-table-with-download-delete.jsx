@@ -93,6 +93,25 @@ export default function DocumentListTable({ jobId, refreshTrigger, currentUser }
     }
   }
 
+  const handleDownloadPdf = async (doc) => {
+    try {
+      const res = await authFetch(`${API_URL}/api/documents/${doc.id}/pdf`)
+      if (!res.ok) throw new Error('PDF convert failed')
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      const base = doc.file_name.replace(/\.[^.]+$/, '')
+      a.download = `${base}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      alert('Lỗi convert PDF: ' + err.message)
+    }
+  }
+
   const handleDelete = async (doc) => {
     if (!confirm(`Xóa chứng từ "${doc.file_name}"?`)) return
     try {
@@ -169,6 +188,11 @@ export default function DocumentListTable({ jobId, refreshTrigger, currentUser }
                   <button className="btn-edit" onClick={() => handleDownload(doc)}>
                     Tải về
                   </button>
+                  {isImage(doc) && (
+                    <button className="btn-edit" onClick={() => handleDownloadPdf(doc)} title="Convert ảnh → PDF sạch, đặt tên theo invoice">
+                      📄 PDF
+                    </button>
+                  )}
                   {canDelete(doc) && (
                     <button className="btn-delete" onClick={() => handleDelete(doc)}>
                       Xóa

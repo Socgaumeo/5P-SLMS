@@ -180,9 +180,22 @@ async def download_document(
             )
 
         elif doc.get('external_url'):
-            # Redirect to external URL
-            from fastapi.responses import RedirectResponse
-            return RedirectResponse(url=doc['external_url'], status_code=302)
+            # Fetch from external URL (Supabase Storage etc.) and stream with proper filename
+            import httpx
+            async with httpx.AsyncClient(timeout=30.0) as http_client:
+                r = await http_client.get(doc['external_url'])
+                if r.status_code != 200:
+                    raise HTTPException(502, f"Failed to fetch external file: HTTP {r.status_code}")
+                file_bytes = r.content
+            content_type = doc.get('mime_type') or r.headers.get('content-type') or 'application/octet-stream'
+            return StreamingResponse(
+                io.BytesIO(file_bytes),
+                media_type=content_type,
+                headers={
+                    'Content-Disposition': f'attachment; filename="{doc["file_name"]}"',
+                    'Content-Length': str(len(file_bytes)),
+                }
+            )
 
         else:
             raise HTTPException(404, "No file source available for this document")
@@ -192,6 +205,86 @@ async def download_document(
     except Exception as e:
         logger.error(f"Download error for {document_id}: {e}")
         raise HTTPException(500, f"Download error: {str(e)}")
+
+
+# ─── PDF CONVERT (image → cleaned scan PDF) ──────────────────
+@router.get("/{document_id}/pdf")
+async def download_document_as_pdf(
+    document_id: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Convert an image document to a cleaned scan-style PDF.
+    - Filename theo invoice ref (giữ file_name gốc, đổi ext → .pdf)
+    - Crop viền, tăng contrast, nền trắng
+    """
+    import os
+    try:
+        client = get_supabase()
+        result = client.table('documents').select('*').eq('id', document_id).limit(1).execute()
+        if not result.data:
+            raise HTTPException(404, "Document not found")
+        doc = result.data[0]
+
+        mime = (doc.get('mime_type') or '').lower()
+        if not mime.startswith('image/'):
+            raise HTTPException(400, "PDF convert chỉ hỗ trợ file ảnh")
+
+        # Get raw bytes
+        if doc.get('external_url'):
+            import httpx
+            async with httpx.AsyncClient(timeout=30.0) as http_client:
+                r = await http_client.get(doc['external_url'])
+                if r.status_code != 200:
+                    raise HTTPException(502, f"Failed to fetch external file: HTTP {r.status_code}")
+                raw = r.content
+        elif doc.get('telegram_file_id'):
+            file_data = await telegram_downloader.download_telegram_file(doc['telegram_file_id'])
+            if not file_data:
+                raise HTTPException(502, "Failed to download file from Telegram")
+            raw, _ = file_data
+        else:
+            raise HTTPException(404, "No file source available")
+
+        # Scan-clean pipeline
+        from PIL import Image, ImageOps, ImageEnhance
+        import numpy as np
+        img = Image.open(io.BytesIO(raw)).convert('RGB')
+        w, h = img.size
+        # Auto-crop 2% viền
+        margin = int(min(w, h) * 0.02)
+        img = img.crop((margin, margin, w - margin, h - margin))
+        # Auto-contrast + boost brightness/contrast
+        img = ImageOps.autocontrast(img, cutoff=2)
+        img = ImageEnhance.Contrast(img).enhance(1.4)
+        img = ImageEnhance.Brightness(img).enhance(1.1)
+        # Nền trắng: pixel gần trắng → trắng thuần
+        arr = np.array(img)
+        white_mask = (arr[:, :, 0] > 200) & (arr[:, :, 1] > 200) & (arr[:, :, 2] > 200)
+        arr[white_mask] = [255, 255, 255]
+        img = Image.fromarray(arr)
+
+        # Wrap PDF (fit A4)
+        buf = io.BytesIO()
+        img.save(buf, 'PDF', resolution=150.0)
+        buf.seek(0)
+
+        # Filename: giữ ref, đổi ext
+        base = os.path.splitext(doc['file_name'])[0]
+        pdf_name = f"{base}.pdf"
+
+        return StreamingResponse(
+            buf,
+            media_type='application/pdf',
+            headers={
+                'Content-Disposition': f'attachment; filename="{pdf_name}"',
+            }
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"PDF convert error for {document_id}: {e}")
+        raise HTTPException(500, f"PDF convert error: {str(e)}")
 
 
 # ─── WEB UPLOAD (FALLBACK) ───────────────────────────────────
