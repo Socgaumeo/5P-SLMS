@@ -18,6 +18,7 @@ const TYPE_BADGES = {
   AWB: { bg: '#E0E7FF', color: '#4F46E5', label: 'AWB' },
   BL: { bg: '#DBEAFE', color: '#2563EB', label: 'B/L' },
   PACKING_LIST: { bg: '#F3E8FF', color: '#7C3AED', label: 'PL' },
+  BBGH: { bg: '#FEF3C7', color: '#B45309', label: 'BBGH' },
   OTHER: { bg: '#F1F5F9', color: '#64748B', label: 'Khác' },
 }
 
@@ -26,7 +27,15 @@ const SOURCE_ICONS = {
   web_upload: '🌐',
   gdrive: '☁️',
   onedrive: '☁️',
+  supabase: '🗄️',
   external_link: '🔗',
+}
+
+function isImage(doc) {
+  const mt = (doc.mime_type || '').toLowerCase()
+  if (mt.startsWith('image/')) return true
+  const ext = (doc.file_name || '').split('.').pop().toLowerCase()
+  return ['jpg','jpeg','png','webp','gif'].includes(ext)
 }
 
 function formatDate(dateStr) {
@@ -46,6 +55,8 @@ export default function DocumentListTable({ jobId, refreshTrigger, currentUser }
   const [documents, setDocuments] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [previewUrl, setPreviewUrl] = useState(null)
+  const [previewName, setPreviewName] = useState('')
 
   const fetchDocuments = async () => {
     try {
@@ -134,7 +145,19 @@ export default function DocumentListTable({ jobId, refreshTrigger, currentUser }
                   </span>
                 </td>
                 <td className="doc-filename" title={doc.file_name}>
-                  {doc.file_name}
+                  {isImage(doc) && doc.external_url ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <img
+                        src={doc.external_url}
+                        alt={doc.file_name}
+                        onClick={() => { setPreviewUrl(doc.external_url); setPreviewName(doc.file_name) }}
+                        style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 4, cursor: 'zoom-in', border: '1px solid #e2e8f0' }}
+                      />
+                      <span>{doc.file_name}</span>
+                    </div>
+                  ) : (
+                    doc.file_name
+                  )}
                 </td>
                 <td>{formatFileSize(doc.file_size)}</td>
                 <td title={doc.storage_type}>
@@ -157,6 +180,19 @@ export default function DocumentListTable({ jobId, refreshTrigger, currentUser }
           })}
         </tbody>
       </table>
+      {previewUrl && (
+        <div
+          onClick={() => setPreviewUrl(null)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-out', padding: '24px' }}
+        >
+          <div style={{ position: 'relative', maxWidth: '95vw', maxHeight: '95vh' }} onClick={(e) => e.stopPropagation()}>
+            <img src={previewUrl} alt={previewName} style={{ maxWidth: '95vw', maxHeight: '90vh', display: 'block', borderRadius: 6 }} />
+            <div style={{ position: 'absolute', top: -32, right: 0, color: '#fff', fontSize: 13 }}>
+              {previewName} · <a href={previewUrl} target="_blank" rel="noreferrer" style={{ color: '#93c5fd' }}>Mở tab mới</a> · <span onClick={() => setPreviewUrl(null)} style={{ cursor: 'pointer' }}>✕ Đóng</span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
