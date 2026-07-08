@@ -256,7 +256,9 @@ export default function DocumentManagementPage() {
                   <td className="doc-filename" title={doc.file_name}>{doc.file_name}</td>
                   <td>{formatFileSize(doc.file_size)}</td>
                   <td>{SOURCE_ICONS[doc.storage_type] || '📄'}</td>
-                  <td>{doc.uploaded_by_telegram || '-'}</td>
+                  <td title={doc.uploaded_by_telegram ? `Telegram: ${doc.uploaded_by_telegram}` : ''}>
+                    {doc.uploader?.full_name || doc.uploader?.user_code || doc.uploaded_by_telegram || '-'}
+                  </td>
                   <td>{formatDate(doc.uploaded_at)}</td>
                   <td className="action-cell">
                     <button className="btn-edit" onClick={() => handleDownload(doc)}>

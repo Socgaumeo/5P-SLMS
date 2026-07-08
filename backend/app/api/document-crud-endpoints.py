@@ -106,7 +106,7 @@ async def list_documents(
     try:
         client = get_supabase()
         query = client.table('documents').select(
-            '*, jobs(job_no, customer_id, customers(short_name, company_name))',
+            '*, jobs(job_no, customer_id, customers(short_name, company_name)), uploader:users!documents_uploaded_by_fkey(user_id, full_name, user_code)',
             count='exact'
         )
 

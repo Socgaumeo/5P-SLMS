@@ -182,7 +182,9 @@ export default function DocumentListTable({ jobId, refreshTrigger, currentUser }
                 <td title={doc.storage_type}>
                   {SOURCE_ICONS[doc.storage_type] || '📄'}
                 </td>
-                <td>{doc.uploaded_by_telegram || '-'}</td>
+                <td title={doc.uploaded_by_telegram ? `Telegram: ${doc.uploaded_by_telegram}` : ''}>
+                  {doc.uploader?.full_name || doc.uploader?.user_code || doc.uploaded_by_telegram || '-'}
+                </td>
                 <td>{formatDate(doc.uploaded_at)}</td>
                 <td className="action-cell">
                   <button className="btn-edit" onClick={() => handleDownload(doc)}>
