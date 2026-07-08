@@ -2579,7 +2579,44 @@ function JobDetailModal({ job, onClose, onUpdate }) {
 
         {/* Revenue / Cost / Reimbursement / Gross Profit Section */}
         {(() => {
-          if (jobCosts.length === 0) return null
+          // Fallback: nếu chưa có job_costs chi tiết nhưng job có totals → hiển thị summary + cảnh báo
+          if (jobCosts.length === 0) {
+            const jRev = parseFloat(job?.total_revenue || 0)
+            const jCost = parseFloat(job?.total_cost || 0)
+            if (jRev === 0 && jCost === 0) return null
+            const jProfit = jRev - jCost
+            return (
+              <div style={{ padding: '0 16px 12px' }}>
+                <div style={{
+                  padding: '10px 12px',
+                  background: 'rgba(245, 158, 11, 0.08)',
+                  border: '1px dashed rgba(245, 158, 11, 0.4)',
+                  borderRadius: '8px',
+                  marginBottom: '8px',
+                  fontSize: '12px',
+                  color: '#B45309'
+                }}>
+                  ⚠️ Chưa có chi tiết từng khoản phí. Chỉ hiển thị tổng số. Vào chế độ chỉnh sửa để nhập báo giá chi tiết.
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+                  <div style={{ padding: '10px 12px', background: 'rgba(16, 185, 129, 0.06)', borderRadius: '8px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
+                    <div style={{ fontSize: '12px', color: '#10B981', fontWeight: '600' }}>DOANH THU</div>
+                    <div style={{ fontSize: '15px', fontWeight: '700', color: '#059669' }}>{formatPrice(jRev)}</div>
+                  </div>
+                  <div style={{ padding: '10px 12px', background: 'rgba(239, 68, 68, 0.06)', borderRadius: '8px', border: '1px solid rgba(239, 68, 68, 0.15)' }}>
+                    <div style={{ fontSize: '12px', color: '#EF4444', fontWeight: '600' }}>CHI PHÍ</div>
+                    <div style={{ fontSize: '15px', fontWeight: '700', color: '#DC2626' }}>{formatPrice(jCost)}</div>
+                  </div>
+                  <div style={{ padding: '10px 12px', background: jProfit >= 0 ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)', borderRadius: '8px' }}>
+                    <div style={{ fontSize: '12px', color: jProfit >= 0 ? '#059669' : '#DC2626', fontWeight: '600' }}>LỢI NHUẬN</div>
+                    <div style={{ fontSize: '15px', fontWeight: '700', color: jProfit >= 0 ? '#059669' : '#DC2626' }}>
+                      {formatPrice(jProfit)}{jRev > 0 ? ` (${(jProfit / jRev * 100).toFixed(1)}%)` : ''}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )
+          }
           // Detect at-cost / chi hộ / thu hộ — by flag OR by cost_name pattern (defensive against bad imports)
           const isAtCost = (c) => {
             if (c.is_reimbursement === true) return true
