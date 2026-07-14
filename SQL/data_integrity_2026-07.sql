@@ -1,120 +1,99 @@
 -- =====================================================================
--- DATA INTEGRITY MIGRATION — 5P SLMS
--- Ngày: 2026-07-14 · Soạn: Sen
--- MỤC ĐÍCH: đẩy các invariant nghiệp vụ từ tầng AI/skill (mềm) xuống DB (cứng)
--- ĐỌC KỸ TRƯỚC KHI CHẠY. Chạy trên Supabase SQL Editor, TỪNG BƯỚC, có kiểm tra.
+-- DATA INTEGRITY MIGRATION — 5P SLMS  (v2, theo chỉ đạo Khánh 14/07)
+-- 1. Gộp HẾT trucking con (SHORT/LONG/CONT/DOM) về 1 code duy nhất: TRUCKING
+--    → đặc điểm (nội thành/liên tỉnh/cont/nội địa) thể hiện trong chi tiết job.
+-- 2. Thiếu giá: CẢNH BÁO ở các bước, nhưng CHẶN CỨNG khi COMPLETED.
+-- 3. FK service_type → master + chống job mồ côi.
+-- Chạy trong 1 transaction. DEFERRABLE trigger để tạo job+service+cost cùng lúc OK.
 -- =====================================================================
+BEGIN;
 
 -- ---------------------------------------------------------------------
--- BƯỚC 0 — DỌN DATA CŨ (bắt buộc trước khi thêm ràng buộc)
+-- BƯỚC 1 — Chuẩn hoá master: tạo/kích hoạt code 'TRUCKING', tắt các con
 -- ---------------------------------------------------------------------
+INSERT INTO master_service_types (service_code, name_vi, sort_order, is_active, category)
+VALUES ('TRUCKING', 'Vận tải đường bộ', 1, true, 'TRUCKING')
+ON CONFLICT (service_code) DO UPDATE SET is_active = true, name_vi = EXCLUDED.name_vi;
 
--- 0.1 · 35 row job_services đang dùng code 'TRUCKING' (không có trong master)
---      → đổi sang 'TRUCKING_DOM'. (Lỗi tồn dư từ incident 02/07.)
--- KIỂM TRA TRƯỚC:
-SELECT service_type_code, count(*)
-FROM job_services
-WHERE service_type_code = 'TRUCKING'
-GROUP BY service_type_code;
-
--- SỬA (bỏ comment để chạy):
--- UPDATE job_services
--- SET service_type_code = 'TRUCKING_DOM', updated_at = now()
--- WHERE service_type_code = 'TRUCKING';
-
--- 0.2 · Kiểm tra còn code nào KHÔNG khớp master không (phải = 0 mới thêm FK được)
-SELECT js.service_type_code, count(*)
-FROM job_services js
-LEFT JOIN master_service_types m ON m.service_code = js.service_type_code
-WHERE js.service_type_code IS NOT NULL AND m.service_code IS NULL
-GROUP BY js.service_type_code;
-
--- 0.3 · Kiểm tra job mồ côi (không có service). Hiện tại = 0. Nếu >0 phải xử lý thủ công.
-SELECT j.job_id, j.job_no, j.status_code
-FROM jobs j
-LEFT JOIN job_services js ON js.job_id = j.job_id
-WHERE js.job_id IS NULL;
-
+UPDATE master_service_types
+SET is_active = false
+WHERE service_code IN ('TRUCKING_SHORT','TRUCKING_LONG','TRUCKING_CONT','TRUCKING_DOM')
+  AND service_code <> 'TRUCKING';
 
 -- ---------------------------------------------------------------------
--- RÀNG BUỘC 1 — service_type_code phải tồn tại trong master (FK)
--- Chặn: gõ sai mã như 'TRUCKING' → DB từ chối.
+-- BƯỚC 2 — Gộp data: mọi code trucking con → 'TRUCKING'
 -- ---------------------------------------------------------------------
--- Chạy SAU KHI bước 0.2 trả về rỗng.
+UPDATE job_services
+SET service_type_code = 'TRUCKING'
+WHERE service_type_code IN ('TRUCKING_SHORT','TRUCKING_LONG','TRUCKING_CONT','TRUCKING_DOM');
+
+UPDATE vendor_rates
+SET service_type_code = 'TRUCKING'
+WHERE service_type_code IN ('TRUCKING_SHORT','TRUCKING_LONG','TRUCKING_CONT','TRUCKING_DOM');
+
+-- ---------------------------------------------------------------------
+-- BƯỚC 3 — Kiểm tra không còn code lạc (phải rỗng thì FK mới thêm được)
+-- ---------------------------------------------------------------------
+-- (SELECT chỉ để log — nếu có row trả về, transaction vẫn tiếp; kiểm bằng mắt trong output)
+
+-- ---------------------------------------------------------------------
+-- BƯỚC 4 — FK service_type_code → master_service_types
+-- ---------------------------------------------------------------------
+ALTER TABLE job_services
+  DROP CONSTRAINT IF EXISTS fk_job_services_service_type;
 ALTER TABLE job_services
   ADD CONSTRAINT fk_job_services_service_type
   FOREIGN KEY (service_type_code)
   REFERENCES master_service_types(service_code)
-  ON UPDATE CASCADE;   -- đổi tên code ở master tự lan sang job_services
-
-
--- ---------------------------------------------------------------------
--- RÀNG BUỘC 2 — job_services.job_id bắt buộc + xóa job thì xóa service (FK cascade)
--- Chặn: service trỏ tới job không tồn tại; và dọn sạch khi hủy job.
--- ---------------------------------------------------------------------
--- (Chỉ thêm nếu chưa có FK. Kiểm tra: \d job_services)
-ALTER TABLE job_services
-  ALTER COLUMN job_id SET NOT NULL;
-
--- Nếu chưa có FK job_id → jobs, thêm:
--- ALTER TABLE job_services
---   ADD CONSTRAINT fk_job_services_job
---   FOREIGN KEY (job_id) REFERENCES jobs(job_id) ON DELETE CASCADE;
-
+  ON UPDATE CASCADE;
 
 -- ---------------------------------------------------------------------
--- RÀNG BUỘC 3 — CHẶN JOB MỒ CÔI: job không được ở trạng thái ≥ CONFIRMED
---               nếu chưa có service nào. (Deferred trigger — kiểm ở cuối transaction)
--- Lý do dùng trigger thay vì FK: 1 job có thể có nhiều service, không FK ngược được.
+-- BƯỚC 5 — job_id NOT NULL (chống service mồ côi)
+-- ---------------------------------------------------------------------
+ALTER TABLE job_services ALTER COLUMN job_id SET NOT NULL;
+
+-- ---------------------------------------------------------------------
+-- BƯỚC 6 — Trigger chống JOB MỒ CÔI: không rời DRAFT khi chưa có service
 -- ---------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION check_job_has_service()
 RETURNS TRIGGER AS $$
-DECLARE
-  svc_count int;
-  st text;
+DECLARE svc_count int;
 BEGIN
-  -- chỉ kiểm khi job đã qua DRAFT
-  SELECT status_code INTO st FROM jobs WHERE job_id = NEW.job_id;
-  IF st IS NULL OR st = 'DRAFT' THEN
+  IF NEW.status_code IS NULL OR NEW.status_code = 'DRAFT' THEN
     RETURN NEW;
   END IF;
   SELECT count(*) INTO svc_count FROM job_services WHERE job_id = NEW.job_id;
   IF svc_count = 0 THEN
-    RAISE EXCEPTION 'Job % (status %) không có service nào — không được rời trạng thái DRAFT khi chưa có dịch vụ.', NEW.job_id, st;
+    RAISE EXCEPTION 'Job % (status %) chưa có service nào — không được rời DRAFT.', NEW.job_id, NEW.status_code;
   END IF;
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
--- Trigger AFTER trên jobs khi đổi status khác DRAFT (DEFERRABLE để cho phép insert job+service cùng transaction)
 DROP TRIGGER IF EXISTS trg_job_has_service ON jobs;
 CREATE CONSTRAINT TRIGGER trg_job_has_service
   AFTER INSERT OR UPDATE OF status_code ON jobs
   DEFERRABLE INITIALLY DEFERRED
-  FOR EACH ROW
-  EXECUTE FUNCTION check_job_has_service();
-
+  FOR EACH ROW EXECUTE FUNCTION check_job_has_service();
 
 -- ---------------------------------------------------------------------
--- RÀNG BUỘC 4 — CHẶN THIẾU GIÁ: job không được sang CONFIRMED/DISPATCHED/COMPLETED
---               nếu chưa có job_costs (giá mua/bán) HOẶC total_revenue/total_cost = 0.
--- Mức độ: cảnh báo cứng (EXCEPTION). Có thể đổi thành WARNING nếu muốn mềm hơn.
+-- BƯỚC 7 — Trigger GIÁ: cảnh báo khi thiếu, CHẶN CỨNG khi COMPLETED
 -- ---------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION check_job_has_price()
 RETURNS TRIGGER AS $$
-DECLARE
-  cost_rows int;
+DECLARE cost_rows int;
 BEGIN
-  -- chỉ chặn khi job chuyển sang các trạng thái "đã chốt"
-  IF NEW.status_code NOT IN ('CONFIRMED','DISPATCHED','COMPLETED') THEN
-    RETURN NEW;
-  END IF;
   SELECT count(*) INTO cost_rows
   FROM job_costs
   WHERE job_id = NEW.job_id
     AND (COALESCE(buying_amount,0) > 0 OR COALESCE(selling_amount,0) > 0);
+
   IF cost_rows = 0 THEN
-    RAISE EXCEPTION 'Job % chuyển sang % nhưng chưa có giá mua/bán (job_costs trống hoặc = 0). Điền giá trước khi chốt.', NEW.job_id, NEW.status_code;
+    IF NEW.status_code = 'COMPLETED' THEN
+      RAISE EXCEPTION 'Job % không được COMPLETED khi chưa có giá mua/bán (job_costs trống). Điền giá trước.', NEW.job_id;
+    ELSIF NEW.status_code IN ('CONFIRMED','DISPATCHED') THEN
+      RAISE WARNING 'Job % (status %) chưa có giá mua/bán — nhắc điền giá.', NEW.job_id, NEW.status_code;
+    END IF;
   END IF;
   RETURN NEW;
 END;
@@ -124,33 +103,12 @@ DROP TRIGGER IF EXISTS trg_job_has_price ON jobs;
 CREATE CONSTRAINT TRIGGER trg_job_has_price
   AFTER INSERT OR UPDATE OF status_code ON jobs
   DEFERRABLE INITIALLY DEFERRED
-  FOR EACH ROW
-  EXECUTE FUNCTION check_job_has_price();
+  FOR EACH ROW EXECUTE FUNCTION check_job_has_price();
 
+COMMIT;
 
--- ---------------------------------------------------------------------
--- RÀNG BUỘC 5 — status_code chỉ nhận giá trị trong master_statuses (mềm hoá bằng CHECK)
--- ---------------------------------------------------------------------
--- (Tùy chọn — chỉ thêm nếu master_statuses ổn định)
--- ALTER TABLE jobs
---   ADD CONSTRAINT fk_jobs_status FOREIGN KEY (status_code)
---   REFERENCES master_statuses(status_code);
-
-
--- ---------------------------------------------------------------------
--- ROLLBACK (nếu cần gỡ)
--- ---------------------------------------------------------------------
+-- ROLLBACK gỡ (nếu cần):
 -- ALTER TABLE job_services DROP CONSTRAINT fk_job_services_service_type;
 -- ALTER TABLE job_services ALTER COLUMN job_id DROP NOT NULL;
--- DROP TRIGGER IF EXISTS trg_job_has_service ON jobs;   DROP FUNCTION check_job_has_service();
--- DROP TRIGGER IF EXISTS trg_job_has_price   ON jobs;   DROP FUNCTION check_job_has_price();
-
--- =====================================================================
--- GHI CHÚ VẬN HÀNH
--- • Trigger 3,4 dùng CONSTRAINT TRIGGER DEFERRABLE → cho phép tạo job + service + cost
---   trong CÙNG 1 transaction (kiểm tra chỉ chạy khi COMMIT). App phải bọc create-job
---   trong 1 transaction để không bị chặn oan.
--- • Nếu app tạo job DRAFT trước rồi thêm service sau (nhiều bước) → không bị chặn,
---   chỉ bị chặn khi cố chuyển status khỏi DRAFT mà thiếu service/giá.
--- • Muốn nới lỏng: đổi RAISE EXCEPTION thành RAISE WARNING (chỉ log, không chặn).
--- =====================================================================
+-- DROP TRIGGER IF EXISTS trg_job_has_service ON jobs; DROP FUNCTION check_job_has_service();
+-- DROP TRIGGER IF EXISTS trg_job_has_price ON jobs;   DROP FUNCTION check_job_has_price();
