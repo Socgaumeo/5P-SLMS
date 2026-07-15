@@ -31,6 +31,7 @@ const theme = {
 const StatusBadge = ({ status }) => {
   const styles = {
     // Common
+    DRAFT: { bg: '#E5E7EB', color: '#6B7280', label: 'Nháp' },
     PENDING: { bg: '#FEF3C7', color: '#D97706', label: 'Chờ xử lý' },
     CONFIRMED: { bg: '#DBEAFE', color: '#2563EB', label: 'Đã xác nhận' },
     CANCELLED: { bg: '#FEE2E2', color: '#DC2626', label: 'Đã hủy' },
@@ -348,7 +349,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
   const [employees, setEmployees] = useState([])
   const [customers, setCustomers] = useState([])
   const [saving, setSaving] = useState(false)
-  const [jobStatus, setJobStatus] = useState(job?.status_code || 'PENDING')
+  const [jobStatus, setJobStatus] = useState(job?.status_code || 'DRAFT')
   const [jobCustomer, setJobCustomer] = useState({
     id: job?.customer_id,
     code: job?.customer_code,
@@ -1194,7 +1195,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
               </div>
               <div className="detail-item">
                 <span className="detail-label">Status:</span>
-                <StatusBadge status={job.status_code || 'PENDING'} />
+                <StatusBadge status={job.status_code || 'DRAFT'} />
               </div>
             </div>
           </div>
@@ -3458,7 +3459,7 @@ function MainDashboard() {
                         <td><span className="job-type">{getServiceIcon(job.service_type)} {job.service_type?.replace(/_/g, ' ')}</span></td>
                         <td>{job.etd || job.created_at?.split('T')[0]}</td>
                         <td>{job.creator_name || '-'}</td>
-                        <td><StatusBadge status={job.status_code || 'PENDING'} /></td>
+                        <td><StatusBadge status={job.status_code || 'DRAFT'} /></td>
                       </tr>
                     )) : (
                       <tr><td colSpan="6" className="no-data">No recent jobs</td></tr>
@@ -3572,7 +3573,9 @@ function MainDashboard() {
                     style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', background: '#fff' }}
                   >
                     <option value="">Tất cả</option>
+                    <option value="DRAFT">📝 Nháp</option>
                     <option value="PENDING">⏳ Chờ xử lý</option>
+                    <option value="CONFIRMED">📋 Đã xác nhận</option>
                     <option value="IN_PROGRESS">🔄 Đang xử lý</option>
                     <option value="COMPLETED">✅ Hoàn thành</option>
                     <option value="CANCELLED">❌ Đã hủy</option>
@@ -3637,7 +3640,7 @@ function MainDashboard() {
                             </span>
                           ) : <span style={{ color: '#cbd5e1' }}>—</span>}
                         </td>
-                        <td><StatusBadge status={job.status_code || 'PENDING'} /></td>
+                        <td><StatusBadge status={job.status_code || 'DRAFT'} /></td>
                       </tr>
                     )
                   }) : (
