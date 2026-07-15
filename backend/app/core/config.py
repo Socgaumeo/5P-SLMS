@@ -44,6 +44,13 @@ class Settings(BaseSettings):
         if not self.TELEGRAM_BOT_TOKEN and self.TELEGRAM_DOC_BOT_TOKEN:
             self.TELEGRAM_BOT_TOKEN = self.TELEGRAM_DOC_BOT_TOKEN
         return self
+    # SMTP (notify kế toán qua email) — optional
+    SMTP_HOST: Optional[str] = None
+    SMTP_PORT: int = 587
+    SMTP_USER: Optional[str] = None
+    SMTP_PASSWORD: Optional[str] = None
+    SMTP_FROM: Optional[str] = None
+
     TELEGRAM_ALLOWED_CHAT_IDS: str = ""  # Comma-separated chat IDs (whitelist)
     TELEGRAM_STORAGE_CHAT_ID: Optional[str] = None  # Private chat/channel for web upload storage
 

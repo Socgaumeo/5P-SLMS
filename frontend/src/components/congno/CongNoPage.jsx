@@ -12,14 +12,49 @@ const AR_STATE = {
 
 export default function CongNoPage() {
   const [tab, setTab] = useState('ap') // ap = phải trả (pain điểm CS), ar = phải thu
+  const [showCfg, setShowCfg] = useState(false)
 
   return (
     <div style={{ padding: 24 }}>
-      <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 20, alignItems: 'center' }}>
         <TabBtn active={tab === 'ap'} onClick={() => setTab('ap')}>💸 Phải trả (Vendor/NCC)</TabBtn>
         <TabBtn active={tab === 'ar'} onClick={() => setTab('ar')}>💰 Phải thu (Khách hàng)</TabBtn>
+        <div style={{ flex: 1 }} />
+        <button style={miniBtn} onClick={() => setShowCfg(true)}>⚙️ Cấu hình kế toán</button>
       </div>
       {tab === 'ap' ? <APPanel /> : <ARPanel />}
+      {showCfg && <NotifyConfigModal onClose={() => setShowCfg(false)} />}
+    </div>
+  )
+}
+
+function NotifyConfigModal({ onClose }) {
+  const [tg, setTg] = useState('')
+  const [email, setEmail] = useState('')
+  useEffect(() => {
+    authFetch(`${API_URL}/api/ap/notify-config`).then(r => r.json()).then(d => {
+      if (d.config) { setTg(d.config.telegram_id || ''); setEmail(d.config.email || '') }
+    })
+  }, [])
+  const save = () => {
+    authFetch(`${API_URL}/api/ap/notify-config`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ telegram_id: tg, email }),
+    }).then(() => { alert('Đã lưu cấu hình kế toán'); onClose() })
+  }
+  return (
+    <div style={modalOverlay} onClick={onClose}>
+      <div style={{ ...modalBox, maxWidth: 440 }} onClick={e => e.stopPropagation()}>
+        <h3>Cấu hình nhận thông báo — Kế toán</h3>
+        <label style={{ display: 'block', margin: '12px 0 4px', fontSize: 13 }}>Telegram ID</label>
+        <input value={tg} onChange={e => setTg(e.target.value)} placeholder="VD: 348988385" style={inputStyle} />
+        <label style={{ display: 'block', margin: '12px 0 4px', fontSize: 13 }}>Email</label>
+        <input value={email} onChange={e => setEmail(e.target.value)} placeholder="ketoan@5pvietnam.com" style={inputStyle} />
+        <div style={{ marginTop: 16, display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <button style={miniBtn} onClick={onClose}>Hủy</button>
+          <button style={primaryBtn} onClick={save}>Lưu</button>
+        </div>
+      </div>
     </div>
   )
 }
@@ -41,6 +76,7 @@ function APPanel() {
   const [sel, setSel] = useState(null) // vendor được chọn xem chi tiết
   const [costs, setCosts] = useState([])
   const [loading, setLoading] = useState(false)
+  const [checked, setChecked] = useState({}) // cost_id → bool (tick chọn thanh toán)
 
   const loadSummary = () => {
     authFetch(`${API_URL}/api/ap/unbilled`).then(r => r.json()).then(d => setVendors(d.vendors || []))
@@ -49,17 +85,53 @@ function APPanel() {
   useEffect(loadSummary, [])
 
   const openVendor = (v) => {
-    setSel(v); setLoading(true)
+    setSel(v); setLoading(true); setChecked({})
     authFetch(`${API_URL}/api/ap/unbilled?vendor_id=${v.vendor_id}`).then(r => r.json())
-      .then(d => { setCosts(d.costs || []); setLoading(false) })
+      .then(d => { setCosts(d.costs || []); setChecked(Object.fromEntries((d.costs || []).map(c => [c.cost_id, true]))); setLoading(false) })
   }
 
-  const createBill = () => {
-    if (!sel) return
-    if (!confirm(`Tạo bảng kê ${sel.vendor_name}? (${costs.length} khoản, ${vnd(sel.total)})`)) return
+  const selectedIds = () => costs.filter(c => checked[c.cost_id]).map(c => c.cost_id)
+  const selectedTotal = () => costs.filter(c => checked[c.cost_id]).reduce((s, c) => s + Number(c.amount || 0), 0)
+  const toggle = (id) => setChecked(p => ({ ...p, [id]: !p[id] }))
+  const toggleAll = () => {
+    const all = costs.every(c => checked[c.cost_id])
+    setChecked(Object.fromEntries(costs.map(c => [c.cost_id, !all])))
+  }
+
+  const exportExcel = () => {
+    const ids = selectedIds()
+    if (!ids.length) return alert('Chưa chọn dòng nào')
+    authFetch(`${API_URL}/api/ap/export`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cost_ids: ids, title: `BẢNG KÊ CHI PHÍ — ${sel.vendor_name}` }),
+    }).then(r => r.blob()).then(b => {
+      const url = URL.createObjectURL(b); const a = document.createElement('a')
+      a.href = url; a.download = `bangke_${sel.vendor_name}.xlsx`; a.click(); URL.revokeObjectURL(url)
+    })
+  }
+
+  const notifyKT = () => {
+    const ids = selectedIds()
+    if (!ids.length) return alert('Chưa chọn dòng nào')
+    const note = prompt('Ghi chú gửi kế toán (tùy chọn):', '')
+    if (note === null) return
+    authFetch(`${API_URL}/api/ap/notify`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cost_ids: ids, note }),
+    }).then(r => r.json()).then(d => {
+      if (d.detail) return alert('Lỗi: ' + d.detail)
+      const ch = []; if (d.sent?.telegram) ch.push('Telegram'); if (d.sent?.email) ch.push('Email')
+      alert(ch.length ? `Đã gửi KT qua ${ch.join(' + ')} (${d.count} khoản, ${vnd(d.total)})` : 'Chưa gửi được — kiểm tra cấu hình KT')
+    })
+  }
+
+  const createBillSelected = () => {
+    const ids = selectedIds()
+    if (!ids.length) return alert('Chưa chọn dòng nào')
+    if (!confirm(`Lập bảng kê ${ids.length} khoản (${vnd(selectedTotal())}) cho ${sel.vendor_name}?`)) return
     authFetch(`${API_URL}/api/ap/bills`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ vendor_id: sel.vendor_id, cost_ids: costs.map(c => c.cost_id) }),
+      body: JSON.stringify({ vendor_id: sel.vendor_id, cost_ids: ids }),
     }).then(r => r.json()).then(() => { setSel(null); setCosts([]); loadSummary() })
   }
 
@@ -139,18 +211,19 @@ function APPanel() {
               <div style={{ overflowX: 'auto' }}>
               <table style={tableStyle}>
                 <thead><tr>
+                  <Th><input type="checkbox" checked={costs.length > 0 && costs.every(c => checked[c.cost_id])} onChange={toggleAll} /></Th>
                   <Th>Job</Th><Th>Ngày</Th><Th>Tên phí</Th>
-                  <Th>Biển số</Th><Th>Tuyến</Th><Th>INV</Th><Th>Số TK</Th><Th>B/L-AWB</Th><Th>Số HĐ</Th>
+                  <Th>Biển số</Th><Th>Tuyến</Th><Th>Số TK</Th><Th>B/L-AWB</Th><Th>Số HĐ</Th>
                   <Th right>Tiền</Th>
                 </tr></thead>
                 <tbody>
                   {costs.map(c => (
-                    <tr key={c.cost_id}>
+                    <tr key={c.cost_id} style={{ background: checked[c.cost_id] ? '#EFF6FF' : 'transparent' }}>
+                      <Td><input type="checkbox" checked={!!checked[c.cost_id]} onChange={() => toggle(c.cost_id)} /></Td>
                       <Td>{c.job_no}</Td><Td>{c.cost_date}</Td>
                       <Td>{c.cost_name}{c.is_reimbursement ? ' (chi hộ)' : ''}</Td>
                       <Td>{c.plate_number || '—'}</Td>
                       <Td>{c.route || [c.origin_address, c.dest_address].filter(Boolean).join(' → ') || '—'}</Td>
-                      <Td>{c.invoice_numbers || '—'}</Td>
                       <Td>{c.declaration_no || '—'}</Td>
                       <Td>{c.bl_awb_no || '—'}</Td>
                       <Td>{c.job_invoice_no || '—'}</Td>
@@ -161,9 +234,13 @@ function APPanel() {
               </table>
               </div>
             )}
-            <div style={{ marginTop: 16, display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+            <div style={{ marginTop: 16, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+              <span style={{ fontWeight: 600 }}>Đã chọn: {selectedIds().length} khoản — {vnd(selectedTotal())}</span>
+              <div style={{ flex: 1 }} />
               <button style={miniBtn} onClick={() => setSel(null)}>Đóng</button>
-              <button style={primaryBtn} onClick={createBill}>📋 Lập bảng kê + track trả</button>
+              <button style={miniBtn} onClick={exportExcel}>📥 Xuất Excel</button>
+              <button style={{ ...primaryBtn, background: '#059669' }} onClick={notifyKT}>📨 Gửi KT duyệt chi</button>
+              <button style={primaryBtn} onClick={createBillSelected}>📋 Lập bảng kê + track trả</button>
             </div>
           </div>
         </div>
@@ -267,6 +344,7 @@ const miniBtn = { padding: '4px 10px', border: '1px solid #CBD5E1', borderRadius
 const primaryBtn = { padding: '8px 16px', border: 'none', borderRadius: 6, background: '#2563EB', color: '#fff', cursor: 'pointer', fontWeight: 600 }
 const modalOverlay = { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }
 const modalBox = { background: '#fff', borderRadius: 12, padding: 24, maxWidth: 700, maxHeight: '80vh', overflow: 'auto', width: '90%' }
+const inputStyle = { width: '100%', padding: '8px 10px', border: '1px solid #CBD5E1', borderRadius: 6, fontSize: 14, boxSizing: 'border-box' }
 
 function Card({ title, children }) {
   return (

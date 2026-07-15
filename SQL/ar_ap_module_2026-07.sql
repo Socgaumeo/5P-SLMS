@@ -87,29 +87,57 @@ LEFT JOIN ar_invoices inv ON inv.invoice_id = aij.invoice_id;
 
 -- ---------- VIEW: chi phí vendor CHƯA nằm trong bảng kê nào ----------
 -- Dùng cho nút "Xuất bảng kê vendor X"
-CREATE OR REPLACE VIEW v_ap_unbilled_costs AS
+-- View thông minh: nhận diện số tờ khai theo loại dịch vụ (CUS gom về cột Số TK,
+-- tránh nhầm với B/L-AWB / Số HĐ do data nhập lẫn cột). Fallback service_type
+-- từ job_services đại diện khi job_cost không gắn svc_id.
+DROP VIEW IF EXISTS v_ap_unbilled_costs;
+CREATE VIEW v_ap_unbilled_costs AS
+WITH job_svc AS (
+  SELECT DISTINCT ON (job_id) job_id, service_type_code, cd_no, bl_awb_no, route,
+    origin_address, dest_address, vehicle_id, driver_id, invoice_numbers
+  FROM job_services ORDER BY job_id, svc_id
+)
 SELECT jc.cost_id, jc.job_id, j.job_no, jc.svc_id,
   jc.cost_name, jc.vendor_id, v.short_name AS vendor_name,
   jc.buying_rate, jc.quantity,
   (jc.buying_rate * COALESCE(jc.quantity,1)) AS amount,
   jc.is_reimbursement, jc.created_at::date AS cost_date,
-  -- thông tin đối chiếu
   veh.plate_number,
-  s.route, s.origin_address, s.dest_address,
-  s.invoice_numbers,
-  s.cd_no AS declaration_no,
-  s.bl_awb_no,
-  j.invoice_number AS job_invoice_no,
-  s.service_type_code,
-  dr.full_name AS driver_name
+  COALESCE(s.route, js.route) AS route,
+  COALESCE(s.origin_address, js.origin_address) AS origin_address,
+  COALESCE(s.dest_address, js.dest_address) AS dest_address,
+  COALESCE(s.service_type_code, js.service_type_code) AS service_type_code,
+  dr.full_name AS driver_name,
+  CASE
+    WHEN COALESCE(s.service_type_code, js.service_type_code) LIKE 'CUS%' THEN
+      COALESCE(s.cd_no, js.cd_no, s.bl_awb_no, js.bl_awb_no, j.invoice_number)
+    ELSE COALESCE(s.cd_no, js.cd_no)
+  END AS declaration_no,
+  CASE WHEN COALESCE(s.service_type_code, js.service_type_code) LIKE 'CUS%' THEN NULL
+       ELSE COALESCE(s.bl_awb_no, js.bl_awb_no) END AS bl_awb_no,
+  CASE WHEN COALESCE(s.service_type_code, js.service_type_code) LIKE 'CUS%' THEN NULL
+       ELSE j.invoice_number END AS job_invoice_no,
+  COALESCE(s.invoice_numbers, js.invoice_numbers) AS invoice_numbers,
+  (COALESCE(s.service_type_code, js.service_type_code) LIKE 'CUS%') AS is_customs
 FROM job_costs jc
 JOIN jobs j ON j.job_id = jc.job_id
 LEFT JOIN vendors v ON v.vendor_id = jc.vendor_id
 LEFT JOIN job_services s ON s.svc_id = jc.svc_id
-LEFT JOIN vehicles veh ON veh.vehicle_id = s.vehicle_id
-LEFT JOIN drivers dr ON dr.driver_id = s.driver_id
+LEFT JOIN job_svc js ON js.job_id = jc.job_id
+LEFT JOIN vehicles veh ON veh.vehicle_id = COALESCE(s.vehicle_id, js.vehicle_id)
+LEFT JOIN drivers dr ON dr.driver_id = COALESCE(s.driver_id, js.driver_id)
 WHERE jc.buying_rate > 0
   AND NOT EXISTS (SELECT 1 FROM ap_bill_items abi WHERE abi.cost_id = jc.cost_id);
+
+-- Config notify kế toán (Telegram/Email)
+CREATE TABLE IF NOT EXISTS ap_notify_config (
+  id SERIAL PRIMARY KEY,
+  role TEXT DEFAULT 'accountant',
+  telegram_id TEXT,
+  email TEXT,
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
 
 -- ---------- TRIGGER: tự set payment_status theo paid_amount ----------
 CREATE OR REPLACE FUNCTION sync_ar_payment_status()
