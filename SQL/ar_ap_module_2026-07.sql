@@ -200,3 +200,7 @@ LEFT JOIN LATERAL (
 ) js ON true
 LEFT JOIN ar_invoice_jobs aij ON aij.job_id = j.job_id
 LEFT JOIN ar_invoices inv ON inv.invoice_id = aij.invoice_id;
+
+-- Notify config: nhiều người nhận (Telegram user_ids từ DB + emails ngoài)
+ALTER TABLE ap_notify_config ADD COLUMN IF NOT EXISTS telegram_user_ids JSONB DEFAULT '[]';
+ALTER TABLE ap_notify_config ADD COLUMN IF NOT EXISTS emails JSONB DEFAULT '[]';

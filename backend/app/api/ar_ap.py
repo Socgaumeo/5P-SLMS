@@ -314,9 +314,17 @@ def export_selected(payload: ExportRequest):
 
 
 # ============ NOTIFY KẾ TOÁN ============
+@router.get("/api/ap/users")
+def list_users_for_notify():
+    """Danh sách user (từ DB) để chọn người nhận thông báo — kèm email + telegram_id."""
+    sb = get_supabase()
+    rows = sb.table("users").select("user_id,full_name,email,telegram_id").eq("is_active", True).execute().data
+    return {"users": rows}
+
+
 class NotifyConfig(BaseModel):
-    telegram_id: Optional[str] = None
-    email: Optional[str] = None
+    telegram_user_ids: List[int] = []   # user_id được chọn nhận Telegram
+    emails: List[str] = []              # danh sách email người nhận (tự do)
 
 
 @router.get("/api/ap/notify-config")
@@ -331,7 +339,9 @@ def set_notify_config(payload: NotifyConfig):
     sb = get_supabase()
     sb.table("ap_notify_config").update({"is_active": False}).eq("is_active", True).execute()
     row = sb.table("ap_notify_config").insert({
-        "role": "accountant", "telegram_id": payload.telegram_id, "email": payload.email,
+        "role": "accountant",
+        "telegram_user_ids": payload.telegram_user_ids,
+        "emails": payload.emails,
     }).execute().data[0]
     return {"config": row}
 
@@ -343,12 +353,15 @@ class NotifyRequest(BaseModel):
 
 @router.post("/api/ap/notify")
 def notify_accountant(payload: NotifyRequest):
-    """Gửi bảng kê chi phí sẽ thanh toán cho kế toán (Telegram + Email)."""
+    """Gửi bảng kê chi phí sẽ thanh toán cho kế toán (Telegram + Email nhiều người)."""
     sb = get_supabase()
     cfg = sb.table("ap_notify_config").select("*").eq("is_active", True).execute().data
     if not cfg:
-        raise HTTPException(400, "Chưa cấu hình kế toán (telegram_id/email)")
+        raise HTTPException(400, "Chưa cấu hình người nhận (⚙️ Cấu hình kế toán)")
     cfg = cfg[0]
+    tg_uids = cfg.get("telegram_user_ids") or []
+    emails = list(cfg.get("emails") or [])
+
     costs = sb.table("v_ap_unbilled_costs").select("*").in_("cost_id", payload.cost_ids).execute().data
     if not costs:
         raise HTTPException(400, "Không có chi phí")
@@ -363,30 +376,38 @@ def notify_accountant(payload: NotifyRequest):
                f"Tổng: <b>{total:,.0f}đ</b>".replace(",", "."))
     if payload.note:
         summary += f"\nGhi chú: {payload.note}"
-    sent = {"telegram": False, "email": False}
+    sent = {"telegram": 0, "email": 0}
 
-    # Telegram
+    # Telegram — lấy telegram_id + email của các user được chọn
     settings.resolve_telegram_token()
     tok = settings.TELEGRAM_BOT_TOKEN
-    if cfg.get("telegram_id") and tok:
-        try:
-            with httpx.Client(timeout=30) as cli:
-                cli.post(f"https://api.telegram.org/bot{tok}/sendDocument",
-                    data={"chat_id": cfg["telegram_id"], "caption": summary, "parse_mode": "HTML"},
-                    files={"document": (fname, xlsx,
-                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")})
-            sent["telegram"] = True
-        except Exception as e:
-            logger.error(f"Telegram notify fail: {e}")
+    if tg_uids:
+        urows = sb.table("users").select("user_id,telegram_id,email").in_("user_id", tg_uids).execute().data
+        for ur in urows:
+            # user được chọn nhận TG thì email của họ cũng vào danh sách nhận mail
+            if ur.get("email"):
+                emails.append(ur["email"])
+            chat = ur.get("telegram_id")
+            if chat and tok:
+                try:
+                    with httpx.Client(timeout=30) as cli:
+                        cli.post(f"https://api.telegram.org/bot{tok}/sendDocument",
+                            data={"chat_id": str(chat), "caption": summary, "parse_mode": "HTML"},
+                            files={"document": (fname, xlsx,
+                                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")})
+                    sent["telegram"] += 1
+                except Exception as e:
+                    logger.error(f"Telegram notify fail uid={ur.get('user_id')}: {e}")
 
-    # Email
+    # Email — 1 sender cố định (SMTP), gửi tới nhiều người nhận
     smtp_host = getattr(settings, "SMTP_HOST", None)
-    if cfg.get("email") and smtp_host:
+    emails = sorted(set(e for e in emails if e))
+    if emails and smtp_host:
         try:
             msg = EmailMessage()
             msg["Subject"] = title
-            msg["From"] = getattr(settings, "SMTP_FROM", settings.SMTP_USER)
-            msg["To"] = cfg["email"]
+            msg["From"] = getattr(settings, "SMTP_FROM", None) or settings.SMTP_USER
+            msg["To"] = ", ".join(emails)
             msg.set_content(summary.replace("<b>", "").replace("</b>", ""))
             msg.add_attachment(xlsx, maintype="application",
                 subtype="vnd.openxmlformats-officedocument.spreadsheetml.sheet", filename=fname)
@@ -394,8 +415,9 @@ def notify_accountant(payload: NotifyRequest):
                 s.starttls()
                 s.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
                 s.send_message(msg)
-            sent["email"] = True
+            sent["email"] = len(emails)
         except Exception as e:
             logger.error(f"Email notify fail: {e}")
 
-    return {"sent": sent, "total": total, "count": len(costs)}
+    return {"sent": sent, "total": total, "count": len(costs),
+            "email_recipients": emails, "smtp_configured": bool(smtp_host)}

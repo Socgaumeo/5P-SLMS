@@ -29,28 +29,71 @@ export default function CongNoPage() {
 }
 
 function NotifyConfigModal({ onClose }) {
-  const [tg, setTg] = useState('')
-  const [email, setEmail] = useState('')
+  const [users, setUsers] = useState([])
+  const [tgIds, setTgIds] = useState([])       // user_id được chọn nhận Telegram
+  const [emails, setEmails] = useState([])      // email ngoài
+  const [newEmail, setNewEmail] = useState('')
+
   useEffect(() => {
+    authFetch(`${API_URL}/api/ap/users`).then(r => r.json()).then(d => setUsers(d.users || []))
     authFetch(`${API_URL}/api/ap/notify-config`).then(r => r.json()).then(d => {
-      if (d.config) { setTg(d.config.telegram_id || ''); setEmail(d.config.email || '') }
+      if (d.config) {
+        setTgIds(d.config.telegram_user_ids || [])
+        setEmails(d.config.emails || [])
+      }
     })
   }, [])
+
+  const toggleUser = (uid) => setTgIds(p => p.includes(uid) ? p.filter(x => x !== uid) : [...p, uid])
+  const addEmail = () => {
+    const e = newEmail.trim()
+    if (e && /.+@.+\..+/.test(e) && !emails.includes(e)) { setEmails([...emails, e]); setNewEmail('') }
+  }
+  const rmEmail = (e) => setEmails(emails.filter(x => x !== e))
+
   const save = () => {
     authFetch(`${API_URL}/api/ap/notify-config`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ telegram_id: tg, email }),
-    }).then(() => { alert('Đã lưu cấu hình kế toán'); onClose() })
+      body: JSON.stringify({ telegram_user_ids: tgIds, emails }),
+    }).then(() => { alert('Đã lưu cấu hình người nhận'); onClose() })
   }
+
   return (
     <div style={modalOverlay} onClick={onClose}>
-      <div style={{ ...modalBox, maxWidth: 440 }} onClick={e => e.stopPropagation()}>
-        <h3>Cấu hình nhận thông báo — Kế toán</h3>
-        <label style={{ display: 'block', margin: '12px 0 4px', fontSize: 13 }}>Telegram ID</label>
-        <input value={tg} onChange={e => setTg(e.target.value)} placeholder="VD: 348988385" style={inputStyle} />
-        <label style={{ display: 'block', margin: '12px 0 4px', fontSize: 13 }}>Email</label>
-        <input value={email} onChange={e => setEmail(e.target.value)} placeholder="ketoan@5pvietnam.com" style={inputStyle} />
-        <div style={{ marginTop: 16, display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+      <div style={{ ...modalBox, maxWidth: 520 }} onClick={e => e.stopPropagation()}>
+        <h3>Cấu hình người nhận thông báo</h3>
+
+        <label style={{ display: 'block', margin: '14px 0 6px', fontSize: 13, fontWeight: 600 }}>📲 Nhận qua Telegram (chọn user)</label>
+        <div style={{ maxHeight: 200, overflow: 'auto', border: '1px solid #E2E8F0', borderRadius: 6, padding: 8 }}>
+          {users.map(u => (
+            <label key={u.user_id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '3px 0', fontSize: 13, cursor: 'pointer' }}>
+              <input type="checkbox" checked={tgIds.includes(u.user_id)} onChange={() => toggleUser(u.user_id)} />
+              <span>{u.full_name}</span>
+              <span style={{ color: '#94A3B8', fontSize: 11 }}>
+                {u.telegram_id ? `TG:${u.telegram_id}` : '⚠️ chưa có TG'} {u.email ? `· ${u.email}` : ''}
+              </span>
+            </label>
+          ))}
+          {!users.length && <span style={{ color: '#94A3B8', fontSize: 12 }}>Đang tải...</span>}
+        </div>
+        <p style={{ color: '#94A3B8', fontSize: 11, margin: '4px 0 0' }}>User được chọn sẽ nhận cả Telegram + email (nếu có email trong DB). Cần đã bấm Start bot 1 lần.</p>
+
+        <label style={{ display: 'block', margin: '16px 0 6px', fontSize: 13, fontWeight: 600 }}>📧 Email nhận thêm (ngoài DB)</label>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <input value={newEmail} onChange={e => setNewEmail(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && addEmail()}
+            placeholder="ketoan.ngoai@example.com" style={inputStyle} />
+          <button style={miniBtn} onClick={addEmail}>+ Thêm</button>
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+          {emails.map(e => (
+            <span key={e} style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 12, padding: '2px 10px', fontSize: 12 }}>
+              {e} <span onClick={() => rmEmail(e)} style={{ cursor: 'pointer', color: '#DC2626', marginLeft: 4 }}>✕</span>
+            </span>
+          ))}
+        </div>
+
+        <div style={{ marginTop: 20, display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
           <button style={miniBtn} onClick={onClose}>Hủy</button>
           <button style={primaryBtn} onClick={save}>Lưu</button>
         </div>
@@ -120,8 +163,12 @@ function APPanel() {
       body: JSON.stringify({ cost_ids: ids, note }),
     }).then(r => r.json()).then(d => {
       if (d.detail) return alert('Lỗi: ' + d.detail)
-      const ch = []; if (d.sent?.telegram) ch.push('Telegram'); if (d.sent?.email) ch.push('Email')
-      alert(ch.length ? `Đã gửi KT qua ${ch.join(' + ')} (${d.count} khoản, ${vnd(d.total)})` : 'Chưa gửi được — kiểm tra cấu hình KT')
+      const ch = []
+      if (d.sent?.telegram) ch.push(`Telegram (${d.sent.telegram} người)`)
+      if (d.sent?.email) ch.push(`Email (${d.sent.email} người)`)
+      let msg = ch.length ? `Đã gửi ${ch.join(' + ')} — ${d.count} khoản, ${vnd(d.total)}` : 'Chưa gửi được — kiểm tra ⚙️ Cấu hình'
+      if (!d.smtp_configured && d.email_recipients?.length) msg += '\n(Email chưa cấu hình SMTP trên server nên chưa gửi được)'
+      alert(msg)
     })
   }
 
