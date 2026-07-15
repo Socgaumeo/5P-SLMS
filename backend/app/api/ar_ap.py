@@ -430,6 +430,7 @@ def notify_accountant(payload: NotifyRequest):
     if payload.note:
         summary += f"\nGhi chú: {payload.note}"
     sent = {"telegram": 0, "email": 0}
+    telegram_errors = []
 
     # Telegram — lấy telegram_id + email của các user được chọn
     settings.resolve_telegram_token()
@@ -441,16 +442,28 @@ def notify_accountant(payload: NotifyRequest):
             if ur.get("email"):
                 emails.append(ur["email"])
             chat = ur.get("telegram_id")
-            if chat and tok:
-                try:
-                    with httpx.Client(timeout=30) as cli:
-                        cli.post(f"https://api.telegram.org/bot{tok}/sendDocument",
-                            data={"chat_id": str(chat), "caption": summary, "parse_mode": "HTML"},
-                            files={"document": (fname, xlsx,
-                                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")})
-                    sent["telegram"] += 1
-                except Exception as e:
-                    logger.error(f"Telegram notify fail uid={ur.get('user_id')}: {e}")
+            uid = ur.get("user_id")
+            if not chat:
+                telegram_errors.append(f"uid={uid}: chưa có telegram_id")
+                continue
+            if not tok:
+                telegram_errors.append(f"uid={uid}: backend thiếu bot token")
+                continue
+            try:
+                with httpx.Client(timeout=30) as cli:
+                    r = cli.post(f"https://api.telegram.org/bot{tok}/sendDocument",
+                        data={"chat_id": str(chat), "caption": summary, "parse_mode": "HTML"},
+                        files={"document": (fname, xlsx,
+                            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")})
+                    jr = r.json()
+                    if jr.get("ok"):
+                        sent["telegram"] += 1
+                    else:
+                        telegram_errors.append(f"uid={uid} chat={chat}: {jr.get('description','?')}")
+                        logger.error(f"Telegram notify fail uid={uid}: {jr}")
+            except Exception as e:
+                telegram_errors.append(f"uid={uid}: {str(e)[:120]}")
+                logger.error(f"Telegram notify fail uid={uid}: {e}")
 
     # Email qua Gmail API (HTTPS 443 — Railway KHÔNG chặn; gửi TỪ chính Gmail 5pvietnam.tas)
     import base64
@@ -493,4 +506,5 @@ def notify_accountant(payload: NotifyRequest):
 
     return {"sent": sent, "total": total, "count": len(costs),
             "email_recipients": emails, "smtp_configured": email_configured,
-            "email_error": email_error}
+            "email_error": email_error,
+            "telegram_error": "; ".join(telegram_errors) if telegram_errors else None}
