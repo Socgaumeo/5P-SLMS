@@ -51,6 +51,10 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: Optional[str] = None
     SMTP_FROM: Optional[str] = None
 
+    # Resend email API (HTTPS — dùng thay SMTP vì Railway chặn cổng SMTP)
+    RESEND_API_KEY: Optional[str] = None
+    EMAIL_FROM: Optional[str] = None
+
     TELEGRAM_ALLOWED_CHAT_IDS: str = ""  # Comma-separated chat IDs (whitelist)
     TELEGRAM_STORAGE_CHAT_ID: Optional[str] = None  # Private chat/channel for web upload storage
 

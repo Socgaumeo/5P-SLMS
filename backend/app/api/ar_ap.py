@@ -432,34 +432,34 @@ def notify_accountant(payload: NotifyRequest):
                 except Exception as e:
                     logger.error(f"Telegram notify fail uid={ur.get('user_id')}: {e}")
 
-    # Email — 1 sender cố định (SMTP), gửi tới nhiều người nhận
-    smtp_host = getattr(settings, "SMTP_HOST", None)
+    # Email qua Resend API (HTTPS 443 — Railway KHÔNG chặn như SMTP)
+    import base64
+    resend_key = getattr(settings, "RESEND_API_KEY", None)
+    email_from = getattr(settings, "EMAIL_FROM", None) or "5P SLMS <onboarding@resend.dev>"
     emails = sorted(set(e for e in emails if e))
     email_error = None
-    if emails and smtp_host:
-        port = int(getattr(settings, "SMTP_PORT", 587))
+    smtp_configured = bool(resend_key)
+    if emails and resend_key:
         try:
-            msg = EmailMessage()
-            msg["Subject"] = title
-            msg["From"] = getattr(settings, "SMTP_FROM", None) or settings.SMTP_USER
-            msg["To"] = ", ".join(emails)
-            msg.set_content(summary.replace("<b>", "").replace("</b>", ""))
-            msg.add_attachment(xlsx, maintype="application",
-                subtype="vnd.openxmlformats-officedocument.spreadsheetml.sheet", filename=fname)
-            # timeout ngắn để KHÔNG treo request nếu PaaS chặn cổng SMTP outbound
-            if port == 465:
-                s = smtplib.SMTP_SSL(smtp_host, port, timeout=15)
+            body = summary.replace("<b>", "").replace("</b>", "")
+            html = "<pre style='font-family:sans-serif;font-size:14px'>" + body + "</pre>"
+            with httpx.Client(timeout=20) as cli:
+                r = cli.post("https://api.resend.com/emails",
+                    headers={"Authorization": f"Bearer {resend_key}", "Content-Type": "application/json"},
+                    json={
+                        "from": email_from, "to": emails, "subject": title, "html": html,
+                        "attachments": [{"filename": fname,
+                            "content": base64.b64encode(xlsx).decode()}],
+                    })
+            if r.status_code in (200, 201):
+                sent["email"] = len(emails)
             else:
-                s = smtplib.SMTP(smtp_host, port, timeout=15)
-                s.starttls()
-            s.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
-            s.send_message(msg)
-            s.quit()
-            sent["email"] = len(emails)
+                email_error = f"Resend {r.status_code}: {r.text[:200]}"
+                logger.error(email_error)
         except Exception as e:
             email_error = str(e)
             logger.error(f"Email notify fail: {e}")
 
     return {"sent": sent, "total": total, "count": len(costs),
-            "email_recipients": emails, "smtp_configured": bool(smtp_host),
+            "email_recipients": emails, "smtp_configured": smtp_configured,
             "email_error": email_error}
