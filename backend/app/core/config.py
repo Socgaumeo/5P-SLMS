@@ -55,6 +55,12 @@ class Settings(BaseSettings):
     RESEND_API_KEY: Optional[str] = None
     EMAIL_FROM: Optional[str] = None
 
+    # Gmail API (HTTPS — gửi TỪ chính Gmail công ty, không cần domain riêng)
+    GMAIL_CLIENT_ID: Optional[str] = None
+    GMAIL_CLIENT_SECRET: Optional[str] = None
+    GMAIL_REFRESH_TOKEN: Optional[str] = None
+    GMAIL_SENDER: Optional[str] = None
+
     TELEGRAM_ALLOWED_CHAT_IDS: str = ""  # Comma-separated chat IDs (whitelist)
     TELEGRAM_STORAGE_CHAT_ID: Optional[str] = None  # Private chat/channel for web upload storage
 

@@ -432,34 +432,45 @@ def notify_accountant(payload: NotifyRequest):
                 except Exception as e:
                     logger.error(f"Telegram notify fail uid={ur.get('user_id')}: {e}")
 
-    # Email qua Resend API (HTTPS 443 — Railway KHÔNG chặn như SMTP)
+    # Email qua Gmail API (HTTPS 443 — Railway KHÔNG chặn; gửi TỪ chính Gmail 5pvietnam.tas)
     import base64
-    resend_key = getattr(settings, "RESEND_API_KEY", None)
-    email_from = getattr(settings, "EMAIL_FROM", None) or "5P SLMS <onboarding@resend.dev>"
+    from email.message import EmailMessage
+    gcid = getattr(settings, "GMAIL_CLIENT_ID", None)
+    gcs = getattr(settings, "GMAIL_CLIENT_SECRET", None)
+    grt = getattr(settings, "GMAIL_REFRESH_TOKEN", None)
+    email_from = getattr(settings, "EMAIL_FROM", None) or getattr(settings, "GMAIL_SENDER", None) or "5pvietnam.tas@gmail.com"
     emails = sorted(set(e for e in emails if e))
     email_error = None
-    smtp_configured = bool(resend_key)
-    if emails and resend_key:
+    email_configured = bool(gcid and gcs and grt)
+    if emails and email_configured:
         try:
-            body = summary.replace("<b>", "").replace("</b>", "")
-            html = "<pre style='font-family:sans-serif;font-size:14px'>" + body + "</pre>"
             with httpx.Client(timeout=20) as cli:
-                r = cli.post("https://api.resend.com/emails",
-                    headers={"Authorization": f"Bearer {resend_key}", "Content-Type": "application/json"},
-                    json={
-                        "from": email_from, "to": emails, "subject": title, "html": html,
-                        "attachments": [{"filename": fname,
-                            "content": base64.b64encode(xlsx).decode()}],
-                    })
-            if r.status_code in (200, 201):
+                tr = cli.post("https://oauth2.googleapis.com/token", data={
+                    "client_id": gcid, "client_secret": gcs,
+                    "refresh_token": grt, "grant_type": "refresh_token"})
+                at = tr.json().get("access_token")
+                if not at:
+                    raise RuntimeError(f"token: {tr.text[:150]}")
+                body = summary.replace("<b>", "").replace("</b>", "")
+                msg = EmailMessage()
+                msg["To"] = ", ".join(emails)
+                msg["From"] = email_from
+                msg["Subject"] = title
+                msg.set_content(body)
+                msg.add_attachment(xlsx, maintype="application",
+                    subtype="vnd.openxmlformats-officedocument.spreadsheetml.sheet", filename=fname)
+                raw = base64.urlsafe_b64encode(msg.as_bytes()).decode()
+                sr = cli.post("https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
+                    headers={"Authorization": f"Bearer {at}"}, json={"raw": raw})
+            if sr.status_code == 200:
                 sent["email"] = len(emails)
             else:
-                email_error = f"Resend {r.status_code}: {r.text[:200]}"
+                email_error = f"Gmail {sr.status_code}: {sr.text[:200]}"
                 logger.error(email_error)
         except Exception as e:
             email_error = str(e)
             logger.error(f"Email notify fail: {e}")
 
     return {"sent": sent, "total": total, "count": len(costs),
-            "email_recipients": emails, "smtp_configured": smtp_configured,
+            "email_recipients": emails, "smtp_configured": email_configured,
             "email_error": email_error}
