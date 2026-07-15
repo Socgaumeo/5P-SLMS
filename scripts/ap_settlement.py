@@ -36,7 +36,8 @@ def list_vendors(cur):
 
 def build_statement(cur, vendor_id=None, employee_id=None):
     if vendor_id:
-        cur.execute("""SELECT cost_id, job_no, cost_date, cost_name, buying_rate, quantity, amount, is_reimbursement
+        cur.execute("""SELECT cost_id, job_no, cost_date, cost_name, buying_rate, quantity, amount, is_reimbursement,
+            plate_number, route, invoice_numbers, declaration_no, bl_awb_no, job_invoice_no
           FROM v_ap_unbilled_costs WHERE vendor_id=%s ORDER BY cost_date, job_no""", (vendor_id,))
         cur2 = cur.connection.cursor()
         cur2.execute("SELECT short_name, company_name FROM vendors WHERE vendor_id=%s", (vendor_id,))
@@ -66,24 +67,38 @@ def to_excel(title, rows, out_path):
     ws.merge_cells('A1:G1'); ws['A1'] = title
     ws['A1'].font = Font(bold=True, size=14); ws['A1'].alignment = Alignment('center')
     ws['A2'] = f"Ngày xuất: {datetime.date.today().strftime('%d/%m/%Y')}"
-    hdr = ['STT','Job No','Ngày','Tên phí','Đơn giá','SL','Thành tiền']
+    has_ref = rows and len(rows[0]) >= 14
+    if has_ref:
+        hdr = ['STT','Job No','Ngày','Tên phí','Biển số','Tuyến','INV','Số TK','B/L-AWB','Số HĐ','Đơn giá','SL','Thành tiền']
+        ncol = 13
+    else:
+        hdr = ['STT','Job No','Ngày','Tên phí','Đơn giá','SL','Thành tiền']
+        ncol = 7
     ws.append([]); ws.append(hdr)
     hr = ws.max_row
-    for c in range(1,8):
+    for c in range(1,ncol+1):
         cell = ws.cell(hr,c); cell.font = Font(bold=True); cell.border = border
         cell.fill = PatternFill('solid', fgColor='DDEBF7'); cell.alignment = Alignment('center')
     total = 0
-    for i,(cid,jn,dt,name,rate,qty,amt,reim) in enumerate(rows,1):
+    for i,r in enumerate(rows,1):
+        cid,jn,dt,name,rate,qty,amt,reim = r[:8]
         nm = name + (' (chi hộ)' if reim else '')
-        ws.append([i, jn, dt.strftime('%d/%m') if dt else '', nm, int(rate or 0), float(qty or 1), int(amt or 0)])
+        d = dt.strftime('%d/%m') if dt else ''
+        if has_ref:
+            plate,route,inv,cd,bl,jinv = r[8:14]
+            ws.append([i, jn, d, nm, plate or '', route or '', inv or '', cd or '', bl or '', jinv or '', int(rate or 0), float(qty or 1), int(amt or 0)])
+        else:
+            ws.append([i, jn, d, nm, int(rate or 0), float(qty or 1), int(amt or 0)])
         total += int(amt or 0)
-        for c in range(1,8): ws.cell(ws.max_row,c).border = border
-    ws.append(['','','','TỔNG CỘNG','','', total])
+        for c in range(1,ncol+1): ws.cell(ws.max_row,c).border = border
+    trow = ['']*(ncol-4) + ['TỔNG CỘNG'] + ['']*2 + [total] if not has_ref else ['','','','TỔNG CỘNG'] + ['']*8 + [total]
+    ws.append(trow)
     tr = ws.max_row
-    for c in range(1,8):
+    for c in range(1,ncol+1):
         ws.cell(tr,c).font = Font(bold=True); ws.cell(tr,c).border = border
-    for col,w in zip('ABCDEFG',[6,18,10,40,14,6,16]):
-        ws.column_dimensions[col].width = w
+    widths = [6,18,10,34,12,26,16,16,16,16,14,6,16] if has_ref else [6,18,10,40,14,6,16]
+    for idx,w in enumerate(widths):
+        ws.column_dimensions[chr(65+idx)].width = w
     wb.save(out_path)
     return total
 

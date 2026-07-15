@@ -3374,8 +3374,7 @@ function MainDashboard() {
           <NavItem icon="👥" label="Master Data" active={activeNav === 'master'} onClick={() => setActiveNav('master')} />
           <NavItem icon="📄" label="Chứng từ" active={activeNav === 'documents'} onClick={() => setActiveNav('documents')} />
           <NavItem icon="📝" label="Xuất Debit" active={activeNav === 'debit-export'} onClick={() => setActiveNav('debit-export')} />
-          <NavItem icon="💰" label="Financial" active={activeNav === 'financial'} onClick={() => setActiveNav('financial')} />
-          <NavItem icon="🧾" label="Công nợ AR/AP" active={activeNav === 'congno'} onClick={() => setActiveNav('congno')} />
+          <NavItem icon="💰" label="Financial (Công nợ)" active={activeNav === 'financial'} onClick={() => setActiveNav('financial')} />
           <NavItem icon="📈" label="Reports" active={activeNav === 'reports'} onClick={() => setActiveNav('reports')} />
         </nav>
 
@@ -3672,8 +3671,8 @@ function MainDashboard() {
         {/* Debit Batch Export Page */}
         {activeNav === 'debit-export' && <DebitBatchExportWizardPage />}
 
-        {/* Công nợ AR/AP */}
-        {activeNav === 'congno' && <CongNoPage />}
+        {/* Financial / Công nợ AR/AP */}
+        {activeNav === 'financial' && <CongNoPage />}
       </main>
 
       {/* Floating AI Button */}

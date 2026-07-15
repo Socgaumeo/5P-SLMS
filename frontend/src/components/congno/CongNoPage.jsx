@@ -71,6 +71,23 @@ function APPanel() {
     }).then(() => loadSummary())
   }
 
+  const editStatus = (bill) => {
+    const s = prompt(`Sửa tình trạng bảng kê ${bill.bill_no || bill.bill_id}:\nunpaid = chưa TT | partial = một phần | paid = đã TT`, bill.payment_status)
+    if (!s || !['unpaid', 'partial', 'paid'].includes(s)) return
+    const body = { payment_status: s }
+    if (s === 'paid') body.paid_amount = bill.total_amount
+    if (s === 'unpaid') body.paid_amount = 0
+    authFetch(`${API_URL}/api/ap/bills/${bill.bill_id}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }).then(() => loadSummary())
+  }
+
+  const delBill = (bill) => {
+    if (!confirm(`XÓA bảng kê ${bill.bill_no || bill.bill_id}? Chi phí sẽ quay lại danh sách "chờ thanh toán".`)) return
+    authFetch(`${API_URL}/api/ap/bills/${bill.bill_id}`, { method: 'DELETE' }).then(() => loadSummary())
+  }
+
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
       <Card title="Chi phí CHỜ thanh toán (theo Vendor)">
@@ -92,14 +109,20 @@ function APPanel() {
 
       <Card title="Bảng kê đã lập">
         <table style={tableStyle}>
-          <thead><tr><Th>Bảng kê</Th><Th right>Tổng</Th><Th>TT</Th><Th></Th></tr></thead>
+          <thead><tr><Th>Bảng kê</Th><Th right>Tổng</Th><Th>TT</Th><Th>Thao tác</Th></tr></thead>
           <tbody>
             {bills.map(b => (
               <tr key={b.bill_id}>
                 <Td>{b.bill_no || `#${b.bill_id}`}</Td>
                 <Td right>{vnd(b.total_amount)}</Td>
                 <Td>{STATUS_LABEL[b.payment_status]}</Td>
-                <Td>{b.payment_status !== 'paid' && <button style={miniBtn} onClick={() => markPaid(b)}>Đã trả</button>}</Td>
+                <Td>
+                  <div style={{ display: 'flex', gap: 4 }}>
+                    {b.payment_status !== 'paid' && <button style={miniBtn} onClick={() => markPaid(b)}>Đã trả</button>}
+                    <button style={miniBtn} onClick={() => editStatus(b)}>✏️</button>
+                    <button style={{ ...miniBtn, color: '#DC2626' }} onClick={() => delBill(b)}>🗑️</button>
+                  </div>
+                </Td>
               </tr>
             ))}
             {!bills.length && <tr><Td colSpan={4} style={{ color: '#94A3B8' }}>Chưa có bảng kê</Td></tr>}
@@ -109,21 +132,34 @@ function APPanel() {
 
       {sel && (
         <div style={modalOverlay} onClick={() => setSel(null)}>
-          <div style={modalBox} onClick={e => e.stopPropagation()}>
+          <div style={{ ...modalBox, maxWidth: 1100 }} onClick={e => e.stopPropagation()}>
             <h3>Chi tiết chi phí — {sel.vendor_name}</h3>
+            <p style={{ color: '#64748B', fontSize: 12, margin: '4px 0 12px' }}>Thông tin đối chiếu: biển số xe, tuyến, INV, số tờ khai, B/L, số HĐ</p>
             {loading ? <p>Đang tải...</p> : (
+              <div style={{ overflowX: 'auto' }}>
               <table style={tableStyle}>
-                <thead><tr><Th>Job</Th><Th>Ngày</Th><Th>Tên phí</Th><Th right>Tiền</Th></tr></thead>
+                <thead><tr>
+                  <Th>Job</Th><Th>Ngày</Th><Th>Tên phí</Th>
+                  <Th>Biển số</Th><Th>Tuyến</Th><Th>INV</Th><Th>Số TK</Th><Th>B/L-AWB</Th><Th>Số HĐ</Th>
+                  <Th right>Tiền</Th>
+                </tr></thead>
                 <tbody>
                   {costs.map(c => (
                     <tr key={c.cost_id}>
                       <Td>{c.job_no}</Td><Td>{c.cost_date}</Td>
                       <Td>{c.cost_name}{c.is_reimbursement ? ' (chi hộ)' : ''}</Td>
+                      <Td>{c.plate_number || '—'}</Td>
+                      <Td>{c.route || [c.origin_address, c.dest_address].filter(Boolean).join(' → ') || '—'}</Td>
+                      <Td>{c.invoice_numbers || '—'}</Td>
+                      <Td>{c.declaration_no || '—'}</Td>
+                      <Td>{c.bl_awb_no || '—'}</Td>
+                      <Td>{c.job_invoice_no || '—'}</Td>
                       <Td right>{vnd(c.amount)}</Td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+              </div>
             )}
             <div style={{ marginTop: 16, display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
               <button style={miniBtn} onClick={() => setSel(null)}>Đóng</button>
@@ -154,6 +190,23 @@ function ARPanel() {
       method: 'PATCH', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ paid_amount: inv.total }),
     }).then(() => load())
+  }
+
+  const editStatus = (inv) => {
+    const s = prompt(`Sửa tình trạng HĐ ${inv.invoice_no || inv.invoice_id}:\nunpaid = chưa thu | partial = một phần | paid = đã thu`, inv.payment_status)
+    if (!s || !['unpaid', 'partial', 'paid'].includes(s)) return
+    const body = { payment_status: s }
+    if (s === 'paid') body.paid_amount = inv.total
+    if (s === 'unpaid') body.paid_amount = 0
+    authFetch(`${API_URL}/api/ar/invoices/${inv.invoice_id}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }).then(() => load())
+  }
+
+  const delInv = (inv) => {
+    if (!confirm(`XÓA HĐ ${inv.invoice_no || inv.invoice_id}? Job sẽ quay lại "chưa xuất HĐ".`)) return
+    authFetch(`${API_URL}/api/ar/invoices/${inv.invoice_id}`, { method: 'DELETE' }).then(() => load())
   }
 
   const shown = filter ? jobs.filter(j => j.ar_state === filter) : jobs
@@ -191,7 +244,13 @@ function ARPanel() {
                 <Td>{inv.invoice_no || `#${inv.invoice_id}`}</Td>
                 <Td right>{vnd(inv.total)}</Td>
                 <Td>{STATUS_LABEL[inv.payment_status]}</Td>
-                <Td>{inv.payment_status !== 'paid' && <button style={miniBtn} onClick={() => markPaid(inv)}>Đã thu</button>}</Td>
+                <Td>
+                  <div style={{ display: 'flex', gap: 4 }}>
+                    {inv.payment_status !== 'paid' && <button style={miniBtn} onClick={() => markPaid(inv)}>Đã thu</button>}
+                    <button style={miniBtn} onClick={() => editStatus(inv)}>✏️</button>
+                    <button style={{ ...miniBtn, color: '#DC2626' }} onClick={() => delInv(inv)}>🗑️</button>
+                  </div>
+                </Td>
               </tr>
             ))}
             {!invoices.length && <tr><Td colSpan={4} style={{ color: '#94A3B8' }}>Chưa có hóa đơn. Tạo HĐ từ danh sách job.</Td></tr>}

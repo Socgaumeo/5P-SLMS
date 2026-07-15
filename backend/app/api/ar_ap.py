@@ -32,6 +32,14 @@ class PaymentUpdate(BaseModel):
     paid_date: Optional[date] = None
 
 
+class StatusUpdate(BaseModel):
+    payment_status: Optional[str] = None   # unpaid/partial/paid
+    paid_amount: Optional[float] = None
+    paid_date: Optional[date] = None
+    note: Optional[str] = None
+    due_date: Optional[date] = None
+
+
 class BillCreate(BaseModel):
     vendor_id: Optional[int] = None
     employee_id: Optional[int] = None
@@ -104,6 +112,28 @@ def pay_invoice(invoice_id: int, payload: PaymentUpdate):
     return {"invoice": upd[0]}
 
 
+@router.patch("/api/ar/invoices/{invoice_id}")
+def edit_invoice(invoice_id: int, payload: StatusUpdate):
+    """Sửa tình trạng / ghi chú / hạn HĐ."""
+    sb = get_supabase()
+    data = {k: (str(v) if isinstance(v, date) else v)
+            for k, v in payload.dict().items() if v is not None}
+    if not data:
+        raise HTTPException(400, "Không có gì để sửa")
+    upd = sb.table("ar_invoices").update(data).eq("invoice_id", invoice_id).execute().data
+    if not upd:
+        raise HTTPException(404, "Không tìm thấy hóa đơn")
+    return {"invoice": upd[0]}
+
+
+@router.delete("/api/ar/invoices/{invoice_id}")
+def delete_invoice(invoice_id: int):
+    """Xóa HĐ (ar_invoice_jobs tự xóa theo CASCADE) → job quay lại 'chưa xuất HĐ'."""
+    sb = get_supabase()
+    sb.table("ar_invoices").delete().eq("invoice_id", invoice_id).execute()
+    return {"deleted": invoice_id}
+
+
 # ============ AP — PHẢI TRẢ ============
 @router.get("/api/ap/unbilled")
 def unbilled_costs(vendor_id: Optional[int] = None, employee_id: Optional[int] = None):
@@ -170,3 +200,33 @@ def pay_bill(bill_id: int, payload: PaymentUpdate):
     if not upd:
         raise HTTPException(404, "Không tìm thấy bảng kê")
     return {"bill": upd[0]}
+
+
+@router.patch("/api/ap/bills/{bill_id}")
+def edit_bill(bill_id: int, payload: StatusUpdate):
+    """Sửa tình trạng / ghi chú / hạn bảng kê."""
+    sb = get_supabase()
+    data = {k: (str(v) if isinstance(v, date) else v)
+            for k, v in payload.dict().items() if v is not None}
+    if not data:
+        raise HTTPException(400, "Không có gì để sửa")
+    upd = sb.table("ap_bills").update(data).eq("bill_id", bill_id).execute().data
+    if not upd:
+        raise HTTPException(404, "Không tìm thấy bảng kê")
+    return {"bill": upd[0]}
+
+
+@router.delete("/api/ap/bills/{bill_id}")
+def delete_bill(bill_id: int):
+    """Xóa bảng kê (ap_bill_items tự xóa theo CASCADE) → chi phí quay lại 'chờ thanh toán'."""
+    sb = get_supabase()
+    sb.table("ap_bills").delete().eq("bill_id", bill_id).execute()
+    return {"deleted": bill_id}
+
+
+@router.get("/api/ap/bills/{bill_id}/items")
+def bill_items(bill_id: int):
+    """Chi tiết các dòng chi phí trong 1 bảng kê (kèm thông tin đối chiếu)."""
+    sb = get_supabase()
+    items = sb.table("ap_bill_items").select("cost_id,amount").eq("bill_id", bill_id).execute().data
+    return {"items": items}

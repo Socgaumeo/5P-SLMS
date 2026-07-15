@@ -92,10 +92,22 @@ SELECT jc.cost_id, jc.job_id, j.job_no, jc.svc_id,
   jc.cost_name, jc.vendor_id, v.short_name AS vendor_name,
   jc.buying_rate, jc.quantity,
   (jc.buying_rate * COALESCE(jc.quantity,1)) AS amount,
-  jc.is_reimbursement, jc.created_at::date AS cost_date
+  jc.is_reimbursement, jc.created_at::date AS cost_date,
+  -- thông tin đối chiếu
+  veh.plate_number,
+  s.route, s.origin_address, s.dest_address,
+  s.invoice_numbers,
+  s.cd_no AS declaration_no,
+  s.bl_awb_no,
+  j.invoice_number AS job_invoice_no,
+  s.service_type_code,
+  dr.full_name AS driver_name
 FROM job_costs jc
 JOIN jobs j ON j.job_id = jc.job_id
 LEFT JOIN vendors v ON v.vendor_id = jc.vendor_id
+LEFT JOIN job_services s ON s.svc_id = jc.svc_id
+LEFT JOIN vehicles veh ON veh.vehicle_id = s.vehicle_id
+LEFT JOIN drivers dr ON dr.driver_id = s.driver_id
 WHERE jc.buying_rate > 0
   AND NOT EXISTS (SELECT 1 FROM ap_bill_items abi WHERE abi.cost_id = jc.cost_id);
 
