@@ -376,6 +376,15 @@ class NotifyRequest(BaseModel):
     telegram_user_ids: List[int] = []         # người nhận Telegram (inline, chọn ngay lúc gửi)
     emails: List[str] = []                     # email người nhận thêm (inline)
     note: Optional[str] = None
+    requested_by: Optional[int] = None         # user_id người bấm gửi (để đặt tên file + ghi)
+
+
+def _slug(s: str) -> str:
+    """Bỏ dấu + ký tự lạ để đặt tên file an toàn."""
+    import unicodedata, re
+    s = unicodedata.normalize("NFKD", s or "").encode("ascii", "ignore").decode()
+    s = re.sub(r"[^A-Za-z0-9]+", "", s)
+    return s or "NA"
 
 
 @router.post("/api/ap/notify")
@@ -402,11 +411,22 @@ def notify_accountant(payload: NotifyRequest):
     vendors = sorted(set(c.get("vendor_name") or "?" for c in costs))
     title = f"ĐỀ NGHỊ CHI — {', '.join(vendors)}"
     xlsx = _build_statement_xlsx(costs, title)
-    fname = f"DeNghiChi_{date.today()}.xlsx"
+    # Người đề nghị (người bấm gửi)
+    requester_name = ""
+    if payload.requested_by:
+        ru = sb.table("users").select("full_name").eq("user_id", payload.requested_by).execute().data
+        requester_name = ru[0]["full_name"] if ru else ""
+    # Tên file rõ ràng: DeNghiChi_<NCC>_<NguoiDeNghi>_<ngay>.xlsx
+    vend_slug = "_".join(_slug(v) for v in vendors)[:40]
+    req_slug = _slug(requester_name)
+    parts = ["DeNghiChi", vend_slug] + ([req_slug] if requester_name else []) + [str(date.today())]
+    fname = "_".join(parts) + ".xlsx"
     summary = (f"💸 <b>Đề nghị thanh toán</b>\n"
                f"NCC: {', '.join(vendors)}\n"
                f"Số khoản: {len(costs)}\n"
                f"Tổng: <b>{total:,.0f}đ</b>".replace(",", "."))
+    if requester_name:
+        summary += f"\nNgười đề nghị: {requester_name}"
     if payload.note:
         summary += f"\nGhi chú: {payload.note}"
     sent = {"telegram": 0, "email": 0}

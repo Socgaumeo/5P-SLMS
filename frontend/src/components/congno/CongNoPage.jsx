@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { authFetch, API_URL } from '../../utils/auth-fetch'
+import { useAuth } from '../../contexts/AuthContext'
 
 const vnd = (n) => (Number(n || 0)).toLocaleString('vi-VN') + 'đ'
 const STATUS_LABEL = { unpaid: '⏳ Chưa TT', partial: '🟡 Một phần', paid: '✅ Đã TT' }
@@ -26,6 +27,7 @@ export default function CongNoPage() {
 
 // Modal chọn người nhận + GỬI ngay (dùng cho cả bảng kê đã lập lẫn chi phí chưa lập)
 function SendNotifyModal({ onClose, costIds, billId, label }) {
+  const { user } = useAuth()
   const [users, setUsers] = useState([])
   const [tgIds, setTgIds] = useState([])
   const [emails, setEmails] = useState([])
@@ -47,7 +49,7 @@ function SendNotifyModal({ onClose, costIds, billId, label }) {
   const send = () => {
     if (!tgIds.length && !emails.length) return alert('Chọn ít nhất 1 người nhận (Telegram hoặc Email)')
     setSending(true)
-    const body = { telegram_user_ids: tgIds, emails, note }
+    const body = { telegram_user_ids: tgIds, emails, note, requested_by: user?.user_id }
     if (billId) body.bill_id = billId; else body.cost_ids = costIds
     authFetch(`${API_URL}/api/ap/notify`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
