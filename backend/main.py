@@ -18,7 +18,7 @@ from app.core.config import settings
 from app.api.dependencies import get_current_user, require_manager_or_admin
 from app.middleware.security_headers import SecurityHeadersMiddleware
 from app.middleware.rate_limiter import limiter
-from app.api import chat, jobs, health, excel_import, search, admin, auth, users, audit, rate_file_upload, rates
+from app.api import chat, jobs, health, excel_import, search, admin, auth, users, audit, rate_file_upload, rates, ar_ap
 from app.api.exports import meiko_customer_export_template as meiko_export
 from app.api.exports import dainese_customer_export_template as dainese_export
 from app.api.exports import generic_customer_export_endpoint_dispatcher as generic_export
@@ -89,6 +89,7 @@ app.include_router(rates.router)
 app.include_router(telegram_webhook.router, tags=["Telegram Webhook"])
 app.include_router(document_crud.router, tags=["Documents"])
 app.include_router(debit_endpoints.router, tags=["Debit Templates"])
+app.include_router(ar_ap.router, tags=["AR/AP Công nợ"])
 
 
 @app.get("/")

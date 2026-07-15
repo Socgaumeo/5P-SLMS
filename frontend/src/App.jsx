@@ -10,6 +10,7 @@ import DocumentUploadZone from './components/documents/document-upload-zone'
 import DocumentListTable from './components/documents/document-list-table-with-download-delete'
 import DocumentManagementPage from './components/documents/document-management-page-with-filters'
 import DebitBatchExportWizardPage from './components/debit/debit-batch-export-wizard-page'
+import CongNoPage from './components/congno/CongNoPage'
 
 // Theme colors from 5P Vietnam logo
 const theme = {
@@ -3374,6 +3375,7 @@ function MainDashboard() {
           <NavItem icon="📄" label="Chứng từ" active={activeNav === 'documents'} onClick={() => setActiveNav('documents')} />
           <NavItem icon="📝" label="Xuất Debit" active={activeNav === 'debit-export'} onClick={() => setActiveNav('debit-export')} />
           <NavItem icon="💰" label="Financial" active={activeNav === 'financial'} onClick={() => setActiveNav('financial')} />
+          <NavItem icon="🧾" label="Công nợ AR/AP" active={activeNav === 'congno'} onClick={() => setActiveNav('congno')} />
           <NavItem icon="📈" label="Reports" active={activeNav === 'reports'} onClick={() => setActiveNav('reports')} />
         </nav>
 
@@ -3669,6 +3671,9 @@ function MainDashboard() {
 
         {/* Debit Batch Export Page */}
         {activeNav === 'debit-export' && <DebitBatchExportWizardPage />}
+
+        {/* Công nợ AR/AP */}
+        {activeNav === 'congno' && <CongNoPage />}
       </main>
 
       {/* Floating AI Button */}
