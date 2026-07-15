@@ -40,7 +40,7 @@ const StatusBadge = ({ status }) => {
     IN_TRANSIT: { bg: '#DBEAFE', color: '#2563EB', label: 'Đang vận chuyển' },
     // General
     ASSIGNED: { bg: '#E0E7FF', color: '#4F46E5', label: 'Đã phân công' },
-    IN_PROGRESS: { bg: '#FEF3C7', color: '#D97706', label: 'Đang thực hiện' },
+    IN_PROGRESS: { bg: '#FEF3C7', color: '#EA580C', label: 'Đang xử lý' },
     COMPLETED: { bg: '#D1FAE5', color: '#059669', label: 'Hoàn thành' },
     // Warehouse-specific
     WHS_RECEIVED: { bg: '#DBEAFE', color: '#2563EB', label: 'Đã nhập kho' },
@@ -3575,7 +3575,6 @@ function MainDashboard() {
                     <option value="">Tất cả</option>
                     <option value="DRAFT">📝 Nháp</option>
                     <option value="PENDING">⏳ Chờ xử lý</option>
-                    <option value="CONFIRMED">📋 Đã xác nhận</option>
                     <option value="IN_PROGRESS">🔄 Đang xử lý</option>
                     <option value="COMPLETED">✅ Hoàn thành</option>
                     <option value="CANCELLED">❌ Đã hủy</option>
