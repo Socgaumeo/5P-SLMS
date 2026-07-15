@@ -435,7 +435,9 @@ def notify_accountant(payload: NotifyRequest):
     # Email — 1 sender cố định (SMTP), gửi tới nhiều người nhận
     smtp_host = getattr(settings, "SMTP_HOST", None)
     emails = sorted(set(e for e in emails if e))
+    email_error = None
     if emails and smtp_host:
+        port = int(getattr(settings, "SMTP_PORT", 587))
         try:
             msg = EmailMessage()
             msg["Subject"] = title
@@ -444,13 +446,20 @@ def notify_accountant(payload: NotifyRequest):
             msg.set_content(summary.replace("<b>", "").replace("</b>", ""))
             msg.add_attachment(xlsx, maintype="application",
                 subtype="vnd.openxmlformats-officedocument.spreadsheetml.sheet", filename=fname)
-            with smtplib.SMTP(smtp_host, int(getattr(settings, "SMTP_PORT", 587))) as s:
+            # timeout ngắn để KHÔNG treo request nếu PaaS chặn cổng SMTP outbound
+            if port == 465:
+                s = smtplib.SMTP_SSL(smtp_host, port, timeout=15)
+            else:
+                s = smtplib.SMTP(smtp_host, port, timeout=15)
                 s.starttls()
-                s.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
-                s.send_message(msg)
+            s.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
+            s.send_message(msg)
+            s.quit()
             sent["email"] = len(emails)
         except Exception as e:
+            email_error = str(e)
             logger.error(f"Email notify fail: {e}")
 
     return {"sent": sent, "total": total, "count": len(costs),
-            "email_recipients": emails, "smtp_configured": bool(smtp_host)}
+            "email_recipients": emails, "smtp_configured": bool(smtp_host),
+            "email_error": email_error}
