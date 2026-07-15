@@ -432,9 +432,9 @@ def notify_accountant(payload: NotifyRequest):
     sent = {"telegram": 0, "email": 0}
     telegram_errors = []
 
-    # Telegram — lấy telegram_id + email của các user được chọn
+    # Telegram — notify công nợ ưu tiên bot Sen (TELEGRAM_NOTIFY_BOT_TOKEN), fallback bot mặc định
     settings.resolve_telegram_token()
-    tok = settings.TELEGRAM_BOT_TOKEN
+    tok = getattr(settings, "TELEGRAM_NOTIFY_BOT_TOKEN", None) or settings.TELEGRAM_BOT_TOKEN
     if tg_uids:
         urows = sb.table("users").select("user_id,telegram_id,email").in_("user_id", tg_uids).execute().data
         for ur in urows:

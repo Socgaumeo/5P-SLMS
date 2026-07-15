@@ -36,6 +36,7 @@ class Settings(BaseSettings):
     # Telegram Bot Configuration
     TELEGRAM_BOT_TOKEN: Optional[str] = None
     TELEGRAM_DOC_BOT_TOKEN: Optional[str] = None  # Alias used in .env
+    TELEGRAM_NOTIFY_BOT_TOKEN: Optional[str] = None  # Bot Sen — riêng cho notify công nợ
     TELEGRAM_WEBHOOK_SECRET: Optional[str] = None  # X-Telegram-Bot-Api-Secret-Token
 
     @model_validator(mode='after')
