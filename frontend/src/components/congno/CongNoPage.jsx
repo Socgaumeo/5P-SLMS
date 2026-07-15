@@ -251,15 +251,62 @@ function APPanel() {
 
 // ============ AR — PHẢI THU ============
 function ARPanel() {
-  const [jobs, setJobs] = useState([])
+  const [customers, setCustomers] = useState([])
   const [invoices, setInvoices] = useState([])
-  const [filter, setFilter] = useState('')
+  const [sel, setSel] = useState(null)      // khách hàng đang xem chi tiết
+  const [jobs, setJobs] = useState([])       // job của khách đang xem
+  const [loading, setLoading] = useState(false)
+  const [checked, setChecked] = useState({})
+  const [sortBy, setSortBy] = useState('eta')
+  const [sortDir, setSortDir] = useState('asc')
 
   const load = () => {
-    authFetch(`${API_URL}/api/ar/job-status`).then(r => r.json()).then(d => setJobs(d.jobs || []))
+    authFetch(`${API_URL}/api/ar/by-customer`).then(r => r.json()).then(d => setCustomers(d.customers || []))
     authFetch(`${API_URL}/api/ar/invoices`).then(r => r.json()).then(d => setInvoices(d.invoices || []))
   }
   useEffect(load, [])
+
+  const openCustomer = (c) => {
+    setSel(c); setLoading(true); setChecked({})
+    authFetch(`${API_URL}/api/ar/job-status?state=CHUA_XUAT_HD&customer_id=${c.customer_id}`).then(r => r.json())
+      .then(d => {
+        const js = d.jobs || []
+        setJobs(js); setChecked(Object.fromEntries(js.map(j => [j.job_id, true]))); setLoading(false)
+      })
+  }
+
+  const sortJobs = (list) => {
+    const dir = sortDir === 'asc' ? 1 : -1
+    return [...list].sort((a, b) => {
+      let x = a[sortBy], y = b[sortBy]
+      if (sortBy === 'total_revenue') { x = Number(x || 0); y = Number(y || 0) }
+      else { x = String(x || ''); y = String(y || '') }
+      return x < y ? -dir : x > y ? dir : 0
+    })
+  }
+  const clickSort = (col) => {
+    if (sortBy === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    else { setSortBy(col); setSortDir('asc') }
+  }
+  const sortIcon = (col) => sortBy === col ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''
+
+  const selJobIds = () => jobs.filter(j => checked[j.job_id]).map(j => j.job_id)
+  const selTotal = () => jobs.filter(j => checked[j.job_id]).reduce((s, j) => s + Number(j.total_revenue || 0), 0)
+  const toggle = (id) => setChecked(p => ({ ...p, [id]: !p[id] }))
+  const toggleAll = () => {
+    const all = jobs.every(j => checked[j.job_id])
+    setChecked(Object.fromEntries(jobs.map(j => [j.job_id, !all])))
+  }
+
+  const createInvoice = () => {
+    const ids = selJobIds()
+    if (!ids.length) return alert('Chưa chọn job nào')
+    if (!confirm(`Xuất HĐ gộp ${ids.length} job (${vnd(selTotal())}) cho ${sel.customer_name}?`)) return
+    authFetch(`${API_URL}/api/ar/invoices`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ customer_id: sel.customer_id, job_ids: ids }),
+    }).then(r => r.json()).then(() => { setSel(null); setJobs([]); load() })
+  }
 
   const markPaid = (inv) => {
     if (!confirm(`Đánh dấu đã thu ${vnd(inv.total)} cho HĐ ${inv.invoice_no || inv.invoice_id}?`)) return
@@ -286,28 +333,21 @@ function ARPanel() {
     authFetch(`${API_URL}/api/ar/invoices/${inv.invoice_id}`, { method: 'DELETE' }).then(() => load())
   }
 
-  const shown = filter ? jobs.filter(j => j.ar_state === filter) : jobs
-
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1.3fr 1fr', gap: 20 }}>
-      <Card title="Trạng thái thu tiền theo Job">
-        <div style={{ marginBottom: 10, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          {['', 'CHUA_XUAT_HD', 'DA_XUAT_CHO_THU', 'DA_THU'].map(s => (
-            <button key={s} onClick={() => setFilter(s)} style={{
-              ...miniBtn, background: filter === s ? '#2563EB' : '#F1F5F9', color: filter === s ? '#fff' : '#334155',
-            }}>{s ? AR_STATE[s]?.t : 'Tất cả'}</button>
-          ))}
-        </div>
+      <Card title="Phải thu theo khách hàng (job chưa xuất HĐ)">
         <table style={tableStyle}>
-          <thead><tr><Th>Job</Th><Th right>Doanh thu</Th><Th>Trạng thái</Th></tr></thead>
+          <thead><tr><Th>Khách hàng</Th><Th right>Số job</Th><Th right>Doanh thu</Th><Th></Th></tr></thead>
           <tbody>
-            {shown.slice(0, 100).map(j => (
-              <tr key={j.job_id}>
-                <Td>{j.job_no}</Td>
-                <Td right>{vnd(j.total_revenue)}</Td>
-                <Td><span style={{ color: AR_STATE[j.ar_state]?.c, fontWeight: 600 }}>{AR_STATE[j.ar_state]?.t}</span></Td>
+            {customers.map(c => (
+              <tr key={c.customer_id}>
+                <Td>{c.customer_name}</Td>
+                <Td right>{c.job_count}</Td>
+                <Td right>{vnd(c.total)}</Td>
+                <Td><button style={miniBtn} onClick={() => openCustomer(c)}>👁️ Xem</button></Td>
               </tr>
             ))}
+            {!customers.length && <tr><Td colSpan={4} style={{ color: '#94A3B8' }}>Không có công nợ phải thu</Td></tr>}
           </tbody>
         </table>
       </Card>
@@ -334,9 +374,49 @@ function ARPanel() {
           </tbody>
         </table>
       </Card>
+
+      {sel && (
+        <div style={modalOverlay} onClick={() => setSel(null)}>
+          <div style={{ ...modalBox, maxWidth: 900 }} onClick={e => e.stopPropagation()}>
+            <h3>Chi tiết phải thu — {sel.customer_name}</h3>
+            <p style={{ color: '#64748B', fontSize: 12, margin: '4px 0 12px' }}>Click tiêu đề cột để sắp xếp (loại DV / ngày / doanh thu)</p>
+            {loading ? <p>Đang tải...</p> : (
+              <div style={{ overflowX: 'auto' }}>
+              <table style={tableStyle}>
+                <thead><tr>
+                  <Th><input type="checkbox" checked={jobs.length > 0 && jobs.every(j => checked[j.job_id])} onChange={toggleAll} /></Th>
+                  <Th><span style={sortHdr} onClick={() => clickSort('job_no')}>Job{sortIcon('job_no')}</span></Th>
+                  <Th><span style={sortHdr} onClick={() => clickSort('service_type_code')}>Loại DV{sortIcon('service_type_code')}</span></Th>
+                  <Th><span style={sortHdr} onClick={() => clickSort('eta')}>ETA{sortIcon('eta')}</span></Th>
+                  <Th right><span style={sortHdr} onClick={() => clickSort('total_revenue')}>Doanh thu{sortIcon('total_revenue')}</span></Th>
+                </tr></thead>
+                <tbody>
+                  {sortJobs(jobs).map(j => (
+                    <tr key={j.job_id} style={{ background: checked[j.job_id] ? '#EFF6FF' : 'transparent' }}>
+                      <Td><input type="checkbox" checked={!!checked[j.job_id]} onChange={() => toggle(j.job_id)} /></Td>
+                      <Td>{j.job_no}</Td>
+                      <Td>{j.service_type_code || '—'}</Td>
+                      <Td>{j.eta || j.etd || '—'}</Td>
+                      <Td right>{vnd(j.total_revenue)}</Td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              </div>
+            )}
+            <div style={{ marginTop: 16, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+              <span style={{ fontWeight: 600 }}>Đã chọn: {selJobIds().length} job — {vnd(selTotal())}</span>
+              <div style={{ flex: 1 }} />
+              <button style={miniBtn} onClick={() => setSel(null)}>Đóng</button>
+              <button style={primaryBtn} onClick={createInvoice}>🧾 Xuất HĐ gộp + track thu</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
+const sortHdr = { cursor: 'pointer', userSelect: 'none' }
 
 // ============ shared UI ============
 const tableStyle = { width: '100%', borderCollapse: 'collapse', fontSize: 13 }

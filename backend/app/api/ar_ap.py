@@ -65,13 +65,34 @@ def list_invoices(status: Optional[str] = None):
 
 
 @router.get("/api/ar/job-status")
-def job_ar_status(state: Optional[str] = None):
+def job_ar_status(state: Optional[str] = None, customer_id: Optional[int] = None):
     """Job nào đã xuất HĐ / đã thu / chưa xuất."""
     sb = get_supabase()
     q = sb.table("v_job_ar_status").select("*")
     if state:
         q = q.eq("ar_state", state)
+    if customer_id:
+        q = q.eq("customer_id", customer_id)
     return {"jobs": q.execute().data}
+
+
+@router.get("/api/ar/by-customer")
+def ar_by_customer(state: Optional[str] = "CHUA_XUAT_HD"):
+    """Gom công nợ phải thu theo khách hàng (job chưa xuất HĐ)."""
+    sb = get_supabase()
+    q = sb.table("v_job_ar_status").select("customer_id,customer_name,total_revenue,ar_state")
+    if state:
+        q = q.eq("ar_state", state)
+    rows = q.execute().data
+    agg = {}
+    for r in rows:
+        cid = r.get("customer_id")
+        if cid not in agg:
+            agg[cid] = {"customer_id": cid, "customer_name": r.get("customer_name") or "?",
+                        "job_count": 0, "total": 0}
+        agg[cid]["job_count"] += 1
+        agg[cid]["total"] += float(r.get("total_revenue") or 0)
+    return {"customers": sorted(agg.values(), key=lambda x: -x["total"])}
 
 
 @router.post("/api/ar/invoices")

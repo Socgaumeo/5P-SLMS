@@ -179,3 +179,24 @@ DROP TRIGGER IF EXISTS trg_ap_payment_status ON ap_bills;
 CREATE TRIGGER trg_ap_payment_status
   BEFORE INSERT OR UPDATE OF paid_amount, total_amount ON ap_bills
   FOR EACH ROW EXECUTE FUNCTION sync_ap_payment_status();
+
+-- ============ AR view gom theo khách hàng + loại DV + ETA (sort) ============
+CREATE OR REPLACE VIEW v_job_ar_status AS
+SELECT j.job_id, j.job_no, j.customer_id,
+  COALESCE(cu.short_name, cu.company_name) AS customer_name,
+  j.total_revenue, j.etd, j.eta,
+  aij.invoice_id, inv.invoice_no, inv.payment_status,
+  js.service_type_code,
+  CASE
+    WHEN aij.invoice_id IS NULL THEN 'CHUA_XUAT_HD'
+    WHEN inv.payment_status = 'paid' THEN 'DA_THU'
+    WHEN inv.payment_status = 'partial' THEN 'THU_MOT_PHAN'
+    ELSE 'DA_XUAT_CHO_THU'
+  END AS ar_state
+FROM jobs j
+LEFT JOIN customers cu ON cu.customer_id = j.customer_id
+LEFT JOIN LATERAL (
+  SELECT service_type_code FROM job_services WHERE job_id = j.job_id ORDER BY svc_id LIMIT 1
+) js ON true
+LEFT JOIN ar_invoice_jobs aij ON aij.job_id = j.job_id
+LEFT JOIN ar_invoices inv ON inv.invoice_id = aij.invoice_id;
