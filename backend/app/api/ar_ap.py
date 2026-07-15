@@ -314,6 +314,30 @@ def export_selected(payload: ExportRequest):
 
 
 # ============ NOTIFY KẾ TOÁN ============
+def _costs_for_notify(sb, cost_ids: list) -> list:
+    """Lấy chi phí theo cost_ids (kể cả đã lập bảng kê, không còn trong view unbilled)."""
+    if not cost_ids:
+        return []
+    rows = sb.table("job_costs").select(
+        "cost_id,job_id,cost_name,buying_rate,quantity,is_reimbursement,vendor_id,created_at"
+    ).in_("cost_id", cost_ids).execute().data
+    out = []
+    for r in rows:
+        jid = r.get("job_id")
+        job = sb.table("jobs").select("job_no").eq("job_id", jid).execute().data if jid else []
+        vend = sb.table("vendors").select("short_name").eq("vendor_id", r.get("vendor_id")).execute().data if r.get("vendor_id") else []
+        amt = float(r.get("buying_rate") or 0) * float(r.get("quantity") or 1)
+        out.append({
+            "cost_id": r["cost_id"], "job_no": job[0]["job_no"] if job else "",
+            "cost_name": r.get("cost_name"), "buying_rate": r.get("buying_rate"),
+            "quantity": r.get("quantity"), "amount": amt,
+            "is_reimbursement": r.get("is_reimbursement"),
+            "vendor_name": vend[0]["short_name"] if vend else "?",
+            "cost_date": r.get("created_at", "")[:10], "is_customs": False,
+        })
+    return out
+
+
 @router.get("/api/ap/users")
 def list_users_for_notify():
     """Danh sách user (từ DB) để chọn người nhận thông báo — kèm email + telegram_id."""
@@ -347,22 +371,31 @@ def set_notify_config(payload: NotifyConfig):
 
 
 class NotifyRequest(BaseModel):
-    cost_ids: List[int]
+    cost_ids: Optional[List[int]] = None      # gửi từ danh sách chi phí chưa lập bảng kê
+    bill_id: Optional[int] = None             # HOẶC gửi từ bảng kê đã lập
+    telegram_user_ids: List[int] = []         # người nhận Telegram (inline, chọn ngay lúc gửi)
+    emails: List[str] = []                     # email người nhận thêm (inline)
     note: Optional[str] = None
 
 
 @router.post("/api/ap/notify")
 def notify_accountant(payload: NotifyRequest):
-    """Gửi bảng kê chi phí sẽ thanh toán cho kế toán (Telegram + Email nhiều người)."""
+    """Gửi đề nghị chi cho kế toán (Telegram + Email). Người nhận chọn ngay lúc gửi."""
     sb = get_supabase()
-    cfg = sb.table("ap_notify_config").select("*").eq("is_active", True).execute().data
-    if not cfg:
-        raise HTTPException(400, "Chưa cấu hình người nhận (⚙️ Cấu hình kế toán)")
-    cfg = cfg[0]
-    tg_uids = cfg.get("telegram_user_ids") or []
-    emails = list(cfg.get("emails") or [])
+    tg_uids = payload.telegram_user_ids or []
+    emails = list(payload.emails or [])
+    if not tg_uids and not emails:
+        raise HTTPException(400, "Chưa chọn người nhận (Telegram hoặc Email)")
 
-    costs = sb.table("v_ap_unbilled_costs").select("*").in_("cost_id", payload.cost_ids).execute().data
+    # Lấy chi phí: từ bill_id (bảng kê đã lập) hoặc cost_ids
+    if payload.bill_id:
+        items = sb.table("ap_bill_items").select("cost_id").eq("bill_id", payload.bill_id).execute().data
+        cost_ids = [it["cost_id"] for it in items]
+        # bảng kê đã lập → cost đã bị loại khỏi view unbilled → query job_costs trực tiếp
+        costs = _costs_for_notify(sb, cost_ids)
+    else:
+        cost_ids = payload.cost_ids or []
+        costs = sb.table("v_ap_unbilled_costs").select("*").in_("cost_id", cost_ids).execute().data
     if not costs:
         raise HTTPException(400, "Không có chi phí")
     total = sum(int(c.get("amount") or 0) for c in costs)

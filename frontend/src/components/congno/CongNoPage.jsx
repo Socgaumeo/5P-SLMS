@@ -12,36 +12,29 @@ const AR_STATE = {
 
 export default function CongNoPage() {
   const [tab, setTab] = useState('ap') // ap = phải trả (pain điểm CS), ar = phải thu
-  const [showCfg, setShowCfg] = useState(false)
 
   return (
     <div style={{ padding: 24 }}>
       <div style={{ display: 'flex', gap: 8, marginBottom: 20, alignItems: 'center' }}>
         <TabBtn active={tab === 'ap'} onClick={() => setTab('ap')}>💸 Phải trả (Vendor/NCC)</TabBtn>
         <TabBtn active={tab === 'ar'} onClick={() => setTab('ar')}>💰 Phải thu (Khách hàng)</TabBtn>
-        <div style={{ flex: 1 }} />
-        <button style={miniBtn} onClick={() => setShowCfg(true)}>⚙️ Cấu hình kế toán</button>
       </div>
       {tab === 'ap' ? <APPanel /> : <ARPanel />}
-      {showCfg && <NotifyConfigModal onClose={() => setShowCfg(false)} />}
     </div>
   )
 }
 
-function NotifyConfigModal({ onClose }) {
+// Modal chọn người nhận + GỬI ngay (dùng cho cả bảng kê đã lập lẫn chi phí chưa lập)
+function SendNotifyModal({ onClose, costIds, billId, label }) {
   const [users, setUsers] = useState([])
-  const [tgIds, setTgIds] = useState([])       // user_id được chọn nhận Telegram
-  const [emails, setEmails] = useState([])      // email ngoài
+  const [tgIds, setTgIds] = useState([])
+  const [emails, setEmails] = useState([])
   const [newEmail, setNewEmail] = useState('')
+  const [note, setNote] = useState('')
+  const [sending, setSending] = useState(false)
 
   useEffect(() => {
     authFetch(`${API_URL}/api/ap/users`).then(r => r.json()).then(d => setUsers(d.users || []))
-    authFetch(`${API_URL}/api/ap/notify-config`).then(r => r.json()).then(d => {
-      if (d.config) {
-        setTgIds(d.config.telegram_user_ids || [])
-        setEmails(d.config.emails || [])
-      }
-    })
   }, [])
 
   const toggleUser = (uid) => setTgIds(p => p.includes(uid) ? p.filter(x => x !== uid) : [...p, uid])
@@ -51,20 +44,34 @@ function NotifyConfigModal({ onClose }) {
   }
   const rmEmail = (e) => setEmails(emails.filter(x => x !== e))
 
-  const save = () => {
-    authFetch(`${API_URL}/api/ap/notify-config`, {
+  const send = () => {
+    if (!tgIds.length && !emails.length) return alert('Chọn ít nhất 1 người nhận (Telegram hoặc Email)')
+    setSending(true)
+    const body = { telegram_user_ids: tgIds, emails, note }
+    if (billId) body.bill_id = billId; else body.cost_ids = costIds
+    authFetch(`${API_URL}/api/ap/notify`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ telegram_user_ids: tgIds, emails }),
-    }).then(() => { alert('Đã lưu cấu hình người nhận'); onClose() })
+      body: JSON.stringify(body),
+    }).then(r => r.json()).then(d => {
+      setSending(false)
+      if (d.detail) return alert('Lỗi: ' + d.detail)
+      const ch = []
+      if (d.sent?.telegram) ch.push(`Telegram (${d.sent.telegram} người)`)
+      if (d.sent?.email) ch.push(`Email (${d.sent.email} người)`)
+      let msg = ch.length ? `✅ Đã gửi ${ch.join(' + ')}\n${d.count} khoản — ${vnd(d.total)}` : '⚠️ Chưa gửi được'
+      if (!d.smtp_configured && emails.length) msg += '\n(Server chưa cấu hình SMTP nên email chưa gửi)'
+      alert(msg); onClose()
+    }).catch(() => { setSending(false); alert('Lỗi kết nối') })
   }
 
   return (
     <div style={modalOverlay} onClick={onClose}>
       <div style={{ ...modalBox, maxWidth: 520 }} onClick={e => e.stopPropagation()}>
-        <h3>Cấu hình người nhận thông báo</h3>
+        <h3>📨 Gửi kế toán duyệt chi</h3>
+        {label && <p style={{ color: '#64748B', fontSize: 13, margin: '4px 0 0' }}>{label}</p>}
 
-        <label style={{ display: 'block', margin: '14px 0 6px', fontSize: 13, fontWeight: 600 }}>📲 Nhận qua Telegram (chọn user)</label>
-        <div style={{ maxHeight: 200, overflow: 'auto', border: '1px solid #E2E8F0', borderRadius: 6, padding: 8 }}>
+        <label style={{ display: 'block', margin: '14px 0 6px', fontSize: 13, fontWeight: 600 }}>📲 Người nhận Telegram</label>
+        <div style={{ maxHeight: 180, overflow: 'auto', border: '1px solid #E2E8F0', borderRadius: 6, padding: 8 }}>
           {users.map(u => (
             <label key={u.user_id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '3px 0', fontSize: 13, cursor: 'pointer' }}>
               <input type="checkbox" checked={tgIds.includes(u.user_id)} onChange={() => toggleUser(u.user_id)} />
@@ -76,13 +83,13 @@ function NotifyConfigModal({ onClose }) {
           ))}
           {!users.length && <span style={{ color: '#94A3B8', fontSize: 12 }}>Đang tải...</span>}
         </div>
-        <p style={{ color: '#94A3B8', fontSize: 11, margin: '4px 0 0' }}>User được chọn sẽ nhận cả Telegram + email (nếu có email trong DB). Cần đã bấm Start bot 1 lần.</p>
+        <p style={{ color: '#94A3B8', fontSize: 11, margin: '4px 0 0' }}>User được chọn nhận cả Telegram + email (nếu DB có email). TG cần đã Start bot 1 lần.</p>
 
-        <label style={{ display: 'block', margin: '16px 0 6px', fontSize: 13, fontWeight: 600 }}>📧 Email nhận thêm (ngoài DB)</label>
+        <label style={{ display: 'block', margin: '14px 0 6px', fontSize: 13, fontWeight: 600 }}>📧 Email nhận thêm</label>
         <div style={{ display: 'flex', gap: 6 }}>
           <input value={newEmail} onChange={e => setNewEmail(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && addEmail()}
-            placeholder="ketoan.ngoai@example.com" style={inputStyle} />
+            placeholder="ketoan@example.com" style={inputStyle} />
           <button style={miniBtn} onClick={addEmail}>+ Thêm</button>
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
@@ -93,9 +100,14 @@ function NotifyConfigModal({ onClose }) {
           ))}
         </div>
 
+        <label style={{ display: 'block', margin: '14px 0 6px', fontSize: 13, fontWeight: 600 }}>Ghi chú (tùy chọn)</label>
+        <input value={note} onChange={e => setNote(e.target.value)} placeholder="VD: Ưu tiên trả trước 20/7" style={inputStyle} />
+
         <div style={{ marginTop: 20, display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
           <button style={miniBtn} onClick={onClose}>Hủy</button>
-          <button style={primaryBtn} onClick={save}>Lưu</button>
+          <button style={{ ...primaryBtn, background: '#059669', opacity: sending ? 0.6 : 1 }} disabled={sending} onClick={send}>
+            {sending ? 'Đang gửi...' : '📨 Gửi ngay'}
+          </button>
         </div>
       </div>
     </div>
@@ -120,6 +132,7 @@ function APPanel() {
   const [costs, setCosts] = useState([])
   const [loading, setLoading] = useState(false)
   const [checked, setChecked] = useState({}) // cost_id → bool (tick chọn thanh toán)
+  const [sendModal, setSendModal] = useState(null) // {costIds?, billId?, label}
 
   const loadSummary = () => {
     authFetch(`${API_URL}/api/ap/unbilled`).then(r => r.json()).then(d => setVendors(d.vendors || []))
@@ -156,20 +169,10 @@ function APPanel() {
   const notifyKT = () => {
     const ids = selectedIds()
     if (!ids.length) return alert('Chưa chọn dòng nào')
-    const note = prompt('Ghi chú gửi kế toán (tùy chọn):', '')
-    if (note === null) return
-    authFetch(`${API_URL}/api/ap/notify`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ cost_ids: ids, note }),
-    }).then(r => r.json()).then(d => {
-      if (d.detail) return alert('Lỗi: ' + d.detail)
-      const ch = []
-      if (d.sent?.telegram) ch.push(`Telegram (${d.sent.telegram} người)`)
-      if (d.sent?.email) ch.push(`Email (${d.sent.email} người)`)
-      let msg = ch.length ? `Đã gửi ${ch.join(' + ')} — ${d.count} khoản, ${vnd(d.total)}` : 'Chưa gửi được — kiểm tra ⚙️ Cấu hình'
-      if (!d.smtp_configured && d.email_recipients?.length) msg += '\n(Email chưa cấu hình SMTP trên server nên chưa gửi được)'
-      alert(msg)
-    })
+    setSendModal({ costIds: ids, label: `${sel.vendor_name} — ${ids.length} khoản, ${vnd(selectedTotal())}` })
+  }
+  const notifyBill = (bill) => {
+    setSendModal({ billId: bill.bill_id, label: `Bảng kê ${bill.bill_no || '#' + bill.bill_id} — ${vnd(bill.total_amount)}` })
   }
 
   const createBillSelected = () => {
@@ -237,6 +240,7 @@ function APPanel() {
                 <Td>{STATUS_LABEL[b.payment_status]}</Td>
                 <Td>
                   <div style={{ display: 'flex', gap: 4 }}>
+                    <button style={{ ...miniBtn, background: '#DCFCE7' }} onClick={() => notifyBill(b)}>📨 Gửi KT</button>
                     {b.payment_status !== 'paid' && <button style={miniBtn} onClick={() => markPaid(b)}>Đã trả</button>}
                     <button style={miniBtn} onClick={() => editStatus(b)}>✏️</button>
                     <button style={{ ...miniBtn, color: '#DC2626' }} onClick={() => delBill(b)}>🗑️</button>
@@ -292,6 +296,8 @@ function APPanel() {
           </div>
         </div>
       )}
+
+      {sendModal && <SendNotifyModal {...sendModal} onClose={() => setSendModal(null)} />}
     </div>
   )
 }
