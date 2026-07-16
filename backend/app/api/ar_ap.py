@@ -64,6 +64,45 @@ def list_invoices(status: Optional[str] = None):
     return {"invoices": q.execute().data}
 
 
+def _vat_by_job(sb, job_ids: list) -> dict:
+    """Tính doanh thu đã gồm VAT cho từng job từ job_costs (mỗi dòng vat_rate riêng).
+    Trả {job_id: {"vat_amount": x, "revenue_with_vat": y}}.
+    Fallback: nếu job chưa có dòng job_costs nào thì để vat=0 (revenue_with_vat = total_revenue)."""
+    out = {}
+    if not job_ids:
+        return out
+    rows = sb.table("job_costs").select(
+        "job_id,selling_amount,vat_rate,is_reimbursement"
+    ).in_("job_id", list(job_ids)).execute().data or []
+    for r in rows:
+        jid = r.get("job_id")
+        sell = float(r.get("selling_amount") or 0)
+        if r.get("is_reimbursement"):
+            vr = 0.0  # thu hộ/chi hộ không VAT
+        else:
+            vr = float(r.get("vat_rate") or 0)
+        d = out.setdefault(jid, {"vat_amount": 0.0, "revenue_with_vat": 0.0})
+        d["vat_amount"] += sell * vr / 100
+        d["revenue_with_vat"] += sell * (1 + vr / 100)
+    return out
+
+
+def _enrich_vat(sb, jobs: list) -> list:
+    """Thêm field vat_amount + revenue_with_vat vào mỗi job dict."""
+    vmap = _vat_by_job(sb, [j.get("job_id") for j in jobs if j.get("job_id")])
+    for j in jobs:
+        base = float(j.get("total_revenue") or 0)
+        v = vmap.get(j.get("job_id"))
+        if v and v["revenue_with_vat"] > 0:
+            j["vat_amount"] = round(v["vat_amount"])
+            j["revenue_with_vat"] = round(v["revenue_with_vat"])
+        else:
+            # job chưa breakdown job_costs -> không suy được VAT, giữ nguyên
+            j["vat_amount"] = 0
+            j["revenue_with_vat"] = round(base)
+    return jobs
+
+
 @router.get("/api/ar/job-status")
 def job_ar_status(state: Optional[str] = None, customer_id: Optional[int] = None):
     """Job nào đã xuất HĐ / đã thu / chưa xuất."""
@@ -73,26 +112,34 @@ def job_ar_status(state: Optional[str] = None, customer_id: Optional[int] = None
         q = q.eq("ar_state", state)
     if customer_id:
         q = q.eq("customer_id", customer_id)
-    return {"jobs": q.execute().data}
+    jobs = q.execute().data
+    return {"jobs": _enrich_vat(sb, jobs)}
 
 
 @router.get("/api/ar/by-customer")
 def ar_by_customer(state: Optional[str] = "CHUA_XUAT_HD"):
     """Gom công nợ phải thu theo khách hàng (job chưa xuất HĐ)."""
     sb = get_supabase()
-    q = sb.table("v_job_ar_status").select("customer_id,customer_name,total_revenue,ar_state")
+    q = sb.table("v_job_ar_status").select("job_id,customer_id,customer_name,total_revenue,ar_state")
     if state:
         q = q.eq("ar_state", state)
     rows = q.execute().data
+    vmap = _vat_by_job(sb, [r.get("job_id") for r in rows if r.get("job_id")])
     agg = {}
     for r in rows:
         cid = r.get("customer_id")
         if cid not in agg:
             agg[cid] = {"customer_id": cid, "customer_name": r.get("customer_name") or "?",
-                        "job_count": 0, "total": 0}
+                        "job_count": 0, "total": 0, "total_with_vat": 0}
+        base = float(r.get("total_revenue") or 0)
+        v = vmap.get(r.get("job_id"))
+        with_vat = v["revenue_with_vat"] if (v and v["revenue_with_vat"] > 0) else base
         agg[cid]["job_count"] += 1
-        agg[cid]["total"] += float(r.get("total_revenue") or 0)
-    return {"customers": sorted(agg.values(), key=lambda x: -x["total"])}
+        agg[cid]["total"] += base
+        agg[cid]["total_with_vat"] += with_vat
+    for a in agg.values():
+        a["total_with_vat"] = round(a["total_with_vat"])
+    return {"customers": sorted(agg.values(), key=lambda x: -x["total_with_vat"])}
 
 
 @router.post("/api/ar/invoices")

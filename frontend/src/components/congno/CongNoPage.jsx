@@ -346,7 +346,7 @@ function ARPanel() {
   const sortIcon = (col) => sortBy === col ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''
 
   const selJobIds = () => jobs.filter(j => checked[j.job_id]).map(j => j.job_id)
-  const selTotal = () => jobs.filter(j => checked[j.job_id]).reduce((s, j) => s + Number(j.total_revenue || 0), 0)
+  const selTotal = () => jobs.filter(j => checked[j.job_id]).reduce((s, j) => s + Number(j.revenue_with_vat ?? j.total_revenue ?? 0), 0)
   const toggle = (id) => setChecked(p => ({ ...p, [id]: !p[id] }))
   const toggleAll = () => {
     const all = jobs.every(j => checked[j.job_id])
@@ -392,13 +392,13 @@ function ARPanel() {
     <div style={{ display: 'grid', gridTemplateColumns: '1.3fr 1fr', gap: 20 }}>
       <Card title="Phải thu theo khách hàng (job chưa xuất HĐ)">
         <table style={tableStyle}>
-          <thead><tr><Th>Khách hàng</Th><Th right>Số job</Th><Th right>Doanh thu</Th><Th></Th></tr></thead>
+          <thead><tr><Th>Khách hàng</Th><Th right>Số job</Th><Th right>Doanh thu (gồm VAT)</Th><Th></Th></tr></thead>
           <tbody>
             {customers.map(c => (
               <tr key={c.customer_id}>
                 <Td>{c.customer_name}</Td>
                 <Td right>{c.job_count}</Td>
-                <Td right>{vnd(c.total)}</Td>
+                <Td right>{vnd(c.total_with_vat ?? c.total)}</Td>
                 <Td><button style={miniBtn} onClick={() => openCustomer(c)}>👁️ Xem</button></Td>
               </tr>
             ))}
@@ -443,7 +443,9 @@ function ARPanel() {
                   <Th><span style={sortHdr} onClick={() => clickSort('job_no')}>Job{sortIcon('job_no')}</span></Th>
                   <Th><span style={sortHdr} onClick={() => clickSort('service_type_code')}>Loại DV{sortIcon('service_type_code')}</span></Th>
                   <Th><span style={sortHdr} onClick={() => clickSort('eta')}>ETA{sortIcon('eta')}</span></Th>
-                  <Th right><span style={sortHdr} onClick={() => clickSort('total_revenue')}>Doanh thu{sortIcon('total_revenue')}</span></Th>
+                  <Th right>Chưa VAT</Th>
+                  <Th right>VAT</Th>
+                  <Th right><span style={sortHdr} onClick={() => clickSort('total_revenue')}>Gồm VAT{sortIcon('total_revenue')}</span></Th>
                 </tr></thead>
                 <tbody>
                   {sortJobs(jobs).map(j => (
@@ -453,6 +455,8 @@ function ARPanel() {
                       <Td>{j.service_type_code || '—'}</Td>
                       <Td>{j.eta || j.etd || '—'}</Td>
                       <Td right>{vnd(j.total_revenue)}</Td>
+                      <Td right>{vnd(j.vat_amount || 0)}</Td>
+                      <Td right style={{ fontWeight: 600 }}>{vnd(j.revenue_with_vat ?? j.total_revenue)}</Td>
                     </tr>
                   ))}
                 </tbody>
