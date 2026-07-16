@@ -208,21 +208,21 @@ def delete_invoice(invoice_id: int):
 
 # ============ AP — PHẢI TRẢ ============
 def _vendor_vat_map(sb, vendor_ids: list) -> dict:
-    """VAT suất mặc định của vendor theo rule:
-       - vendor_type individual/INDIVIDUAL  -> 0% (vendor cá nhân)
-       - country != VN                      -> 0% (nước ngoài)
-       - còn lại (công ty VN, kể cả hãng tàu/airline) -> 8%
+    """VAT suất mặc định của vendor theo rule (nhận diện qua MÃ SỐ THUẾ):
+       - KHÔNG có tax_code   -> 0% (cá nhân, không xuất được HĐ VAT)
+       - country != VN       -> 0% (nước ngoài)
+       - có tax_code (cty VN, kể cả hãng tàu/airline) -> 8%
     Trả {vendor_id: vat_rate}."""
     out = {}
     ids = [v for v in set(vendor_ids) if v is not None]
     if not ids:
         return out
-    rows = sb.table("vendors").select("vendor_id,vendor_type,country").in_(
+    rows = sb.table("vendors").select("vendor_id,tax_code,country").in_(
         "vendor_id", ids).execute().data or []
     for r in rows:
-        vt = (r.get("vendor_type") or "").strip().lower()
+        tax = (r.get("tax_code") or "").strip()
         country = (r.get("country") or "VN").strip().upper()
-        if vt == "individual" or country not in ("VN", ""):
+        if not tax or country not in ("VN", ""):
             out[r["vendor_id"]] = 0.0
         else:
             out[r["vendor_id"]] = 8.0
