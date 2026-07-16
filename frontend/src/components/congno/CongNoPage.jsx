@@ -149,7 +149,7 @@ function APPanel() {
   }
 
   const selectedIds = () => costs.filter(c => checked[c.cost_id]).map(c => c.cost_id)
-  const selectedTotal = () => costs.filter(c => checked[c.cost_id]).reduce((s, c) => s + Number(c.amount || 0), 0)
+  const selectedTotal = () => costs.filter(c => checked[c.cost_id]).reduce((s, c) => s + Number(c.amount_with_vat ?? c.amount ?? 0), 0)
   const toggle = (id) => setChecked(p => ({ ...p, [id]: !p[id] }))
   const toggleAll = () => {
     const all = costs.every(c => checked[c.cost_id])
@@ -216,17 +216,19 @@ function APPanel() {
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
       <Card title="Chi phí CHỜ thanh toán (theo Vendor)">
         <table style={tableStyle}>
-          <thead><tr><Th>Vendor</Th><Th>Số khoản</Th><Th right>Tổng</Th><Th></Th></tr></thead>
+          <thead><tr><Th>Vendor</Th><Th>Số khoản</Th><Th right>Tiền gốc</Th><Th right>VAT</Th><Th right>Tổng TT</Th><Th></Th></tr></thead>
           <tbody>
             {vendors.map(v => (
               <tr key={v.vendor_id}>
                 <Td>{v.vendor_name || `#${v.vendor_id}`}</Td>
                 <Td>{v.count}</Td>
                 <Td right>{vnd(v.total)}</Td>
+                <Td right>{vnd(v.total_vat || 0)}</Td>
+                <Td right style={{ fontWeight: 600 }}>{vnd(v.total_with_vat ?? v.total)}</Td>
                 <Td><button style={miniBtn} onClick={() => openVendor(v)}>Xem</button></Td>
               </tr>
             ))}
-            {!vendors.length && <tr><Td colSpan={4} style={{ color: '#94A3B8' }}>Không có chi phí chờ</Td></tr>}
+            {!vendors.length && <tr><Td colSpan={6} style={{ color: '#94A3B8' }}>Không có chi phí chờ</Td></tr>}
           </tbody>
         </table>
       </Card>
@@ -267,7 +269,7 @@ function APPanel() {
                   <Th><input type="checkbox" checked={costs.length > 0 && costs.every(c => checked[c.cost_id])} onChange={toggleAll} /></Th>
                   <Th>Job</Th><Th>Ngày</Th><Th>Tên phí</Th>
                   <Th>Biển số</Th><Th>Tuyến</Th><Th>Số TK</Th><Th>B/L-AWB</Th><Th>Số HĐ</Th>
-                  <Th right>Tiền</Th>
+                  <Th right>Tiền gốc</Th><Th right>VAT</Th><Th right>Tổng TT</Th>
                 </tr></thead>
                 <tbody>
                   {costs.map(c => (
@@ -281,6 +283,8 @@ function APPanel() {
                       <Td>{c.bl_awb_no || '—'}</Td>
                       <Td>{c.job_invoice_no || '—'}</Td>
                       <Td right>{vnd(c.amount)}</Td>
+                      <Td right>{c.vat_rate ? `${vnd(c.vat_amount || 0)} (${c.vat_rate}%)` : '—'}</Td>
+                      <Td right style={{ fontWeight: 600 }}>{vnd(c.amount_with_vat ?? c.amount)}</Td>
                     </tr>
                   ))}
                 </tbody>

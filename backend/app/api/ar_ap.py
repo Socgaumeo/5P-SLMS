@@ -207,25 +207,76 @@ def delete_invoice(invoice_id: int):
 
 
 # ============ AP — PHẢI TRẢ ============
+def _vendor_vat_map(sb, vendor_ids: list) -> dict:
+    """VAT suất mặc định của vendor theo rule:
+       - vendor_type individual/INDIVIDUAL  -> 0% (vendor cá nhân)
+       - country != VN                      -> 0% (nước ngoài)
+       - còn lại (công ty VN, kể cả hãng tàu/airline) -> 8%
+    Trả {vendor_id: vat_rate}."""
+    out = {}
+    ids = [v for v in set(vendor_ids) if v is not None]
+    if not ids:
+        return out
+    rows = sb.table("vendors").select("vendor_id,vendor_type,country").in_(
+        "vendor_id", ids).execute().data or []
+    for r in rows:
+        vt = (r.get("vendor_type") or "").strip().lower()
+        country = (r.get("country") or "VN").strip().upper()
+        if vt == "individual" or country not in ("VN", ""):
+            out[r["vendor_id"]] = 0.0
+        else:
+            out[r["vendor_id"]] = 8.0
+    return out
+
+
+def _ap_vat(rate: float, amount: float, is_reimb: bool) -> tuple:
+    """Trả (vat_amount, total_with_vat) cho 1 dòng chi phí AP."""
+    if is_reimb:
+        rate = 0.0  # chi hộ không VAT
+    va = amount * rate / 100
+    return va, amount + va
+
+
 @router.get("/api/ap/unbilled")
 def unbilled_costs(vendor_id: Optional[int] = None, employee_id: Optional[int] = None):
-    """Chi phí chưa lên bảng kê. Không filter → gom theo vendor."""
+    """Chi phí chưa lên bảng kê. Không filter → gom theo vendor. Có tính VAT vendor."""
     sb = get_supabase()
     if vendor_id:
         rows = sb.table("v_ap_unbilled_costs").select("*").eq(
             "vendor_id", vendor_id).execute().data
-        return {"costs": rows, "total": sum(float(r["amount"] or 0) for r in rows)}
+        vmap = _vendor_vat_map(sb, [vendor_id])
+        rate = vmap.get(vendor_id, 8.0)
+        total = total_vat = total_ttl = 0.0
+        for r in rows:
+            amt = float(r["amount"] or 0)
+            va, ttl = _ap_vat(rate, amt, r.get("is_reimbursement"))
+            r["vat_rate"] = 0.0 if r.get("is_reimbursement") else rate
+            r["vat_amount"] = round(va)
+            r["amount_with_vat"] = round(ttl)
+            total += amt; total_vat += va; total_ttl += ttl
+        return {"costs": rows, "total": round(total),
+                "total_vat": round(total_vat), "total_with_vat": round(total_ttl)}
     # summary theo vendor
     rows = sb.table("v_ap_unbilled_costs").select("*").execute().data
+    vmap = _vendor_vat_map(sb, [r.get("vendor_id") for r in rows])
     agg = {}
     for r in rows:
         vid = r.get("vendor_id")
         if vid is None:
             continue
-        a = agg.setdefault(vid, {"vendor_id": vid, "vendor_name": r.get("vendor_name"), "count": 0, "total": 0})
+        a = agg.setdefault(vid, {"vendor_id": vid, "vendor_name": r.get("vendor_name"),
+                                 "count": 0, "total": 0, "total_vat": 0, "total_with_vat": 0})
+        amt = float(r["amount"] or 0)
+        va, ttl = _ap_vat(vmap.get(vid, 8.0), amt, r.get("is_reimbursement"))
         a["count"] += 1
-        a["total"] += float(r["amount"] or 0)
-    return {"vendors": sorted(agg.values(), key=lambda x: -x["total"])}
+        a["total"] += amt
+        a["total_vat"] += va
+        a["total_with_vat"] += ttl
+    for a in agg.values():
+        a["total_vat"] = round(a["total_vat"])
+        a["total_with_vat"] = round(a["total_with_vat"])
+        a["total"] = round(a["total"])
+    return {"vendors": sorted(agg.values(), key=lambda x: -x["total_with_vat"])}
 
 
 @router.get("/api/ap/bills")
