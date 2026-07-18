@@ -601,6 +601,17 @@ async def assign_vehicle(job_id: int, request: VehicleAssignRequest, req: Reques
 
         # Assign vehicle
         await data_service.assign_vehicle(job_id, request.dict(), user_id=user_id)
+
+        # (b) Auto-advance status: khi đã gán xe mà job còn PENDING/NEW → IN_PROGRESS
+        try:
+            _cur = (job_data.get('status_code') or '').upper()
+            if _cur in ('PENDING', 'NEW', 'CREATED', ''):
+                get_supabase().table('jobs').update(
+                    {'status_code': 'IN_PROGRESS', 'updated_by': user_id}
+                ).eq('job_id', job_id).execute()
+                logger.info(f"[auto-status] job {job_id}: {_cur or 'None'} -> IN_PROGRESS (vehicle assigned)")
+        except Exception as _e:
+            logger.warning(f"[auto-status] IN_PROGRESS failed job {job_id}: {_e}")
         
         # Get updated job with full details for frontend template
         # Re-using get_job_details logic to fetch everything needed for the message
@@ -1505,6 +1516,21 @@ async def get_job_details(job_id: int):
             'customer_full_name': customer.get('company_name'),
             'status_display': job_row.get('status_code')
         }
+
+        # Enrich creator/updater names (fix: detail panel showed "-" because
+        # this endpoint returned raw created_by/updated_by ids without joining users)
+        _uids = list({u for u in (job.get('created_by'), job.get('updated_by')) if u})
+        if _uids:
+            _ures = client.table('users').select(
+                'user_id, user_code, full_name'
+            ).in_('user_id', _uids).execute()
+            _umap = {u['user_id']: u for u in (_ures.data or [])}
+            _c = _umap.get(job.get('created_by')) or {}
+            _u = _umap.get(job.get('updated_by')) or {}
+            job['creator_name'] = _c.get('full_name')
+            job['creator_code'] = _c.get('user_code')
+            job['updater_name'] = _u.get('full_name')
+            job['updater_code'] = _u.get('user_code')
 
         # Get all services with vendor/employee/driver details
         svc_result = client.table('job_services').select(
