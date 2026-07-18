@@ -237,6 +237,24 @@ def _ap_vat(rate: float, amount: float, is_reimb: bool) -> tuple:
     return va, amount + va
 
 
+def _cost_vat_rates(sb, cost_ids: list) -> dict:
+    """Đọc vat_rate ĐÃ NHẬP trong job_costs theo cost_id — đây là nguồn sự thật.
+       View v_ap_unbilled_costs không expose vat_rate nên phải query trực tiếp.
+       Trả {cost_id: vat_rate|None}."""
+    ids = [c for c in set(cost_ids) if c is not None]
+    if not ids:
+        return {}
+    rows = sb.table("job_costs").select("cost_id,vat_rate").in_(
+        "cost_id", ids).execute().data or []
+    return {r["cost_id"]: r.get("vat_rate") for r in rows}
+
+
+def _resolve_ap_rate(cost_vat, vendor_rate, cost_id):
+    """Ưu tiên vat_rate đã nhập trong job_costs; None -> fallback rule theo vendor."""
+    v = cost_vat.get(cost_id)
+    return float(v) if v is not None else vendor_rate
+
+
 @router.get("/api/ap/unbilled")
 def unbilled_costs(vendor_id: Optional[int] = None, employee_id: Optional[int] = None):
     """Chi phí chưa lên bảng kê. Không filter → gom theo vendor. Có tính VAT vendor."""
@@ -245,10 +263,12 @@ def unbilled_costs(vendor_id: Optional[int] = None, employee_id: Optional[int] =
         rows = sb.table("v_ap_unbilled_costs").select("*").eq(
             "vendor_id", vendor_id).execute().data
         vmap = _vendor_vat_map(sb, [vendor_id])
-        rate = vmap.get(vendor_id, 8.0)
+        vendor_rate = vmap.get(vendor_id, 8.0)
+        cost_vat = _cost_vat_rates(sb, [r.get("cost_id") for r in rows])
         total = total_vat = total_ttl = 0.0
         for r in rows:
             amt = float(r["amount"] or 0)
+            rate = _resolve_ap_rate(cost_vat, vendor_rate, r.get("cost_id"))
             va, ttl = _ap_vat(rate, amt, r.get("is_reimbursement"))
             r["vat_rate"] = 0.0 if r.get("is_reimbursement") else rate
             r["vat_amount"] = round(va)
@@ -259,6 +279,7 @@ def unbilled_costs(vendor_id: Optional[int] = None, employee_id: Optional[int] =
     # summary theo vendor
     rows = sb.table("v_ap_unbilled_costs").select("*").execute().data
     vmap = _vendor_vat_map(sb, [r.get("vendor_id") for r in rows])
+    cost_vat = _cost_vat_rates(sb, [r.get("cost_id") for r in rows])
     agg = {}
     for r in rows:
         vid = r.get("vendor_id")
@@ -267,7 +288,8 @@ def unbilled_costs(vendor_id: Optional[int] = None, employee_id: Optional[int] =
         a = agg.setdefault(vid, {"vendor_id": vid, "vendor_name": r.get("vendor_name"),
                                  "count": 0, "total": 0, "total_vat": 0, "total_with_vat": 0})
         amt = float(r["amount"] or 0)
-        va, ttl = _ap_vat(vmap.get(vid, 8.0), amt, r.get("is_reimbursement"))
+        rate = _resolve_ap_rate(cost_vat, vmap.get(vid, 8.0), r.get("cost_id"))
+        va, ttl = _ap_vat(rate, amt, r.get("is_reimbursement"))
         a["count"] += 1
         a["total"] += amt
         a["total_vat"] += va
