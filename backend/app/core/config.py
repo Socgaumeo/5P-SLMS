@@ -59,6 +59,10 @@ class Settings(BaseSettings):
     # URL frontend (dùng cho link reset mật khẩu)
     FRONTEND_URL: str = "https://5p-slms.vercel.app"
 
+    # Token bot Telegram DÀNH RIÊNG gửi link reset mật khẩu (bot Sen fivepvietnam_bot).
+    # Tách khỏi TELEGRAM_BOT_TOKEN (bot download tài liệu) để không đụng luồng khác.
+    RESET_TELEGRAM_BOT_TOKEN: Optional[str] = None
+
     # Gmail API (HTTPS — gửi TỪ chính Gmail công ty, không cần domain riêng)
     GMAIL_CLIENT_ID: Optional[str] = None
     GMAIL_CLIENT_SECRET: Optional[str] = None

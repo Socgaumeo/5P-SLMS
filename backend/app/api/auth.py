@@ -304,7 +304,9 @@ def _send_reset_email(to_email: str, full_name: str, reset_link: str) -> Optiona
 def _send_reset_telegram(telegram_id, reset_link: str) -> Optional[str]:
     """Gửi link reset qua Telegram bot. Trả None nếu OK, hoặc chuỗi lỗi."""
     import httpx
-    tok = getattr(settings, "TELEGRAM_BOT_TOKEN", None) or getattr(settings, "TELEGRAM_DOC_BOT_TOKEN", None)
+    tok = (getattr(settings, "RESET_TELEGRAM_BOT_TOKEN", None)
+           or getattr(settings, "TELEGRAM_BOT_TOKEN", None)
+           or getattr(settings, "TELEGRAM_DOC_BOT_TOKEN", None))
     if not tok or not telegram_id:
         return "telegram_not_configured"
     try:
