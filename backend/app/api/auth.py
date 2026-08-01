@@ -312,14 +312,14 @@ def _send_reset_telegram(telegram_id, reset_link: str) -> Optional[str]:
         return "telegram_not_configured"
     try:
         text = (
-            "🔑 *Đặt lại mật khẩu 5P SLMS*\n\n"
-            "Bạn vừa yêu cầu đặt lại mật khẩu. Nhấn link dưới đây (hết hạn sau 30 phút):\n\n"
+            "🔑 Đặt lại mật khẩu 5P SLMS\n\n"
+            "Bạn vừa yêu cầu đặt lại mật khẩu. Mở link dưới đây (hết hạn sau 30 phút):\n\n"
             f"{reset_link}\n\n"
             "Nếu không phải bạn, hãy bỏ qua tin này."
         )
         with httpx.Client(timeout=15) as cli:
             r = cli.post(f"https://api.telegram.org/bot{tok}/sendMessage",
-                json={"chat_id": telegram_id, "text": text, "parse_mode": "Markdown",
+                json={"chat_id": telegram_id, "text": text,
                       "disable_web_page_preview": True})
         return None if r.status_code == 200 else f"TG {r.status_code}: {r.text[:120]}"
     except Exception as e:
