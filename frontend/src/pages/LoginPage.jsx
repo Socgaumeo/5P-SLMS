@@ -5,6 +5,7 @@
 
 import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { authFetch, API_URL } from '../utils/auth-fetch';
 import './LoginPage.css';
 
 // Partner company logos - using image files from /partners folder
@@ -22,12 +23,59 @@ const PARTNER_LOGOS = [
   { name: 'New Order', image: '/partners/new-order.png' },
 ];
 
+function ForgotPasswordForm({ onBack }) {
+  const [email, setEmail] = useState('');
+  const [msg, setMsg] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      await authFetch(`${API_URL}/api/auth/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+    } catch (_) { /* luôn hiển thị chung */ }
+    setMsg('Nếu email tồn tại, hướng dẫn đặt lại mật khẩu đã được gửi qua email và Telegram. Vui lòng kiểm tra.');
+    setLoading(false);
+  };
+
+  return (
+    <div className="login-form-section">
+      <h1 className="login-title">Quên mật khẩu</h1>
+      <p className="login-subtitle">Nhập email để nhận link đặt lại mật khẩu</p>
+      {msg ? (
+        <div className="error-message" style={{ background: '#dcfce7', color: '#166534', borderColor: '#86efac' }}>{msg}</div>
+      ) : (
+        <form onSubmit={submit} className="login-form">
+          <div className="form-group">
+            <label htmlFor="fp-email">Email</label>
+            <input type="email" id="fp-email" value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="email@5pvietnam.com" required autoFocus />
+          </div>
+          <button type="submit" className="login-button" disabled={loading}>
+            {loading ? <span className="loading-spinner"></span> : 'Gửi link đặt lại'}
+          </button>
+        </form>
+      )}
+      <p style={{ textAlign: 'center', marginTop: 16 }}>
+        <a href="#" onClick={(e) => { e.preventDefault(); onBack(); }}
+          style={{ color: '#2563eb', fontSize: 14 }}>← Quay lại đăng nhập</a>
+      </p>
+    </div>
+  );
+}
+
 export default function LoginPage() {
   const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [mode, setMode] = useState('login'); // 'login' | 'forgot'
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -60,7 +108,10 @@ export default function LoginPage() {
             <img src="/logo.png" alt="5P Vietnam" className="login-logo" />
           </div>
 
-          {/* Login form */}
+          {/* Login / Forgot form */}
+          {mode === 'forgot' ? (
+          <ForgotPasswordForm onBack={() => setMode('login')} />
+          ) : (
           <div className="login-form-section">
             <h1 className="login-title">Đăng nhập</h1>
             <p className="login-subtitle">Chào mừng bạn quay trở lại</p>
@@ -101,7 +152,12 @@ export default function LoginPage() {
                 )}
               </button>
             </form>
+            <p style={{ textAlign: 'center', marginTop: 14 }}>
+              <a href="#" onClick={(e) => { e.preventDefault(); setError(''); setMode('forgot'); }}
+                style={{ color: '#2563eb', fontSize: 14 }}>Quên mật khẩu?</a>
+            </p>
           </div>
+          )}
 
           {/* Footer */}
           <div className="login-footer">

@@ -3193,8 +3193,92 @@ function UserMenu() {
 // ========================================
 // MAIN DASHBOARD COMPONENT
 // ========================================
+function ResetPasswordPage({ token }) {
+  const [newPw, setNewPw] = useState('')
+  const [confirmPw, setConfirmPw] = useState('')
+  const [err, setErr] = useState('')
+  const [ok, setOk] = useState(false)
+  const [loading, setLoading] = useState(false)
+
+  const submit = async (e) => {
+    e.preventDefault()
+    setErr('')
+    if (newPw !== confirmPw) { setErr('Mật khẩu xác nhận không khớp'); return }
+    if (newPw.length < 8) { setErr('Mật khẩu mới phải có ít nhất 8 ký tự'); return }
+    setLoading(true)
+    try {
+      const res = await authFetch(`${API_URL}/api/auth/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, new_password: newPw }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (res.ok && data.success) { setOk(true) }
+      else { setErr(data.detail || data.message || 'Đặt lại mật khẩu thất bại') }
+    } catch (_) { setErr('Lỗi kết nối máy chủ') }
+    finally { setLoading(false) }
+  }
+
+  const goLogin = () => { window.location.href = window.location.origin + window.location.pathname }
+
+  return (
+    <div className="login-page">
+      <div className="login-overlay"></div>
+      <div className="login-content">
+        <div className="login-card">
+          <div className="login-branding">
+            <img src="/logo.png" alt="5P Vietnam" className="login-logo" />
+          </div>
+          <div className="login-form-section">
+            <h1 className="login-title">Đặt lại mật khẩu</h1>
+            {ok ? (
+              <>
+                <div className="error-message" style={{ background: '#dcfce7', color: '#166534', borderColor: '#86efac' }}>
+                  ✅ Đã đặt lại mật khẩu thành công!
+                </div>
+                <button className="login-button" style={{ marginTop: 16 }} onClick={goLogin}>Đăng nhập</button>
+              </>
+            ) : (
+              <>
+                <p className="login-subtitle">Nhập mật khẩu mới của bạn</p>
+                <form onSubmit={submit} className="login-form">
+                  <div className="form-group">
+                    <label>Mật khẩu mới</label>
+                    <input type="password" value={newPw} onChange={(e) => setNewPw(e.target.value)}
+                      placeholder=">=8 ký tự, có chữ + số" required autoFocus />
+                  </div>
+                  <div className="form-group">
+                    <label>Xác nhận mật khẩu mới</label>
+                    <input type="password" value={confirmPw} onChange={(e) => setConfirmPw(e.target.value)}
+                      placeholder="Nhập lại mật khẩu mới" required />
+                  </div>
+                  {err && <div className="error-message">{err}</div>}
+                  <button type="submit" className="login-button" disabled={loading}>
+                    {loading ? <span className="loading-spinner"></span> : 'Đặt lại mật khẩu'}
+                  </button>
+                </form>
+                <p style={{ textAlign: 'center', marginTop: 14 }}>
+                  <a href="#" onClick={(e) => { e.preventDefault(); goLogin() }}
+                    style={{ color: '#2563eb', fontSize: 14 }}>← Quay lại đăng nhập</a>
+                </p>
+              </>
+            )}
+          </div>
+          <div className="login-footer"><p>© 2026 5P Vietnam</p></div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function App() {
   const { isAuthenticated, loading: authLoading } = useAuth()
+
+  // Reset password flow (link ?reset_token=...) — ưu tiên trước auth
+  const resetToken = new URLSearchParams(window.location.search).get('reset_token')
+  if (resetToken) {
+    return <ResetPasswordPage token={resetToken} />
+  }
 
   // Show login page if not authenticated
   if (authLoading) {

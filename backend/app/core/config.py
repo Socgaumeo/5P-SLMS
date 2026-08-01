@@ -56,6 +56,9 @@ class Settings(BaseSettings):
     RESEND_API_KEY: Optional[str] = None
     EMAIL_FROM: Optional[str] = None
 
+    # URL frontend (dùng cho link reset mật khẩu)
+    FRONTEND_URL: str = "https://5p-slms.vercel.app"
+
     # Gmail API (HTTPS — gửi TỪ chính Gmail công ty, không cần domain riêng)
     GMAIL_CLIENT_ID: Optional[str] = None
     GMAIL_CLIENT_SECRET: Optional[str] = None
