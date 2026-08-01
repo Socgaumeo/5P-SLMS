@@ -62,6 +62,7 @@ class Settings(BaseSettings):
     # Token bot Telegram DÀNH RIÊNG gửi link reset mật khẩu (bot Sen fivepvietnam_bot).
     # Tách khỏi TELEGRAM_BOT_TOKEN (bot download tài liệu) để không đụng luồng khác.
     RESET_TELEGRAM_BOT_TOKEN: Optional[str] = None
+    TELEGRAM_NOTIFY_BOT_TOKEN: Optional[str] = None
 
     # Gmail API (HTTPS — gửi TỪ chính Gmail công ty, không cần domain riêng)
     GMAIL_CLIENT_ID: Optional[str] = None

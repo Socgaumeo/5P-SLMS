@@ -305,6 +305,7 @@ def _send_reset_telegram(telegram_id, reset_link: str) -> Optional[str]:
     """Gửi link reset qua Telegram bot. Trả None nếu OK, hoặc chuỗi lỗi."""
     import httpx
     tok = (getattr(settings, "RESET_TELEGRAM_BOT_TOKEN", None)
+           or getattr(settings, "TELEGRAM_NOTIFY_BOT_TOKEN", None)
            or getattr(settings, "TELEGRAM_BOT_TOKEN", None)
            or getattr(settings, "TELEGRAM_DOC_BOT_TOKEN", None))
     if not tok or not telegram_id:
