@@ -27,6 +27,11 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+
 class LoginResponse(BaseModel):
     success: bool
     token: Optional[str] = None
@@ -185,15 +190,14 @@ async def logout(req: Request):
 
 
 @router.post("/change-password")
-async def change_password(
-    req: Request,
-    current_password: str,
-    new_password: str
-):
+async def change_password(req: Request, body: ChangePasswordRequest):
     """
     Change current user's password
     """
     from app.api.dependencies import get_current_user
+
+    current_password = body.current_password
+    new_password = body.new_password
 
     user = await get_current_user(req)
     client = get_supabase_client()
@@ -210,9 +214,13 @@ async def change_password(
     if not verify_password(current_password, result.data['password_hash']):
         raise HTTPException(status_code=400, detail="Mật khẩu hiện tại không đúng")
 
-    # Validate new password
+    # Validate new password (độ mạnh: >=8, có chữ + số)
     if len(new_password) < 8:
         raise HTTPException(status_code=400, detail="Mật khẩu mới phải có ít nhất 8 ký tự")
+    if not any(c.isalpha() for c in new_password) or not any(c.isdigit() for c in new_password):
+        raise HTTPException(status_code=400, detail="Mật khẩu mới phải gồm cả chữ và số")
+    if new_password == current_password:
+        raise HTTPException(status_code=400, detail="Mật khẩu mới phải khác mật khẩu hiện tại")
 
     # Update password
     new_hash = get_password_hash(new_password)

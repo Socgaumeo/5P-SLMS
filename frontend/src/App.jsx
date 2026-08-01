@@ -3092,9 +3092,72 @@ function JobCreateForm({ onClose, onSuccess }) {
 // ========================================
 // USER MENU COMPONENT
 // ========================================
+function ChangePasswordModal({ onClose }) {
+  const [curPw, setCurPw] = useState('')
+  const [newPw, setNewPw] = useState('')
+  const [confirmPw, setConfirmPw] = useState('')
+  const [err, setErr] = useState('')
+  const [ok, setOk] = useState(false)
+  const [loading, setLoading] = useState(false)
+
+  const submit = async () => {
+    setErr('')
+    if (newPw !== confirmPw) { setErr('Mật khẩu xác nhận không khớp'); return }
+    if (newPw.length < 8) { setErr('Mật khẩu mới phải có ít nhất 8 ký tự'); return }
+    setLoading(true)
+    try {
+      const res = await authFetch(`${API_URL}/api/auth/change-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ current_password: curPw, new_password: newPw }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (res.ok && data.success) {
+        setOk(true)
+        setTimeout(onClose, 1500)
+      } else {
+        setErr(data.detail || data.message || 'Đổi mật khẩu thất bại')
+      }
+    } catch (e) {
+      setErr('Lỗi kết nối máy chủ')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
+        <h2 className="modal-title">🔑 Đổi mật khẩu</h2>
+        {ok ? (
+          <p style={{ color: '#16a34a', padding: '12px 0' }}>✅ Đã đổi mật khẩu thành công!</p>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 8 }}>
+            <input type="password" placeholder="Mật khẩu hiện tại" value={curPw}
+              onChange={e => setCurPw(e.target.value)} className="form-input" autoFocus />
+            <input type="password" placeholder="Mật khẩu mới (>=8 ký tự, có chữ + số)" value={newPw}
+              onChange={e => setNewPw(e.target.value)} className="form-input" />
+            <input type="password" placeholder="Xác nhận mật khẩu mới" value={confirmPw}
+              onChange={e => setConfirmPw(e.target.value)} className="form-input"
+              onKeyDown={e => e.key === 'Enter' && submit()} />
+            {err && <div style={{ color: '#dc2626', fontSize: 13 }}>{err}</div>}
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4 }}>
+              <button className="btn-secondary" onClick={onClose} disabled={loading}>Hủy</button>
+              <button className="btn-primary" onClick={submit} disabled={loading || !curPw || !newPw}>
+                {loading ? 'Đang lưu...' : 'Đổi mật khẩu'}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function UserMenu() {
   const { user, logout, isAdmin } = useAuth()
   const [showMenu, setShowMenu] = useState(false)
+  const [showChangePw, setShowChangePw] = useState(false)
 
   if (!user) return null
 
@@ -3114,11 +3177,15 @@ function UserMenu() {
             <div className="user-role">{user.role}</div>
           </div>
           <div className="user-dropdown-divider" />
+          <button className="user-dropdown-item" onClick={() => { setShowChangePw(true); setShowMenu(false) }}>
+            🔑 Đổi mật khẩu
+          </button>
           <button className="user-dropdown-item" onClick={logout}>
             Đăng xuất
           </button>
         </div>
       )}
+      {showChangePw && <ChangePasswordModal onClose={() => setShowChangePw(false)} />}
     </div>
   )
 }
