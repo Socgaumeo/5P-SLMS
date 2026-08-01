@@ -25,6 +25,7 @@ const PARTNER_LOGOS = [
 
 function ForgotPasswordForm({ onBack }) {
   const [email, setEmail] = useState('');
+  const [channel, setChannel] = useState('both'); // 'email' | 'telegram' | 'both'
   const [msg, setMsg] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -35,17 +36,24 @@ function ForgotPasswordForm({ onBack }) {
       await authFetch(`${API_URL}/api/auth/forgot-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, channel }),
       });
     } catch (_) { /* luôn hiển thị chung */ }
-    setMsg('Nếu email tồn tại, hướng dẫn đặt lại mật khẩu đã được gửi qua email và Telegram. Vui lòng kiểm tra.');
+    const via = channel === 'email' ? 'email' : channel === 'telegram' ? 'Telegram' : 'email và Telegram';
+    setMsg(`Nếu email tồn tại, hướng dẫn đặt lại mật khẩu đã được gửi qua ${via}. Vui lòng kiểm tra.`);
     setLoading(false);
   };
+
+  const chOpts = [
+    { v: 'both', label: '📧 + 💬 Cả hai' },
+    { v: 'email', label: '📧 Email' },
+    { v: 'telegram', label: '💬 Telegram' },
+  ];
 
   return (
     <div className="login-form-section">
       <h1 className="login-title">Quên mật khẩu</h1>
-      <p className="login-subtitle">Nhập email để nhận link đặt lại mật khẩu</p>
+      <p className="login-subtitle">Nhập email và chọn kênh nhận link đặt lại</p>
       {msg ? (
         <div className="error-message" style={{ background: '#dcfce7', color: '#166534', borderColor: '#86efac' }}>{msg}</div>
       ) : (
@@ -55,6 +63,24 @@ function ForgotPasswordForm({ onBack }) {
             <input type="email" id="fp-email" value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="email@5pvietnam.com" required autoFocus />
+          </div>
+          <div className="form-group">
+            <label>Gửi link qua</label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {chOpts.map((o) => (
+                <button type="button" key={o.v} onClick={() => setChannel(o.v)}
+                  style={{
+                    flex: 1, padding: '9px 4px', borderRadius: 8, fontSize: 13, cursor: 'pointer',
+                    border: channel === o.v ? '2px solid #2563eb' : '1px solid #cbd5e1',
+                    background: channel === o.v ? '#eff6ff' : '#fff',
+                    color: channel === o.v ? '#1d4ed8' : '#475569',
+                    fontWeight: channel === o.v ? 600 : 400,
+                  }}>{o.label}</button>
+              ))}
+            </div>
+            <p style={{ fontSize: 12, color: '#64748b', marginTop: 6 }}>
+              Telegram: cần đã từng nhắn bot 5P Vietnam.
+            </p>
           </div>
           <button type="submit" className="login-button" disabled={loading}>
             {loading ? <span className="loading-spinner"></span> : 'Gửi link đặt lại'}

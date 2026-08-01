@@ -38,6 +38,7 @@ class ChangePasswordRequest(BaseModel):
 
 class ForgotPasswordRequest(BaseModel):
     email: str
+    channel: Optional[str] = "both"  # "email" | "telegram" | "both"
 
 
 class ResetPasswordRequest(BaseModel):
@@ -367,9 +368,13 @@ async def forgot_password(request: Request, body: ForgotPasswordRequest):
 
     reset_link = f"{settings.FRONTEND_URL.rstrip('/')}/?reset_token={raw_token}"
 
-    # Gửi qua cả email + telegram (best effort)
-    email_err = _send_reset_email(user['email'], user.get('full_name') or '', reset_link)
-    tg_err = _send_reset_telegram(user.get('telegram_id'), reset_link)
+    # Gửi theo kênh user chọn (best effort)
+    channel = (body.channel or "both").strip().lower()
+    email_err = tg_err = "skipped"
+    if channel in ("email", "both"):
+        email_err = _send_reset_email(user['email'], user.get('full_name') or '', reset_link)
+    if channel in ("telegram", "both"):
+        tg_err = _send_reset_telegram(user.get('telegram_id'), reset_link)
 
     # Log (không lộ token)
     try:
