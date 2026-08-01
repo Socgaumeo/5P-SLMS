@@ -126,7 +126,8 @@ async def login(request: Request, login_data: LoginRequest):
                 'entity_id': user['user_id'],
                 'entity_ref': user['user_code'],
                 'description': f"User {user['user_code']} logged in",
-                'ip_address': request.client.host if request.client else None,
+                'ip_address': _client_ip(request),
+                'user_agent': (request.headers.get('user-agent') or '')[:500],
             }).execute()
         except Exception:
             pass  # Ignore if table doesn't exist yet
@@ -248,6 +249,14 @@ async def change_password(req: Request, body: ChangePasswordRequest):
 # ============================================================
 # FORGOT / RESET PASSWORD
 # ============================================================
+
+def _client_ip(request: Request) -> Optional[str]:
+    """Lấy IP thật của client (qua proxy Railway/Vercel dùng X-Forwarded-For)."""
+    xff = request.headers.get('x-forwarded-for')
+    if xff:
+        return xff.split(',')[0].strip()
+    return request.client.host if request.client else None
+
 
 def _hash_token(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
@@ -428,3 +437,18 @@ async def reset_password(request: Request, body: ResetPasswordRequest):
         pass
 
     return {"success": True, "message": "Đã đặt lại mật khẩu thành công. Vui lòng đăng nhập lại."}
+
+
+@router.get("/login-history")
+async def login_history(req: Request, limit: int = 20):
+    """Lịch sử đăng nhập của chính user hiện tại (IP + thiết bị + thời gian)."""
+    from app.api.dependencies import get_current_user
+    user = await get_current_user(req)
+    client = get_supabase_client()
+    limit = max(1, min(limit, 100))
+    res = client.table('activity_logs').select(
+        'created_at, ip_address, user_agent, action_type'
+    ).eq('user_id', user['user_id']).in_(
+        'action_type', ['LOGIN', 'PASSWORD_RESET', 'PASSWORD_RESET_REQUEST']
+    ).order('created_at', desc=True).limit(limit).execute()
+    return {"success": True, "history": res.data or []}

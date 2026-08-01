@@ -3154,10 +3154,70 @@ function ChangePasswordModal({ onClose }) {
   )
 }
 
+function prettyUA(ua) {
+  if (!ua) return 'Không rõ thiết bị'
+  let os = 'Khác'
+  if (/Windows/i.test(ua)) os = 'Windows'
+  else if (/iPhone|iPad|iOS/i.test(ua)) os = 'iOS'
+  else if (/Android/i.test(ua)) os = 'Android'
+  else if (/Mac OS X|Macintosh/i.test(ua)) os = 'macOS'
+  else if (/Linux/i.test(ua)) os = 'Linux'
+  let br = ''
+  if (/Edg\//i.test(ua)) br = 'Edge'
+  else if (/Chrome\//i.test(ua)) br = 'Chrome'
+  else if (/Safari\//i.test(ua)) br = 'Safari'
+  else if (/Firefox\//i.test(ua)) br = 'Firefox'
+  return `${os}${br ? ' · ' + br : ''}`
+}
+
+function LoginHistoryModal({ onClose }) {
+  const [rows, setRows] = useState(null)
+  const [err, setErr] = useState('')
+
+  useEffect(() => {
+    authFetch(`${API_URL}/api/auth/login-history?limit=20`)
+      .then(r => r.json())
+      .then(d => { if (d.success) setRows(d.history || []); else setErr(d.detail || 'Lỗi tải dữ liệu') })
+      .catch(() => setErr('Lỗi kết nối máy chủ'))
+  }, [])
+
+  const fmt = (t) => { try { return new Date(t).toLocaleString('vi-VN') } catch { return t } }
+  const label = (a) => a === 'LOGIN' ? 'Đăng nhập' : a === 'PASSWORD_RESET' ? 'Đặt lại MK' : 'Yêu cầu reset MK'
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content" style={{ maxWidth: 560 }} onClick={e => e.stopPropagation()}>
+        <h2 className="modal-title">🖥️ Lịch sử đăng nhập</h2>
+        {err && <div style={{ color: '#dc2626', padding: '8px 0' }}>{err}</div>}
+        {rows === null && !err && <p style={{ padding: '12px 0' }}>Đang tải...</p>}
+        {rows && rows.length === 0 && <p style={{ padding: '12px 0' }}>Chưa có lịch sử.</p>}
+        {rows && rows.length > 0 && (
+          <div style={{ maxHeight: 380, overflowY: 'auto', marginTop: 8 }}>
+            {rows.map((r, i) => (
+              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', gap: 12,
+                padding: '8px 4px', borderBottom: '1px solid #eee', fontSize: 13 }}>
+                <div>
+                  <div style={{ fontWeight: 600 }}>{prettyUA(r.user_agent)}</div>
+                  <div style={{ color: '#6b7280' }}>{label(r.action_type)} · IP {r.ip_address || 'N/A'}</div>
+                </div>
+                <div style={{ color: '#6b7280', whiteSpace: 'nowrap' }}>{fmt(r.created_at)}</div>
+              </div>
+            ))}
+          </div>
+        )}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
+          <button className="btn-secondary" onClick={onClose}>Đóng</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function UserMenu() {
   const { user, logout, isAdmin } = useAuth()
   const [showMenu, setShowMenu] = useState(false)
   const [showChangePw, setShowChangePw] = useState(false)
+  const [showHistory, setShowHistory] = useState(false)
 
   if (!user) return null
 
@@ -3180,12 +3240,16 @@ function UserMenu() {
           <button className="user-dropdown-item" onClick={() => { setShowChangePw(true); setShowMenu(false) }}>
             🔑 Đổi mật khẩu
           </button>
+          <button className="user-dropdown-item" onClick={() => { setShowHistory(true); setShowMenu(false) }}>
+            🖥️ Lịch sử đăng nhập
+          </button>
           <button className="user-dropdown-item" onClick={logout}>
             Đăng xuất
           </button>
         </div>
       )}
       {showChangePw && <ChangePasswordModal onClose={() => setShowChangePw(false)} />}
+      {showHistory && <LoginHistoryModal onClose={() => setShowHistory(false)} />}
     </div>
   )
 }
