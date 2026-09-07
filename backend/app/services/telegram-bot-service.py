@@ -22,9 +22,18 @@ logger = logging.getLogger(__name__)
 # --- Job number patterns (match existing formats in DB) ---
 # Format: PREFIX-CUSTID-YYMM-SEQ (e.g. SEA-46-2503-001, AIR-20-2503-015)
 # Short format: PREFIX-YYMM-SEQ (e.g. AI-1404-716, SI-1404-001)
+# Prefix đồng bộ với prefix_map trong data_service.py (create_job) + legacy đã có trong DB.
+# Fix 07/09/2026: list cũ thiếu SE/AD/BI/BE... → caption "SE-71-2608-002 debit" bị báo "Thiếu thông tin".
+JOB_PREFIXES = [
+    # data_service.prefix_map (nguồn sinh job_no hiện tại)
+    "BI", "BE", "SD", "SI", "SE", "AI", "AE", "AD", "WHS", "CO", "CC", "PKG", "TRK",
+    # legacy prefix còn tồn tại trong DB
+    "BIX", "BMX", "SV", "HDL", "WH", "SEA", "AIR", "CUS", "IMP", "EXP",
+]
+_PREFIX_RE = "|".join(sorted(JOB_PREFIXES, key=len, reverse=True))  # dài trước để BIX không bị ăn thành BI
 JOB_NO_PATTERNS = [
-    re.compile(r'((?:SEA|SI|AIR|AI|AE|CUS|TRK|WHS|IMP|EXP|SD|CC)-\d+-\d{4}-\d{3,4})', re.IGNORECASE),  # SEA-46-2503-001
-    re.compile(r'((?:SEA|SI|AIR|AI|AE|CUS|TRK|WHS|IMP|EXP|SD|CC)-\d{4}-\d{3,4})', re.IGNORECASE),       # AI-1404-716 (no custid)
+    re.compile(rf'\b((?:{_PREFIX_RE})-\d+-\d{{4}}-\d{{3,4}})\b', re.IGNORECASE),  # SE-71-2608-002 / SEA-46-2503-001
+    re.compile(rf'\b((?:{_PREFIX_RE})-\d{{4}}-\d{{3,4}})\b', re.IGNORECASE),       # AI-1404-716 (no custid)
     re.compile(r'(LG\d{4}/\d{3})', re.IGNORECASE),           # LG2604/001
     re.compile(r'#(LG\d{7})', re.IGNORECASE),                  # #LG2604001 → LG2604/001
 ]
