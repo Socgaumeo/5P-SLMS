@@ -51,28 +51,49 @@ class DatabaseSession:
         self.conn.close()
 
 
-def _pooler_url(direct_url: str) -> str:
+def _project_ref(dsn: str) -> str:
     """
-    Chuyển DSN kết nối trực tiếp (db.<ref>.supabase.co:5432) sang Supabase pooler
-    (aws-1-ap-southeast-1.pooler.supabase.com:6543, user postgres.<ref>).
-
-    Lý do: từ 2024 Supabase bỏ IPv4 cho host trực tiếp — `db.<ref>.supabase.co`
-    CHỈ còn bản ghi IPv6. Host chạy backend (Railway/VPS) không có IPv6 thì
-    psycopg2.connect() fail ngay ở dependency get_db, khiến TOÀN BỘ endpoint
-    dùng raw SQL trả 500 (sự cố 21/09/2026: /api/search/* chết sạch trong khi
-    các endpoint đi qua Supabase REST vẫn chạy).
+    Lấy project ref của Supabase từ DSN, bất kể DSN đang ở dạng nào:
+      - trực tiếp:   postgresql://postgres:<pw>@db.<ref>.supabase.co:5432/postgres
+      - qua pooler:  postgresql://postgres.<ref>:<pw>@aws-N-<region>.pooler.supabase.com:6543/postgres
     """
-    m = re.search(r'db\.([a-z0-9]+)\.supabase\.co', direct_url or '')
-    if not m:
+    if not dsn:
         return ''
-    ref = m.group(1)
-    url = direct_url.replace(
-        f'db.{ref}.supabase.co',
-        f'{POOLER_HOST}'
-    ).replace(':5432', f':{POOLER_PORT}')
-    # user 'postgres' -> 'postgres.<ref>' (yêu cầu của pooler)
-    url = re.sub(r'://postgres(?=:)', f'://postgres.{ref}', url)
-    return url
+    m = re.search(r'db\.([a-z0-9]{16,})\.supabase\.co', dsn)      # dạng trực tiếp
+    if m:
+        return m.group(1)
+    m = re.search(r'://postgres\.([a-z0-9]{16,})[:@]', dsn)        # dạng pooler
+    if m:
+        return m.group(1)
+    return ''
+
+
+def _pooler_url(dsn: str) -> str:
+    """
+    Dựng lại DSN trỏ vào Supabase pooler IPv4 đang hoạt động.
+
+    Bao phủ CẢ HAI kiểu DSN hỏng đã gặp:
+      1. `db.<ref>.supabase.co` — host trực tiếp, từ 2024 Supabase bỏ IPv4 nên CHỈ còn
+         bản ghi IPv6; host chạy backend không có IPv6 thì không gọi tới được.
+      2. `aws-0-<region>.pooler.supabase.com` — pooler thế hệ cũ, đã ngừng phục vụ;
+         DNS vẫn giải ra IPv4 nhưng kết nối bị từ chối.
+
+    Cả hai đều làm psycopg2.connect() fail ngay ở dependency get_db → TOÀN BỘ endpoint
+    raw SQL trả 500 (sự cố 21/09/2026: /api/search/{jobs,customers,vendors,drivers} chết
+    sạch, trong khi endpoint đi qua Supabase REST vẫn chạy nên nhìn như "chỉ search hỏng").
+
+    Trả '' nếu không nhận ra là DSN Supabase (khi đó cứ để lỗi gốc nổi lên).
+    """
+    ref = _project_ref(dsn)
+    if not ref:
+        return ''
+    pw = ''
+    m = re.search(r'://[^:/@]+:([^@]+)@', dsn)
+    if m:
+        pw = m.group(1)
+    dbname = (dsn.rsplit('/', 1)[-1].split('?')[0] or 'postgres')
+    return (f'postgresql://postgres.{ref}:{pw}@'
+            f'{POOLER_HOST}:{POOLER_PORT}/{dbname}')
 
 
 def get_connection():
@@ -90,7 +111,8 @@ def get_connection():
         )
     except psycopg2.OperationalError as e:
         fallback = _pooler_url(settings.DATABASE_URL)
-        if not fallback:
+        # đã trỏ đúng pooler hiện hành rồi mà vẫn lỗi -> lỗi thật, đừng thử lại vô ích
+        if not fallback or fallback == settings.DATABASE_URL:
             raise
         logger.warning(
             "Kết nối DB trực tiếp thất bại (%s) — chuyển sang pooler IPv4 %s:%s. "
