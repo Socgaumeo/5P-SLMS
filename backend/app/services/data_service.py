@@ -528,7 +528,11 @@ class DataService:
                 # + lưu kho) thì trước đây biển số bị chép sang CẢ dịch vụ kho — kho thì
                 # làm gì có biển số, nhìn vào rất vô lý và gây nhầm khi làm bảng kê.
                 # (Phát hiện 23/09/2026 khi soi job TRK-2309-0003 của Khánh.)
-                _co_xe = str(svc_type or "").startswith(("TRUCK", "BORDER", "LIFT_"))
+                # Dịch vụ nào THỰC SỰ có xe. Air CŨNG có — xe chở hàng từ kho ra sân bay,
+                # kiểm dữ liệu thật ngày 23/09/2026 thấy 5 job AIR_DOM/AIR_EXP có biển số
+                # hợp lệ ("Hàng gom sân bay", "Tân Yên Bắc Ninh → Nội Bài").
+                # Suýt nữa tao xoá nhầm cả 5 vì tưởng air thì không có xe.
+                _co_xe = str(svc_type or "").startswith(("TRUCK", "BORDER", "LIFT_", "AIR_"))
                 _sd_in = job_data.get("service_details_input")
                 if _co_xe and isinstance(_sd_in, dict):
                     for _k in ("vehicle_plate", "driver_name", "driver_phone"):
