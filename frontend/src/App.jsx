@@ -54,9 +54,15 @@ const DON_VI = [
     ['MTQ', 'm³ (CBM)'],
     ['MTK', 'm² (diện tích kho)'],
   ]},
-  { nhom: 'Dịch vụ', ds: [
+  { nhom: 'Tính cước theo lần / thời gian', ds: [
     ['E48', 'Chuyến'],
+    ['LAN', 'Lần'],
+    ['CA',  'Ca'],
+    ['HUR', 'Giờ'],
     ['DAY', 'Ngày'],
+    ['DCL', 'Tờ khai'],
+    ['LO',  'Lô / bill'],
+    ['PSN', 'Người'],
   ]},
 ]
 
@@ -159,7 +165,7 @@ const removeDiacritics = (str) => str?.normalize('NFD').replace(/[\u0300-\u036f]
 function QuotationSelector({ type, rates, standardRates = [], selectedRateId, selectedPrice, quantity = 1, onQuantityChange, onSelect, disabled, vendorId }) {
   const [manualMode, setManualMode] = useState(false)
   const [manualUnitPrice, setManualUnitPrice] = useState('')
-  const [manualUnit, setManualUnit] = useState('TRIP')
+  const [manualUnit, setManualUnit] = useState('E48')
   const [costSource, setCostSource] = useState('vendor') // 'vendor' or 'standard'
   const [rateSearch, setRateSearch] = useState('')
 
@@ -167,7 +173,13 @@ function QuotationSelector({ type, rates, standardRates = [], selectedRateId, se
   const icon = type === 'buying' ? '📥' : '📤'
   const color = type === 'buying' ? '#EF4444' : '#10B981'
 
-  const UNITS = ['TRIP', 'CONT', 'KG', 'CBM', 'PALLET', 'SHIPMENT', 'SET', 'UNIT', 'TỜ KHAI', 'BỘ']
+  // Bỏ danh sách đơn vị riêng — dùng chung bảng chuẩn DON_VI.
+  // Trước đây khung báo giá có HAI bộ mã khác hẳn nhau trong cùng một màn hình
+  // (TRIP/CONT/SHIPMENT... và ca/chuyến/lần...), lại khác cả bảng đóng gói
+  // → cùng một chuyến xe mỗi chỗ ghi một kiểu, không cộng được khi làm bảng kê.
+  // Khánh 23/09/2026: "phần đơn vị nó phải sử dụng hệ đơn vị quy chuẩn vừa sửa,
+  // áp dụng cho cả doanh thu và chi phí".
+  const UNITS = DON_VI.flatMap(g => g.ds.map(([ma]) => ma))
 
   const formatPriceDisplay = (price) => {
     if (!price) return '0 VND'
@@ -270,7 +282,11 @@ function QuotationSelector({ type, rates, standardRates = [], selectedRateId, se
             disabled={disabled}
             style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--border)', fontSize: '12px', width: '80px' }}
           >
-            {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+            {DON_VI.map(g => (
+              <optgroup key={g.nhom} label={g.nhom}>
+                {g.ds.map(([ma, ten]) => <option key={ma} value={ma}>{ten}</option>)}
+              </optgroup>
+            ))}
           </select>
           <QuantityInput />
           {manualUnitPrice && quantity > 0 && (
@@ -365,7 +381,7 @@ function QuotationSelector({ type, rates, standardRates = [], selectedRateId, se
                           : r.service_type_code || r.vehicle_type || ''
                         return (
                           <option key={r.rate_id} value={r.rate_id}>
-                            {info} | {formatPriceDisplay(r.price)}/{r.unit || 'TRIP'}
+                            {info} | {formatPriceDisplay(r.price)}/{r.unit || 'E48'}
                           </option>
                         )
                       })}
@@ -403,10 +419,15 @@ function JobDetailModal({ job, onClose, onUpdate }) {
   // Danh sách trường được phép thêm — lấy TỪ MÁY CHỦ, dùng chung với form tạo job
   // (Khánh 23/09/2026: "khi edit job cũng cho phép thêm trường y hệt như khi tạo job").
   const [truongCoSanSua, setTruongCoSanSua] = useState([])
+  const [danhSachVendor, setDanhSachVendor] = useState([])
   useEffect(() => {
     authFetch(`${API_URL}/api/jobs/truong-them-duoc`)
       .then(r => r.ok ? r.json() : null)
       .then(d => d?.truong && setTruongCoSanSua(d.truong))
+      .catch(() => {})
+    authFetch(`${API_URL}/api/vendors`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => setDanhSachVendor(d?.vendors || d?.data || (Array.isArray(d) ? d : [])))
       .catch(() => {})
   }, [])
   const [services, setServices] = useState([])
@@ -2162,18 +2183,27 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                 placeholder="Tên chi phí"
                                 style={{ padding: '4px 6px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '11px' }}
                               />
-                              <input
-                                type="text"
-                                value={cost.vendor || ''}
+                              <select
+                                value={cost.vendor_id || ''}
                                 onChange={e => {
+                                  const v = danhSachVendor.find(x => String(x.vendor_id) === e.target.value)
                                   const newCosts = [...(svc.extra_costs || [])]
-                                  newCosts[idx] = { ...newCosts[idx], vendor: e.target.value }
+                                  newCosts[idx] = { ...newCosts[idx], vendor_id: e.target.value || null, vendor: v?.short_name || v?.vendor_name || '' }
                                   setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, extra_costs: newCosts } : s))
                                 }}
-                                placeholder="Vendor"
-                                title="Nhà cung cấp"
-                                style={{ padding: '4px 4px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '11px' }}
-                              />
+                                title="Chọn nhà thầu từ danh sách hệ thống"
+                                style={{ padding: '4px 6px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '11px', maxWidth: '150px' }}
+                              >
+                                {/* Gõ tay tên nhà thầu thì mỗi người viết một kiểu ("Tam Bảo",
+                                    "tam bao", "TAM BAO 2"), sau không gom được công nợ.
+                                    Khánh 23/09/2026: "phần vendor ở đây cũng phải cho chọn từ DB
+                                    để tránh lộn xộn". */}
+                                <option value="">— chọn nhà thầu —</option>
+                                {cost.vendor && !cost.vendor_id && <option value="">{cost.vendor} (gõ tay cũ)</option>}
+                                {danhSachVendor.map(v => (
+                                  <option key={v.vendor_id} value={v.vendor_id}>{v.short_name || v.vendor_name}</option>
+                                ))}
+                              </select>
                               <input
                                 type="number"
                                 value={cost.qty ?? ''}
@@ -2212,16 +2242,11 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                 }}
                                 style={{ padding: '4px 2px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '11px' }}
                               >
-                                <option value="ca">ca</option>
-                                <option value="chuyến">chuyến</option>
-                                <option value="lần">lần</option>
-                                <option value="giờ">giờ</option>
-                                <option value="ngày">ngày</option>
-                                <option value="kg">kg</option>
-                                <option value="cbm">cbm</option>
-                                <option value="kiện">kiện</option>
-                                <option value="tờ khai">tờ khai</option>
-                                <option value="bill">bill</option>
+                                {DON_VI.map(g => (
+                                  <optgroup key={g.nhom} label={g.nhom}>
+                                    {g.ds.map(([ma, ten]) => <option key={ma} value={ma}>{ten}</option>)}
+                                  </optgroup>
+                                ))}
                               </select>
                               <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#EF4444', textAlign: 'right' }}>
                                 {formatPrice(cost.amount || 0)}
@@ -2320,7 +2345,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                 style={{ padding: '4px 4px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '11px' }}
                               />
                               <select
-                                value={rev.unit || 'chuyến'}
+                                value={rev.unit || 'E48'}
                                 onChange={e => {
                                   const newRevs = [...(svc.extra_revenues || [])]
                                   newRevs[idx] = { ...newRevs[idx], unit: e.target.value }
@@ -2328,13 +2353,11 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                 }}
                                 style={{ padding: '4px 2px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '11px' }}
                               >
-                                <option value="chuyến">chuyến</option>
-                                <option value="ca">ca</option>
-                                <option value="lần">lần</option>
-                                <option value="giờ">giờ</option>
-                                <option value="ngày">ngày</option>
-                                <option value="kg">kg</option>
-                                <option value="cbm">cbm</option>
+                                {DON_VI.map(g => (
+                                  <optgroup key={g.nhom} label={g.nhom}>
+                                    {g.ds.map(([ma, ten]) => <option key={ma} value={ma}>{ten}</option>)}
+                                  </optgroup>
+                                ))}
                               </select>
                               <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#10B981', textAlign: 'right' }}>
                                 {formatPrice(rev.amount || 0)}
@@ -2350,7 +2373,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                           ))}
                           <button
                             onClick={() => {
-                              const newRevs = [...(svc.extra_revenues || []), { name: '', qty: 1, unit_price: 0, unit: 'chuyến', amount: 0 }]
+                              const newRevs = [...(svc.extra_revenues || []), { name: '', qty: 1, unit_price: 0, unit: 'E48', amount: 0 }]
                               setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, extra_revenues: newRevs } : s))
                             }}
                             style={{ marginBottom: '10px', padding: '4px 10px', background: 'rgba(16, 185, 129, 0.1)', color: '#10B981', border: '1px dashed #10B981', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}
