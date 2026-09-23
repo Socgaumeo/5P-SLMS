@@ -12,6 +12,48 @@ import DocumentManagementPage from './components/documents/document-management-p
 import DebitBatchExportWizardPage from './components/debit/debit-batch-export-wizard-page'
 import CongNoPage from './components/congno/CongNoPage'
 
+// ─── MỘT NGUỒN DUY NHẤT cho đơn vị tính ───────────────────────────────
+// Sự cố 23/09/2026 (Khánh phát hiện): job SI-2309-0001 tạo là "1 cont40" nhưng
+// mở màn hình sửa lại hiện "1 thùng". Nguyên nhân: form TẠO và form SỬA dùng
+// HAI BỘ MÃ KHÁC NHAU — form tạo lưu 'cont40', form sửa không có mã đó trong
+// danh sách nên nhảy về lựa chọn khác. Dữ liệu vẫn đúng, chỉ hiển thị sai.
+// Từ nay CẢ HAI dùng chung bảng này. Thêm đơn vị mới thì thêm Ở ĐÂY, một chỗ.
+//
+// Lưu ý dữ liệu cũ đang rất bẩn: cùng "pallet" có 'pallet', '1 Pallet', '1 PALLET',
+// 'PL', 'PLT', 'PP'... thậm chí lẫn cả số lượng ('3 box') và loại hàng ('PCB; FPC').
+const DON_VI = [
+  { nhom: 'Kiện hàng', ds: [
+    ['Package (Kiện, gói)', 'Kiện / gói'],
+    ['Pallet & Package', 'Pallet'],
+    ['Carton (Thùng carton)', 'Thùng carton'],
+    ['Case (Thùng)', 'Thùng'],
+    ['Box (Hộp)', 'Hộp'],
+    ['Bundle (Gói)', 'Bó / gói'],
+    ['Roll(Cuộn)', 'Cuộn'],
+    ['Bag (Túi)', 'Bao / túi'],
+    ['Piece', 'Chiếc'],
+  ]},
+  { nhom: 'Container', ds: [
+    ['Container', "Container (chung)"],
+    ["Container 20'", "Cont 20'"],
+    ["Container 40'", "Cont 40'"],
+    ["Container 40'HC", "Cont 40'HC"],
+    ['LCL', 'LCL (hàng ghép)'],
+  ]},
+  { nhom: 'Cân / khối / diện tích', ds: [
+    ['Kg', 'Kg'],
+    ['Ton', 'Tấn'],
+    ['CBM', 'CBM (m³)'],
+    ['M2', 'm² (diện tích kho)'],
+  ]},
+  { nhom: 'Theo lần / thời gian', ds: [
+    ['Chuyen', 'Chuyến'],
+    ['Ngay', 'Ngày'],
+    ['Lan', 'Lần'],
+  ]},
+]
+
+
 // Theme colors from 5P Vietnam logo
 const theme = {
   primary: '#2563EB',
@@ -1382,52 +1424,20 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                             <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Số kiện</label>
                             <div style={{ display: 'flex', gap: '4px' }}>
                               <input type="text" value={svc.package_quantity || ''} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, package_quantity: e.target.value } : s))} placeholder="38" style={{ width: '60px', padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px' }} />
-                              <select value={svc.package_unit || 'Package (Kiện, gói)'} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, package_unit: e.target.value } : s))} style={{ flex: 1, padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px', background: 'var(--bg-primary)' }}>
-                                <optgroup label="Phổ biến">
-                                  <option value="Carton (Thùng carton)">Carton (Thùng carton)</option>
-                                  <option value="Pallet & Package">Pallet & Package</option>
-                                  <option value="Box (Hộp)">Box (Hộp)</option>
-                                  <option value="Package (Kiện, gói)">Package (Kiện, gói)</option>
-                                  <option value="Case (Thùng)">Case (Thùng)</option>
-                                  <option value="Bundle (Gói)">Bundle (Gói)</option>
-                                  <option value="Roll(Cuộn)">Roll (Cuộn)</option>
-                                  <option value="Container">Container</option>
-                                  <option value="Piece">Piece</option>
-                                </optgroup>
-                                <optgroup label="Tất cả">
-                                  <option value="Bag (Túi)">Bag (Túi)</option>
-                                  <option value="Bale,compressed (Gói dạng nén)">Bale, compressed (Gói dạng nén)</option>
-                                  <option value="Bale,non-compressed (Gói không nén)">Bale, non-compressed (Gói không nén)</option>
-                                  <option value="Bar (Thanh)">Bar (Thanh)</option>
-                                  <option value="Barrel (Thùng)">Barrel (Thùng)</option>
-                                  <option value="Basket (Giỏ)">Basket (Giỏ)</option>
-                                  <option value="Cage (Lồng)">Cage (Lồng)</option>
-                                  <option value="Can, cylindrical (Hộp hình trụ)">Can, cylindrical (Hộp hình trụ)</option>
-                                  <option value="Can, rectangular (Thùng, hình hộp chữ nhật)">Can, rectangular (Thùng HCN)</option>
-                                  <option value="Carboy, non-protected (Chai, không được bảo vệ)">Carboy, non-protected</option>
-                                  <option value="Carboy, protected (Chai đựng axit)">Carboy, protected</option>
-                                  <option value="Cask (Thùng tô nô)">Cask (Thùng tô nô)</option>
-                                  <option value="Coil (Cuốn)">Coil (Cuốn)</option>
-                                  <option value="Crate (Giỏ)">Crate (Giỏ)</option>
-                                  <option value="Cylinder (Xylanh)">Cylinder (Xylanh)</option>
-                                  <option value="Drum (Thùng)">Drum (Thùng)</option>
-                                  <option value="Keg (Thùng đựng cá mòi muối)">Keg</option>
-                                  <option value="Log (Khúc gỗ)">Log (Khúc gỗ)</option>
-                                  <option value="Logs, in bundle/bunch/truss">Logs, in bundle/bunch/truss</option>
-                                  <option value="MST">MST</option>
-                                  <option value="Mat (Thảm)">Mat (Thảm)</option>
-                                  <option value="Net (Cuộn)">Net (Cuộn)</option>
-                                  <option value="Packet (Gói)">Packet (Gói)</option>
-                                  <option value="Pail (Thùng đựng nước)">Pail (Thùng đựng nước)</option>
-                                  <option value="Parcel (Lô, bưu kiện, gói hàng)">Parcel (Bưu kiện)</option>
-                                  <option value="Pen (Lồng)">Pen (Lồng)</option>
-                                  <option value="Pipe (ống)">Pipe (Ống)</option>
-                                  <option value="Plate (Đĩa)">Plate (Đĩa)</option>
-                                  <option value="Tank (Thùng, két, bể chứa hình trụ)">Tank (Bể chứa)</option>
-                                  <option value="Tray (Khay)">Tray (Khay)</option>
-                                  <option value="Unpacked or unpackaged (Hàng rời, không đóng gói)">Unpacked (Hàng rời)</option>
-                                  <option value="Other (Loại khác)">Other (Loại khác)</option>
-                                </optgroup>
+                              <select value={svc.package_unit || ''} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, package_unit: e.target.value } : s))} style={{ flex: 1, padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px', background: 'var(--bg-primary)' }}>
+                                {/* Nếu đơn vị đang lưu KHÔNG có trong bảng chuẩn (dữ liệu cũ
+                                    kiểu '1 PALLET', 'PLT', 'PP'...) thì vẫn hiện NGUYÊN giá trị đó,
+                                    không tự nhảy sang lựa chọn khác — nhảy là hiển thị sai sự thật,
+                                    đúng lỗi Khánh bắt được ở job SI-2309-0001. */}
+                                {svc.package_unit && !DON_VI.some(g => g.ds.some(([ma]) => ma === svc.package_unit)) && (
+                                  <option value={svc.package_unit}>{svc.package_unit} (giá trị cũ)</option>
+                                )}
+                                {!svc.package_unit && <option value="">— chưa chọn —</option>}
+                                {DON_VI.map(g => (
+                                  <optgroup key={g.nhom} label={g.nhom}>
+                                    {g.ds.map(([ma, ten]) => <option key={ma} value={ma}>{ten}</option>)}
+                                  </optgroup>
+                                ))}
                               </select>
                             </div>
                           </div>
@@ -2767,6 +2777,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
 // ========================================
 function JobCreateForm({ onClose, onSuccess }) {
   const [customers, setCustomers] = useState([])
+
   // Nhóm dịch vụ → quyết định hiện ô nào. Hệ thống có 32 loại dịch vụ, mỗi nhóm
   // cần thông tin khác hẳn; một form phẳng không phục vụ nổi cả 32 loại.
   const nhomDichVu = (code) => {
@@ -2803,7 +2814,7 @@ function JobCreateForm({ onClose, onSuccess }) {
     vehicle_plate: '', driver_name: '', driver_phone: '', truck_capacity: ''
   })
   const [services, setServices] = useState([{
-    service_type: 'TRUCKING', cargo_type: '', package_quantity: '', package_unit: 'kien',
+    service_type: 'TRUCKING', cargo_type: '', package_quantity: '', package_unit: 'Package (Kiện, gói)',
     weight_kg: '', dimension_length_cm: '', dimension_width_cm: '', dimension_height_cm: '',
     invoice_numbers: '', cd_no: '', bl_awb_no: '', co_no: '',
     loai_hinh: '', customs_port: '',
@@ -2842,7 +2853,7 @@ function JobCreateForm({ onClose, onSuccess }) {
   // đọc services[0] nên đổi loại dịch vụ thứ 2 trở đi không ăn thua
   // (Khánh 23/09/2026: "các dịch vụ đều cố định trường thông tin, không tự thay đổi").
   const dichVuTrong = () => ({
-    service_type: 'TRUCKING', cargo_type: '', package_quantity: '', package_unit: 'kien',
+    service_type: 'TRUCKING', cargo_type: '', package_quantity: '', package_unit: 'Package (Kiện, gói)',
     weight_kg: '', dimension_length_cm: '', dimension_width_cm: '', dimension_height_cm: '',
     invoice_numbers: '', cd_no: '', bl_awb_no: '', co_no: '',
     loai_hinh: '', customs_port: '',
@@ -3049,24 +3060,11 @@ function JobCreateForm({ onClose, onSuccess }) {
                       {/* Mọi dịch vụ đều được chọn đơn vị: hàng biển và hàng bộ đều có thể
                           đi nguyên cont (FCL) hoặc ghép (LCL); lưu kho tính theo m² hoặc kg. */}
                       <select value={svc.package_unit} onChange={e => handleServiceChange(idx, 'package_unit', e.target.value)}>
-                        <option value="kien">Kiện</option>
-                        <option value="pallet">Pallet</option>
-                        <option value="thung">Thùng / carton</option>
-                        <option value="cuon">Cuộn</option>
-                        <option value="bao">Bao</option>
-                        <option value="chiec">Chiếc</option>
-                        <option value="kg">Kg</option>
-                        <option value="tan">Tấn</option>
-                        <option value="m3">m³ (khối)</option>
-                        <option value="m2">m² (diện tích kho)</option>
-                        <option value="cbm">CBM</option>
-                        <option value="cont20">Cont 20'</option>
-                        <option value="cont40">Cont 40'</option>
-                        <option value="cont40hc">Cont 40'HC</option>
-                        <option value="lcl">LCL (hàng ghép)</option>
-                        <option value="chuyen">Chuyến</option>
-                        <option value="ngay">Ngày</option>
-                        <option value="lan">Lần</option>
+                        {DON_VI.map(g => (
+                          <optgroup key={g.nhom} label={g.nhom}>
+                            {g.ds.map(([ma, ten]) => <option key={ma} value={ma}>{ten}</option>)}
+                          </optgroup>
+                        ))}
                       </select>
                     </div>
                     <div className="form-group">
