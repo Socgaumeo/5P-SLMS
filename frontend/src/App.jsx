@@ -266,7 +266,11 @@ function QuotationSelector({ type, rates, standardRates = [], selectedRateId, se
         </div>
       )}
 
-      {manualMode ? (
+      {/* Dòng nhập tay "Đơn giá | Đơn vị | SL | OK | Hủy" đã BỎ — Khánh 23/09/2026:
+          "dòng đơn giá, đơn vị ở ngay đầu bỏ đi vì không dùng đến".
+          Dòng chi phí/doanh thu bên dưới đã nhập được đủ: tên · nhà thầu · số lượng ·
+          đơn giá · đơn vị · thành tiền. Giữ lại code phòng khi cần bật lại. */}
+      {false && manualMode ? (
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
           <input
             type="number"
@@ -2160,6 +2164,26 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                             disabled={saving}
                           />
 
+                          {/* Hàng tiêu đề — trước đây các ô không có nhãn nên nhìn vào
+                              không biết ô nào là số lượng, ô nào là đơn giá
+                              (Khánh 23/09/2026: "cần thêm chú thích đầy đủ cho việc add giá,
+                              giờ còn thiếu Số Lượng và Đơn giá"). */}
+                          {(svc.extra_costs || []).length > 0 && (
+                            <div style={{
+                              display: 'grid',
+                              gridTemplateColumns: '1fr 80px 50px 80px 60px 80px 30px',
+                              gap: '4px', padding: '0 6px 2px', fontSize: '10px',
+                              color: 'var(--text-secondary)', fontWeight: 600
+                            }}>
+                              <span>Tên chi phí</span>
+                              <span>Nhà thầu</span>
+                              <span>Số lượng</span>
+                              <span>Đơn giá</span>
+                              <span>Đơn vị</span>
+                              <span style={{ textAlign: 'right' }}>Thành tiền</span>
+                              <span></span>
+                            </div>
+                          )}
                           {/* Extra Costs - with qty, unit_price, unit, vendor */}
                           {(svc.extra_costs || []).map((cost, idx) => (
                             <div key={`cost-${idx}`} style={{
@@ -2293,6 +2317,23 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                           />
 
                           {/* Extra Revenues - with qty, unit_price, unit */}
+                          {/* Hàng tiêu đề cho doanh thu — cùng lý do với chi phí:
+                              không có nhãn thì không biết ô nào là số lượng, ô nào là đơn giá. */}
+                          {(svc.extra_revenues || []).length > 0 && (
+                            <div style={{
+                              display: 'grid',
+                              gridTemplateColumns: '1fr 60px 90px 70px 90px 30px',
+                              gap: '4px', padding: '0 6px 2px', fontSize: '10px',
+                              color: 'var(--text-secondary)', fontWeight: 600
+                            }}>
+                              <span>Tên khoản thu</span>
+                              <span>Số lượng</span>
+                              <span>Đơn giá</span>
+                              <span>Đơn vị</span>
+                              <span style={{ textAlign: 'right' }}>Thành tiền</span>
+                              <span></span>
+                            </div>
+                          )}
                           {(svc.extra_revenues || []).map((rev, idx) => (
                             <div key={`rev-${idx}`} style={{
                               display: 'grid',
