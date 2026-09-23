@@ -116,8 +116,18 @@ def validate_loai_hinh_for_service(
         return None
 
     norm = normalize_loai_hinh(loai_hinh)
+
+    # ĐỂ TRỐNG = CHẤP NHẬN (Khánh chốt 23/09/2026: "dịch vụ tờ khai không nhất thiết
+    # phải điền loại hình", "gỡ ràng buộc về loại hình nhé").
+    # Lý do thực tế: lúc tạo job thường chưa khai hải quan nên chưa biết loại hình —
+    # bắt điền ngay là ép nhân viên đoán, mà đoán sai loại hình còn tai hại hơn để trống
+    # (loại hình là bảng tra cứu cố định của Tổng cục Hải quan, không suy luận được).
+    # Số loại hình sẽ được bổ sung sau, khi có tờ khai thật.
     if not norm:
-        return build_missing_loai_hinh_error(None)
+        return None
+
+    # Nhưng ĐÃ ĐIỀN thì phải điền ĐÚNG — mã sai vẫn chặn, vì mã sai nguy hiểm hơn ô trống:
+    # người sau đọc tưởng là số thật, dùng thẳng vào chứng từ.
     if not is_valid_loai_hinh(norm):
         return build_missing_loai_hinh_error(norm)
     return None

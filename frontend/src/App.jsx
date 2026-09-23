@@ -12,6 +12,70 @@ import DocumentManagementPage from './components/documents/document-management-p
 import DebitBatchExportWizardPage from './components/debit/debit-batch-export-wizard-page'
 import CongNoPage from './components/congno/CongNoPage'
 
+// ─── MỘT NGUỒN DUY NHẤT cho đơn vị tính ───────────────────────────────
+// Sự cố 23/09/2026 (Khánh phát hiện): job SI-2309-0001 tạo là "1 cont40" nhưng
+// mở màn hình sửa lại hiện "1 thùng". Nguyên nhân: form TẠO và form SỬA dùng
+// HAI BỘ MÃ KHÁC NHAU — form tạo lưu 'cont40', form sửa không có mã đó trong
+// danh sách nên nhảy về lựa chọn khác. Dữ liệu vẫn đúng, chỉ hiển thị sai.
+// Từ nay CẢ HAI dùng chung bảng này. Thêm đơn vị mới thì thêm Ở ĐÂY, một chỗ.
+//
+// Lưu ý dữ liệu cũ đang rất bẩn: cùng "pallet" có 'pallet', '1 Pallet', '1 PALLET',
+// 'PL', 'PLT', 'PP'... thậm chí lẫn cả số lượng ('3 box') và loại hàng ('PCB; FPC').
+const DON_VI = [
+  { nhom: 'Đóng gói', ds: [
+    ['PK',  'Kiện'],
+    ['PX',  'Pallet'],
+    ['CT',  'Thùng carton'],
+    ['CS',  'Thùng gỗ / case'],
+    ['BX',  'Hộp'],
+    ['BG',  'Bao / túi'],
+    ['RO',  'Cuộn'],
+    ['BE',  'Bó'],
+    ['DR',  'Phuy'],
+  ]},
+  { nhom: 'Đếm', ds: [
+    ['C62', 'Chiếc'],
+    ['SET', 'Bộ'],
+  ]},
+  { nhom: 'Container', ds: [
+    ['20GP', "Cont 20'"],
+    ['40GP', "Cont 40'"],
+    ['40HC', "Cont 40'HC"],
+    ['45HC', "Cont 45'HC"],
+    ['20RF', "Cont lạnh 20' (Reefer)"],
+    ['40RF', "Cont lạnh 40' (Reefer)"],
+    ['20FR', "Cont Flat Rack 20'"],
+    ['40FR', "Cont Flat Rack 40'"],
+    ['LCL',  'Hàng ghép (LCL)'],
+  ]},
+  { nhom: 'Cân đo', ds: [
+    ['KGM', 'Kg'],
+    ['TNE', 'Tấn'],
+    ['MTQ', 'm³ (CBM)'],
+    ['MTK', 'm² (diện tích kho)'],
+  ]},
+  { nhom: 'Tính cước theo lần / thời gian', ds: [
+    ['E48', 'Chuyến'],
+    ['LAN', 'Lần'],
+    ['CA',  'Ca'],
+    ['HUR', 'Giờ'],
+    ['DAY', 'Ngày'],
+    ['DCL', 'Tờ khai'],
+    ['LO',  'Lô / bill'],
+    ['PSN', 'Người'],
+  ]},
+]
+
+// Nhóm dịch vụ → quyết định hiện ô nào. Hệ thống có 32 loại dịch vụ, mỗi nhóm
+// cần thông tin khác hẳn; một form phẳng không phục vụ nổi cả 32 loại.
+const nhomDichVu = (code) => {
+  const c = String(code || '')
+  if (c.startsWith('CUS_')) return 'HAI_QUAN'
+  if (c.startsWith('SEA_') || c.startsWith('AIR_') || c.startsWith('BORDER_')) return 'QUOC_TE'
+  if (c.startsWith('TRUCK') || c.startsWith('LIFT_')) return 'VAN_TAI'
+  return 'KHAC'
+}
+
 // Theme colors from 5P Vietnam logo
 const theme = {
   primary: '#2563EB',
@@ -101,7 +165,7 @@ const removeDiacritics = (str) => str?.normalize('NFD').replace(/[\u0300-\u036f]
 function QuotationSelector({ type, rates, standardRates = [], selectedRateId, selectedPrice, quantity = 1, onQuantityChange, onSelect, disabled, vendorId }) {
   const [manualMode, setManualMode] = useState(false)
   const [manualUnitPrice, setManualUnitPrice] = useState('')
-  const [manualUnit, setManualUnit] = useState('TRIP')
+  const [manualUnit, setManualUnit] = useState('E48')
   const [costSource, setCostSource] = useState('vendor') // 'vendor' or 'standard'
   const [rateSearch, setRateSearch] = useState('')
 
@@ -109,7 +173,13 @@ function QuotationSelector({ type, rates, standardRates = [], selectedRateId, se
   const icon = type === 'buying' ? '📥' : '📤'
   const color = type === 'buying' ? '#EF4444' : '#10B981'
 
-  const UNITS = ['TRIP', 'CONT', 'KG', 'CBM', 'PALLET', 'SHIPMENT', 'SET', 'UNIT', 'TỜ KHAI', 'BỘ']
+  // Bỏ danh sách đơn vị riêng — dùng chung bảng chuẩn DON_VI.
+  // Trước đây khung báo giá có HAI bộ mã khác hẳn nhau trong cùng một màn hình
+  // (TRIP/CONT/SHIPMENT... và ca/chuyến/lần...), lại khác cả bảng đóng gói
+  // → cùng một chuyến xe mỗi chỗ ghi một kiểu, không cộng được khi làm bảng kê.
+  // Khánh 23/09/2026: "phần đơn vị nó phải sử dụng hệ đơn vị quy chuẩn vừa sửa,
+  // áp dụng cho cả doanh thu và chi phí".
+  const UNITS = DON_VI.flatMap(g => g.ds.map(([ma]) => ma))
 
   const formatPriceDisplay = (price) => {
     if (!price) return '0 VND'
@@ -196,7 +266,11 @@ function QuotationSelector({ type, rates, standardRates = [], selectedRateId, se
         </div>
       )}
 
-      {manualMode ? (
+      {/* Dòng nhập tay "Đơn giá | Đơn vị | SL | OK | Hủy" đã BỎ — Khánh 23/09/2026:
+          "dòng đơn giá, đơn vị ở ngay đầu bỏ đi vì không dùng đến".
+          Dòng chi phí/doanh thu bên dưới đã nhập được đủ: tên · nhà thầu · số lượng ·
+          đơn giá · đơn vị · thành tiền. Giữ lại code phòng khi cần bật lại. */}
+      {false && manualMode ? (
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
           <input
             type="number"
@@ -212,7 +286,11 @@ function QuotationSelector({ type, rates, standardRates = [], selectedRateId, se
             disabled={disabled}
             style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--border)', fontSize: '12px', width: '80px' }}
           >
-            {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+            {DON_VI.map(g => (
+              <optgroup key={g.nhom} label={g.nhom}>
+                {g.ds.map(([ma, ten]) => <option key={ma} value={ma}>{ten}</option>)}
+              </optgroup>
+            ))}
           </select>
           <QuantityInput />
           {manualUnitPrice && quantity > 0 && (
@@ -307,7 +385,7 @@ function QuotationSelector({ type, rates, standardRates = [], selectedRateId, se
                           : r.service_type_code || r.vehicle_type || ''
                         return (
                           <option key={r.rate_id} value={r.rate_id}>
-                            {info} | {formatPriceDisplay(r.price)}/{r.unit || 'TRIP'}
+                            {info} | {formatPriceDisplay(r.price)}/{r.unit || 'E48'}
                           </option>
                         )
                       })}
@@ -317,21 +395,14 @@ function QuotationSelector({ type, rates, standardRates = [], selectedRateId, se
               </select>
             )}
           </div>
-          {/* Row 2: Quantity, pencil button, price */}
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <QuantityInput />
-            <button
-              onClick={() => setManualMode(true)}
-              disabled={disabled}
-              title="Nhập tay"
-              style={{ padding: '6px 10px', background: 'var(--border)', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-            >
-              ✏️
-            </button>
-            {selectedPrice > 0 && (
+          {/* Dòng "SL: 1 ✏️" đã bỏ — Khánh 23/09/2026. Lần trước tôi mới tắt nửa dưới
+              (đơn giá + đơn vị + OK/Hủy) mà quên nửa trên này nên Khánh báo "vẫn chưa
+              thấy có hiệu lực". Số lượng và đơn giá nhập ngay trên từng dòng chi phí. */}
+          {selectedPrice > 0 && (
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
               <span style={{ fontSize: '12px', fontWeight: 'bold', color }}>{formatPriceDisplay(selectedPrice)}</span>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -342,10 +413,27 @@ function QuotationSelector({ type, rates, standardRates = [], selectedRateId, se
 // JOB DETAIL MODAL (with Edit Mode)
 // ========================================
 function JobDetailModal({ job, onClose, onUpdate }) {
+  // Danh sách trường được phép thêm — lấy TỪ MÁY CHỦ, dùng chung với form tạo job
+  // (Khánh 23/09/2026: "khi edit job cũng cho phép thêm trường y hệt như khi tạo job").
+  const [truongCoSanSua, setTruongCoSanSua] = useState([])
+  const [danhSachVendor, setDanhSachVendor] = useState([])
+  useEffect(() => {
+    authFetch(`${API_URL}/api/jobs/truong-them-duoc`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => d?.truong && setTruongCoSanSua(d.truong))
+      .catch(() => {})
+    authFetch(`${API_URL}/api/vendors`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => setDanhSachVendor(d?.vendors || d?.data || (Array.isArray(d) ? d : [])))
+      .catch(() => {})
+  }, [])
   const [services, setServices] = useState([])
   const [jobCosts, setJobCosts] = useState([])
   const [loading, setLoading] = useState(true)
   const [editMode, setEditMode] = useState(false)
+  // Mở/thu gọn RIÊNG từng dịch vụ (Khánh 23/09/2026: "muốn có nút sửa ở từng dịch vụ con,
+  // vì có những dịch vụ sẽ không cần sửa"). Mặc định mở, bấm nút thì thu gọn.
+  const [dvThuGon, setDvThuGon] = useState({})
   const [vendors, setVendors] = useState([])
   const [employees, setEmployees] = useState([])
   const [customers, setCustomers] = useState([])
@@ -533,6 +621,22 @@ function JobDetailModal({ job, onClose, onUpdate }) {
             }
           }
           if (svc.license_plate) return svc
+
+          // Biển số do form tạo job ghi vào service_details.vehicle_plate — KHOÁ CHUẨN.
+          // Không đọc chỗ này thì job vừa tạo xong mở ra là thấy "Chưa gán", dù dữ liệu
+          // vẫn nằm nguyên trong hệ thống (Khánh báo 23/09/2026, job TRK-2309-0003).
+          {
+            const sd = svc.service_details || {}
+            if (sd.vehicle_plate) {
+              return {
+                ...svc,
+                license_plate: sd.vehicle_plate,
+                driver_name: sd.driver_name || svc.db_driver_name,
+                driver_phone: sd.driver_phone || svc.db_driver_phone,
+                vehicles: [{ license_plate: sd.vehicle_plate, driver_name: sd.driver_name, driver_phone: sd.driver_phone }],
+              }
+            }
+          }
 
           // Otherwise, try to parse vendor_text_input
           if (svc.vendor_text_input) {
@@ -1212,6 +1316,21 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                   <div key={idx} className="service-card">
                     <div className="service-card-header">
                       <span className="service-type-badge">{SERVICE_TYPE_LABELS[svc.service_type_code] || svc.service_type_code}</span>
+                      {editMode && (
+                        <button
+                          type="button"
+                          onClick={() => setDvThuGon(prev => ({ ...prev, [svc.svc_id]: !prev[svc.svc_id] }))}
+                          title={dvThuGon[svc.svc_id] ? 'Mở dịch vụ này ra sửa' : 'Thu gọn dịch vụ này'}
+                          style={{
+                            padding: '3px 9px', marginRight: '6px', cursor: 'pointer', fontSize: '11px',
+                            borderRadius: '4px', border: '1px solid var(--border)',
+                            background: dvThuGon[svc.svc_id] ? 'var(--bg-card)' : 'var(--primary)',
+                            color: dvThuGon[svc.svc_id] ? 'var(--text)' : '#fff',
+                          }}
+                        >
+                          {dvThuGon[svc.svc_id] ? '✏️ Sửa' : '🔽 Thu gọn'}
+                        </button>
+                      )}
                       {editMode ? (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                           <select
@@ -1251,6 +1370,8 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                         <StatusBadge status={svc.status_code || 'PENDING'} />
                       )}
                     </div>
+                    {/* Thu gọn thì ẩn phần thân — chỉ ẩn khỏi màn hình, KHÔNG đụng dữ liệu */}
+                    {!dvThuGon[svc.svc_id] && (<>
 
                     {/* Assignment info - Editable (auto-saves on selection) */}
                     <div className="service-assignment">
@@ -1375,59 +1496,27 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                         /* Editable service details */
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', width: '100%' }}>
                           <div>
-                            <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Hàng</label>
+                            <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Loại hàng</label>
                             <input type="text" value={svc.cargo_type || ''} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, cargo_type: e.target.value } : s))} placeholder="VD: loc khi, linh kien..." style={{ width: '100%', padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px' }} />
                           </div>
                           <div>
-                            <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Số kiện</label>
+                            <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Số lượng</label>
                             <div style={{ display: 'flex', gap: '4px' }}>
                               <input type="text" value={svc.package_quantity || ''} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, package_quantity: e.target.value } : s))} placeholder="38" style={{ width: '60px', padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px' }} />
-                              <select value={svc.package_unit || 'Package (Kiện, gói)'} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, package_unit: e.target.value } : s))} style={{ flex: 1, padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px', background: 'var(--bg-primary)' }}>
-                                <optgroup label="Phổ biến">
-                                  <option value="Carton (Thùng carton)">Carton (Thùng carton)</option>
-                                  <option value="Pallet & Package">Pallet & Package</option>
-                                  <option value="Box (Hộp)">Box (Hộp)</option>
-                                  <option value="Package (Kiện, gói)">Package (Kiện, gói)</option>
-                                  <option value="Case (Thùng)">Case (Thùng)</option>
-                                  <option value="Bundle (Gói)">Bundle (Gói)</option>
-                                  <option value="Roll(Cuộn)">Roll (Cuộn)</option>
-                                  <option value="Container">Container</option>
-                                  <option value="Piece">Piece</option>
-                                </optgroup>
-                                <optgroup label="Tất cả">
-                                  <option value="Bag (Túi)">Bag (Túi)</option>
-                                  <option value="Bale,compressed (Gói dạng nén)">Bale, compressed (Gói dạng nén)</option>
-                                  <option value="Bale,non-compressed (Gói không nén)">Bale, non-compressed (Gói không nén)</option>
-                                  <option value="Bar (Thanh)">Bar (Thanh)</option>
-                                  <option value="Barrel (Thùng)">Barrel (Thùng)</option>
-                                  <option value="Basket (Giỏ)">Basket (Giỏ)</option>
-                                  <option value="Cage (Lồng)">Cage (Lồng)</option>
-                                  <option value="Can, cylindrical (Hộp hình trụ)">Can, cylindrical (Hộp hình trụ)</option>
-                                  <option value="Can, rectangular (Thùng, hình hộp chữ nhật)">Can, rectangular (Thùng HCN)</option>
-                                  <option value="Carboy, non-protected (Chai, không được bảo vệ)">Carboy, non-protected</option>
-                                  <option value="Carboy, protected (Chai đựng axit)">Carboy, protected</option>
-                                  <option value="Cask (Thùng tô nô)">Cask (Thùng tô nô)</option>
-                                  <option value="Coil (Cuốn)">Coil (Cuốn)</option>
-                                  <option value="Crate (Giỏ)">Crate (Giỏ)</option>
-                                  <option value="Cylinder (Xylanh)">Cylinder (Xylanh)</option>
-                                  <option value="Drum (Thùng)">Drum (Thùng)</option>
-                                  <option value="Keg (Thùng đựng cá mòi muối)">Keg</option>
-                                  <option value="Log (Khúc gỗ)">Log (Khúc gỗ)</option>
-                                  <option value="Logs, in bundle/bunch/truss">Logs, in bundle/bunch/truss</option>
-                                  <option value="MST">MST</option>
-                                  <option value="Mat (Thảm)">Mat (Thảm)</option>
-                                  <option value="Net (Cuộn)">Net (Cuộn)</option>
-                                  <option value="Packet (Gói)">Packet (Gói)</option>
-                                  <option value="Pail (Thùng đựng nước)">Pail (Thùng đựng nước)</option>
-                                  <option value="Parcel (Lô, bưu kiện, gói hàng)">Parcel (Bưu kiện)</option>
-                                  <option value="Pen (Lồng)">Pen (Lồng)</option>
-                                  <option value="Pipe (ống)">Pipe (Ống)</option>
-                                  <option value="Plate (Đĩa)">Plate (Đĩa)</option>
-                                  <option value="Tank (Thùng, két, bể chứa hình trụ)">Tank (Bể chứa)</option>
-                                  <option value="Tray (Khay)">Tray (Khay)</option>
-                                  <option value="Unpacked or unpackaged (Hàng rời, không đóng gói)">Unpacked (Hàng rời)</option>
-                                  <option value="Other (Loại khác)">Other (Loại khác)</option>
-                                </optgroup>
+                              <select value={svc.package_unit || ''} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, package_unit: e.target.value } : s))} style={{ flex: 1, padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px', background: 'var(--bg-primary)' }}>
+                                {/* Nếu đơn vị đang lưu KHÔNG có trong bảng chuẩn (dữ liệu cũ
+                                    kiểu '1 PALLET', 'PLT', 'PP'...) thì vẫn hiện NGUYÊN giá trị đó,
+                                    không tự nhảy sang lựa chọn khác — nhảy là hiển thị sai sự thật,
+                                    đúng lỗi Khánh bắt được ở job SI-2309-0001. */}
+                                {svc.package_unit && !DON_VI.some(g => g.ds.some(([ma]) => ma === svc.package_unit)) && (
+                                  <option value={svc.package_unit}>{svc.package_unit} (giá trị cũ)</option>
+                                )}
+                                {!svc.package_unit && <option value="">— chưa chọn —</option>}
+                                {DON_VI.map(g => (
+                                  <optgroup key={g.nhom} label={g.nhom}>
+                                    {g.ds.map(([ma, ten]) => <option key={ma} value={ma}>{ten}</option>)}
+                                  </optgroup>
+                                ))}
                               </select>
                             </div>
                           </div>
@@ -1439,7 +1528,11 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                             <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{(svc.service_type_code || '').startsWith('AIR_') ? 'AOD' : 'Điểm đến'}</label>
                             <input type="text" value={svc.dest_address || ''} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, dest_address: e.target.value } : s))} placeholder={(svc.service_type_code || '').startsWith('AIR_') ? 'Airport of Discharge' : 'VD: KCN Song Cong'} style={{ width: '100%', padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px' }} />
                           </div>
-                          {(svc.service_type_code || '').startsWith('AIR_') && (
+                          {/* Trước đây khối này CHỈ hiện cho dịch vụ hàng không, nên job
+                              hải quan / đường biển / vận tải bộ không có ô nhập chứng từ.
+                              Khánh 23/09/2026: "phần sửa thông tin job cũng cần đồng bộ với
+                              phần nhập job". Nay dùng CHUNG hàm nhomDichVu() với form tạo. */}
+                          {nhomDichVu(svc.service_type_code) !== 'KHAC' && (
                             <>
                               <div>
                                 <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Route</label>
@@ -1456,6 +1549,18 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                               <div>
                                 <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Quotation No.</label>
                                 <input type="text" value={svc.quotation_no || ''} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, quotation_no: e.target.value } : s))} placeholder="QT-2026-001" style={{ width: '100%', padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px' }} />
+                              </div>
+                              <div>
+                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Loại hình tờ khai</label>
+                                <input type="text" value={svc.loai_hinh || ''} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, loai_hinh: e.target.value } : s))} placeholder="VD: E11, B13, A12" style={{ width: '100%', padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px' }} />
+                              </div>
+                              <div>
+                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Chi cục hải quan</label>
+                                <input type="text" value={svc.customs_port || ''} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, customs_port: e.target.value } : s))} placeholder="VD: 18B1" style={{ width: '100%', padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px' }} />
+                              </div>
+                              <div>
+                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Loại xe</label>
+                                <input type="text" value={svc.truck_capacity || ''} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, truck_capacity: e.target.value } : s))} placeholder="VD: 5T, cont 40HC" style={{ width: '100%', padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px' }} />
                               </div>
                               <div>
                                 <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Tờ khai (CD No.)</label>
@@ -1600,6 +1705,41 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                               }} style={{ padding: '4px 8px', background: '#FEE2E2', color: '#DC2626', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '11px' }}>✕</button>
                             </div>
                           ))}
+                          {/* Thêm trường từ DANH SÁCH CỘT CÓ SẴN — giống hệt form tạo job.
+                              Khác với "Thêm thông tin" bên dưới (ghi chú tự do, không vào cột riêng). */}
+                          {Object.entries(svc.truong_them_sua || {}).map(([cot, gt]) => {
+                            const tt = truongCoSanSua.find(x => x.cot === cot)
+                            return (
+                              <div key={cot}>
+                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{tt?.nhan || cot}</label>
+                                <div style={{ display: 'flex', gap: '6px' }}>
+                                  <input
+                                    type={tt?.kieu === 'number' ? 'number' : tt?.kieu === 'date' ? 'date' : 'text'}
+                                    value={gt || ''}
+                                    onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id
+                                      ? { ...s, truong_them_sua: { ...(s.truong_them_sua || {}), [cot]: e.target.value } } : s))}
+                                    style={{ flex: 1, padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px' }} />
+                                  <button type="button" onClick={() => setServices(prev => prev.map(s => {
+                                    if (s.svc_id !== svc.svc_id) return s
+                                    const con = { ...(s.truong_them_sua || {}) }; delete con[cot]
+                                    return { ...s, truong_them_sua: con }
+                                  }))} style={{ padding: '4px 8px', background: '#FEE2E2', color: '#DC2626', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '11px' }}>✕</button>
+                                </div>
+                              </div>
+                            )
+                          })}
+                          <div style={{ gridColumn: '1 / -1' }}>
+                            <select value="" onChange={e => {
+                              if (!e.target.value) return
+                              setServices(prev => prev.map(s => s.svc_id === svc.svc_id
+                                ? { ...s, truong_them_sua: { ...(s.truong_them_sua || {}), [e.target.value]: '' } } : s))
+                            }} style={{ padding: '5px 8px', borderRadius: '4px', border: '1px dashed var(--primary)', fontSize: '11px', background: 'rgba(59,130,246,0.06)', color: 'var(--primary)' }}>
+                              <option value="">+ Thêm trường ({truongCoSanSua.length} trường có sẵn)</option>
+                              {truongCoSanSua
+                                .filter(x => !(svc.truong_them_sua || {})[x.cot] && (svc[x.cot] === null || svc[x.cot] === undefined || svc[x.cot] === ''))
+                                .map(x => <option key={x.cot} value={x.cot}>{x.nhan}</option>)}
+                            </select>
+                          </div>
                           <div style={{ gridColumn: '1 / -1', display: 'flex', gap: '8px', alignItems: 'center' }}>
                             <button type="button" onClick={() => {
                               const updated = [...(svc.extra_info || []), { label: '', value: '' }]
@@ -1630,6 +1770,10 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                   bl_awb_no: svc.bl_awb_no || null,
                                   co_no: svc.co_no || null,
                                   customs_status: svc.customs_status || null,
+                                  loai_hinh: svc.loai_hinh || null,
+                                  customs_port: svc.customs_port || null,
+                                  truck_capacity: svc.truck_capacity || null,
+                                  ...(svc.truong_them_sua || {}),
                                 }
                                 const res = await authFetch(`${API_URL}/api/jobs/services/${svc.svc_id}/details`, {
                                   method: 'PUT',
@@ -2033,6 +2177,26 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                             disabled={saving}
                           />
 
+                          {/* Hàng tiêu đề — trước đây các ô không có nhãn nên nhìn vào
+                              không biết ô nào là số lượng, ô nào là đơn giá
+                              (Khánh 23/09/2026: "cần thêm chú thích đầy đủ cho việc add giá,
+                              giờ còn thiếu Số Lượng và Đơn giá"). */}
+                          {(svc.extra_costs || []).length > 0 && (
+                            <div style={{
+                              display: 'grid',
+                              gridTemplateColumns: '1fr 80px 50px 80px 60px 80px 30px',
+                              gap: '4px', padding: '0 6px 2px', fontSize: '10px',
+                              color: 'var(--text-secondary)', fontWeight: 600
+                            }}>
+                              <span>Tên chi phí</span>
+                              <span>Nhà thầu</span>
+                              <span>Số lượng</span>
+                              <span>Đơn giá</span>
+                              <span>Đơn vị</span>
+                              <span style={{ textAlign: 'right' }}>Thành tiền</span>
+                              <span></span>
+                            </div>
+                          )}
                           {/* Extra Costs - with qty, unit_price, unit, vendor */}
                           {(svc.extra_costs || []).map((cost, idx) => (
                             <div key={`cost-${idx}`} style={{
@@ -2056,18 +2220,27 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                 placeholder="Tên chi phí"
                                 style={{ padding: '4px 6px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '11px' }}
                               />
-                              <input
-                                type="text"
-                                value={cost.vendor || ''}
+                              <select
+                                value={cost.vendor_id || ''}
                                 onChange={e => {
+                                  const v = danhSachVendor.find(x => String(x.vendor_id) === e.target.value)
                                   const newCosts = [...(svc.extra_costs || [])]
-                                  newCosts[idx] = { ...newCosts[idx], vendor: e.target.value }
+                                  newCosts[idx] = { ...newCosts[idx], vendor_id: e.target.value || null, vendor: v?.short_name || v?.vendor_name || '' }
                                   setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, extra_costs: newCosts } : s))
                                 }}
-                                placeholder="Vendor"
-                                title="Nhà cung cấp"
-                                style={{ padding: '4px 4px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '11px' }}
-                              />
+                                title="Chọn nhà thầu từ danh sách hệ thống"
+                                style={{ padding: '4px 6px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '11px', maxWidth: '150px' }}
+                              >
+                                {/* Gõ tay tên nhà thầu thì mỗi người viết một kiểu ("Tam Bảo",
+                                    "tam bao", "TAM BAO 2"), sau không gom được công nợ.
+                                    Khánh 23/09/2026: "phần vendor ở đây cũng phải cho chọn từ DB
+                                    để tránh lộn xộn". */}
+                                <option value="">— chọn nhà thầu —</option>
+                                {cost.vendor && !cost.vendor_id && <option value="">{cost.vendor} (gõ tay cũ)</option>}
+                                {danhSachVendor.map(v => (
+                                  <option key={v.vendor_id} value={v.vendor_id}>{v.short_name || v.vendor_name}</option>
+                                ))}
+                              </select>
                               <input
                                 type="number"
                                 value={cost.qty ?? ''}
@@ -2106,16 +2279,11 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                 }}
                                 style={{ padding: '4px 2px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '11px' }}
                               >
-                                <option value="ca">ca</option>
-                                <option value="chuyến">chuyến</option>
-                                <option value="lần">lần</option>
-                                <option value="giờ">giờ</option>
-                                <option value="ngày">ngày</option>
-                                <option value="kg">kg</option>
-                                <option value="cbm">cbm</option>
-                                <option value="kiện">kiện</option>
-                                <option value="tờ khai">tờ khai</option>
-                                <option value="bill">bill</option>
+                                {DON_VI.map(g => (
+                                  <optgroup key={g.nhom} label={g.nhom}>
+                                    {g.ds.map(([ma, ten]) => <option key={ma} value={ma}>{ten}</option>)}
+                                  </optgroup>
+                                ))}
                               </select>
                               <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#EF4444', textAlign: 'right' }}>
                                 {formatPrice(cost.amount || 0)}
@@ -2162,6 +2330,23 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                           />
 
                           {/* Extra Revenues - with qty, unit_price, unit */}
+                          {/* Hàng tiêu đề cho doanh thu — cùng lý do với chi phí:
+                              không có nhãn thì không biết ô nào là số lượng, ô nào là đơn giá. */}
+                          {(svc.extra_revenues || []).length > 0 && (
+                            <div style={{
+                              display: 'grid',
+                              gridTemplateColumns: '1fr 60px 90px 70px 90px 30px',
+                              gap: '4px', padding: '0 6px 2px', fontSize: '10px',
+                              color: 'var(--text-secondary)', fontWeight: 600
+                            }}>
+                              <span>Tên khoản thu</span>
+                              <span>Số lượng</span>
+                              <span>Đơn giá</span>
+                              <span>Đơn vị</span>
+                              <span style={{ textAlign: 'right' }}>Thành tiền</span>
+                              <span></span>
+                            </div>
+                          )}
                           {(svc.extra_revenues || []).map((rev, idx) => (
                             <div key={`rev-${idx}`} style={{
                               display: 'grid',
@@ -2214,7 +2399,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                 style={{ padding: '4px 4px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '11px' }}
                               />
                               <select
-                                value={rev.unit || 'chuyến'}
+                                value={rev.unit || 'E48'}
                                 onChange={e => {
                                   const newRevs = [...(svc.extra_revenues || [])]
                                   newRevs[idx] = { ...newRevs[idx], unit: e.target.value }
@@ -2222,13 +2407,11 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                 }}
                                 style={{ padding: '4px 2px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '11px' }}
                               >
-                                <option value="chuyến">chuyến</option>
-                                <option value="ca">ca</option>
-                                <option value="lần">lần</option>
-                                <option value="giờ">giờ</option>
-                                <option value="ngày">ngày</option>
-                                <option value="kg">kg</option>
-                                <option value="cbm">cbm</option>
+                                {DON_VI.map(g => (
+                                  <optgroup key={g.nhom} label={g.nhom}>
+                                    {g.ds.map(([ma, ten]) => <option key={ma} value={ma}>{ten}</option>)}
+                                  </optgroup>
+                                ))}
                               </select>
                               <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#10B981', textAlign: 'right' }}>
                                 {formatPrice(rev.amount || 0)}
@@ -2244,7 +2427,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                           ))}
                           <button
                             onClick={() => {
-                              const newRevs = [...(svc.extra_revenues || []), { name: '', qty: 1, unit_price: 0, unit: 'chuyến', amount: 0 }]
+                              const newRevs = [...(svc.extra_revenues || []), { name: '', qty: 1, unit_price: 0, unit: 'E48', amount: 0 }]
                               setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, extra_revenues: newRevs } : s))
                             }}
                             style={{ marginBottom: '10px', padding: '4px 10px', background: 'rgba(16, 185, 129, 0.1)', color: '#10B981', border: '1px dashed #10B981', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}
@@ -2301,6 +2484,8 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                           </button>
                         </div>
                       )}
+                    </>
+                    )}
                   </div>
                 ))}
               </div>
@@ -2356,7 +2541,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                           }}
                         >
                           <optgroup label="🚚 Vận tải Đường bộ">
-                            <option value="TRUCKING_DOM">Vận tải nội địa</option>
+                            <option value="TRUCKING">Vận tải nội địa</option>
                             <option value="BORDER_IMP">Nhập khẩu đường bộ</option>
                             <option value="BORDER_EXP">Xuất khẩu đường bộ</option>
                           </optgroup>
@@ -2767,24 +2952,49 @@ function JobDetailModal({ job, onClose, onUpdate }) {
 // ========================================
 function JobCreateForm({ onClose, onSuccess }) {
   const [customers, setCustomers] = useState([])
+
+
+
   const [formData, setFormData] = useState({
     customer_id: '',
     booking_date: new Date().toISOString().split('T')[0],
     pickup_time: '',
-    service_type: 'TRUCKING_DOM',
+    service_type: 'TRUCKING',
     cargo_type: '',
     package_quantity: '',
-    package_unit: 'Package (Kiện, gói)',
+    package_unit: 'PK',
     weight_kg: '',
     pickup_address: '',
     delivery_address: '',
-    special_requirements: ''
+    special_requirements: '',
+    // Chứng từ — job không có số nào thì sau này không tra ra, không làm bảng kê được.
+    // Đo 23/09/2026: 21% dịch vụ (418/1962) trắng cả ba ô này vì form cũ không hỏi.
+    invoice_numbers: '', cd_no: '', bl_awb_no: '', co_no: '',
+    // Hải quan — hàng rào DB HIỆN ĐANG bắt buộc loai_hinh cho dịch vụ CUS_*:
+    //   "Job tờ khai bắt buộc phải có 'Loại hình' (mã loại hình hải quan)."
+    // (Đã KIỂM CHỨNG bằng cách tạo thử job CUS_EXPORT không có loại hình → bị chặn.)
+    // Khánh 23/09/2026 nói "không nhất thiết phải điền" → đang chờ chốt có gỡ ràng buộc
+    // này ở DB hay không. Chưa gỡ thì form vẫn phải nhập, nếu không sẽ lỗi lúc lưu.
+    loai_hinh: '', customs_port: '',
+    // Xe — phải vào đúng khoá vehicle_plate. Đo 23/09: 97% lô vận tải (1027/1056)
+    // không có biển số đúng chỗ → bảng kê KCIL tháng 3 phải làm lại 14 bản.
+    vehicle_plate: '', driver_name: '', driver_phone: '', truck_capacity: ''
   })
-  const [services, setServices] = useState([
-    { service_type: 'TRUCKING_DOM', cargo_type: '', weight_kg: '', dimension_length_cm: '', dimension_width_cm: '', dimension_height_cm: '' }
-  ])
+  const [services, setServices] = useState([{
+    service_type: 'TRUCKING', cargo_type: '', package_quantity: '', package_unit: 'PK',
+    weight_kg: '', dimension_length_cm: '', dimension_width_cm: '', dimension_height_cm: '',
+    invoice_numbers: '', cd_no: '', bl_awb_no: '', co_no: '',
+    loai_hinh: '', customs_port: '',
+    vehicle_plate: '', driver_name: '', driver_phone: '', truck_capacity: '',
+    pickup_address: '', delivery_address: ''
+  }])
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+  // Trường tự thêm — danh sách lấy TỪ MÁY CHỦ, không viết cứng trong web,
+  // để web và cơ sở dữ liệu không bao giờ lệch nhau
+  // (Khánh 23/09/2026: "chỉ được chọn từ danh sách cột có sẵn thôi").
+  const [truongCoSan, setTruongCoSan] = useState([])
+  const [truongThem, setTruongThem] = useState([])   // [{cot, nhan, kieu, gia_tri}]
 
   useEffect(() => {
     // Fetch customers
@@ -2800,6 +3010,10 @@ function JobCreateForm({ onClose, onSuccess }) {
       }
     }
     fetchCustomers()
+    authFetch(`${API_URL}/api/jobs/truong-them-duoc`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => d?.truong && setTruongCoSan(d.truong))
+      .catch(() => {})
   }, [])
 
   const handleInputChange = (e) => {
@@ -2811,9 +3025,18 @@ function JobCreateForm({ onClose, onSuccess }) {
     setServices(prev => prev.map((svc, i) => i === idx ? { ...svc, [field]: value } : svc))
   }
 
-  const addService = () => {
-    setServices(prev => [...prev, { service_type: 'TRUCKING_DOM', cargo_type: '', weight_kg: '', dimension_length_cm: '', dimension_width_cm: '', dimension_height_cm: '' }])
-  }
+  // Một dịch vụ mới = đủ ô của CHÍNH nó. Trước đây ô chứng từ nằm ở khối riêng
+  // đọc services[0] nên đổi loại dịch vụ thứ 2 trở đi không ăn thua
+  // (Khánh 23/09/2026: "các dịch vụ đều cố định trường thông tin, không tự thay đổi").
+  const dichVuTrong = () => ({
+    service_type: 'TRUCKING', cargo_type: '', package_quantity: '', package_unit: 'PK',
+    weight_kg: '', dimension_length_cm: '', dimension_width_cm: '', dimension_height_cm: '',
+    invoice_numbers: '', cd_no: '', bl_awb_no: '', co_no: '',
+    loai_hinh: '', customs_port: '',
+    vehicle_plate: '', driver_name: '', driver_phone: '', truck_capacity: '',
+    pickup_address: '', delivery_address: ''
+  })
+  const addService = () => { setServices(prev => [...prev, dichVuTrong()]) }
 
   const removeService = (idx) => {
     if (services.length > 1) {
@@ -2827,20 +3050,40 @@ function JobCreateForm({ onClose, onSuccess }) {
     setError('')
 
     try {
+      // Thông tin hàng giờ nằm ở TỪNG dịch vụ (Khánh 23/09/2026: "chỉ cần chọn khách,
+      // thông tin hàng điền thẳng vào dịch vụ"). Lấy dịch vụ đầu làm thông tin chính
+      // của job, các dịch vụ còn lại gửi kèm trong services.
+      const sv0 = services[0] || {}
       const payload = {
         entities: {
           customer_id: parseInt(formData.customer_id),
           booking_date: formData.booking_date,
           pickup_time: formData.pickup_time,
-          service_type: services[0]?.service_type,
+          service_type: sv0.service_type,
           services: services.map(s => s.service_type),
-          cargo_type: formData.cargo_type || services[0]?.cargo_type,
-          package_quantity: parseInt(formData.package_quantity) || null,
-          package_unit: formData.package_unit,
-          weight_kg: parseFloat(formData.weight_kg) || null,
+          cargo_type: sv0.cargo_type,
+          package_quantity: parseInt(sv0.package_quantity) || null,
+          package_unit: sv0.package_unit || 'kien',
+          weight_kg: parseFloat(sv0.weight_kg) || null,
           pickup_address: formData.pickup_address,
           delivery_address: formData.delivery_address,
-          special_requirements: formData.special_requirements
+          special_requirements: formData.special_requirements,
+          invoice_numbers: sv0.invoice_numbers || null,
+          cd_no: sv0.cd_no || null,
+          bl_awb_no: sv0.bl_awb_no || null,
+          co_no: sv0.co_no || null,
+          loai_hinh: sv0.loai_hinh || null,
+          customs_port: sv0.customs_port || null,
+          truck_capacity: sv0.truck_capacity || null,
+          truong_them: truongThem.reduce((acc, t) => {
+            if (t.cot && t.gia_tri !== '') acc[t.cot] = t.gia_tri
+            return acc
+          }, {}),
+          service_details: (sv0.vehicle_plate || sv0.driver_name) ? {
+            vehicle_plate: sv0.vehicle_plate || null,
+            driver_name: sv0.driver_name || null,
+            driver_phone: sv0.driver_phone || null
+          } : null
         },
         enriched_data: {
           customer_id: parseInt(formData.customer_id),
@@ -2906,75 +3149,6 @@ function JobCreateForm({ onClose, onSuccess }) {
               </div>
             </div>
 
-            {/* Cargo Info */}
-            <div className="form-section">
-              <h3>Thông tin hàng hóa</h3>
-              <div className="form-grid">
-                <div className="form-group">
-                  <label>Loại hàng</label>
-                  <input type="text" name="cargo_type" value={formData.cargo_type} onChange={handleInputChange} placeholder="VD: PCB, FPC, Electronics" />
-                </div>
-                <div className="form-group">
-                  <label>Số kiện</label>
-                  <input type="number" name="package_quantity" value={formData.package_quantity} onChange={handleInputChange} placeholder="VD: 10" />
-                </div>
-                <div className="form-group">
-                  <label>Đơn vị</label>
-                  <select name="package_unit" value={formData.package_unit} onChange={handleInputChange}>
-                    <optgroup label="Phổ biến">
-                      <option value="Carton (Thùng carton)">Carton (Thùng carton)</option>
-                      <option value="Pallet & Package">Pallet & Package</option>
-                      <option value="Box (Hộp)">Box (Hộp)</option>
-                      <option value="Package (Kiện, gói)">Package (Kiện, gói)</option>
-                      <option value="Case (Thùng)">Case (Thùng)</option>
-                      <option value="Bundle (Gói)">Bundle (Gói)</option>
-                      <option value="Roll(Cuộn)">Roll (Cuộn)</option>
-                      <option value="Container">Container</option>
-                      <option value="Piece">Piece</option>
-                    </optgroup>
-                    <optgroup label="Tất cả">
-                      <option value="Bag (Túi)">Bag (Túi)</option>
-                      <option value="Bale,compressed (Gói dạng nén)">Bale, compressed</option>
-                      <option value="Bale,non-compressed (Gói không nén)">Bale, non-compressed</option>
-                      <option value="Bar (Thanh)">Bar (Thanh)</option>
-                      <option value="Barrel (Thùng)">Barrel (Thùng)</option>
-                      <option value="Basket (Giỏ)">Basket (Giỏ)</option>
-                      <option value="Cage (Lồng)">Cage (Lồng)</option>
-                      <option value="Can, cylindrical (Hộp hình trụ)">Can, cylindrical</option>
-                      <option value="Can, rectangular (Thùng, hình hộp chữ nhật)">Can, rectangular</option>
-                      <option value="Carboy, non-protected (Chai, không được bảo vệ)">Carboy, non-protected</option>
-                      <option value="Carboy, protected (Chai đựng axit)">Carboy, protected</option>
-                      <option value="Cask (Thùng tô nô)">Cask (Thùng tô nô)</option>
-                      <option value="Coil (Cuốn)">Coil (Cuốn)</option>
-                      <option value="Crate (Giỏ)">Crate (Giỏ)</option>
-                      <option value="Cylinder (Xylanh)">Cylinder (Xylanh)</option>
-                      <option value="Drum (Thùng)">Drum (Thùng)</option>
-                      <option value="Keg (Thùng đựng cá mòi muối)">Keg</option>
-                      <option value="Log (Khúc gỗ)">Log (Khúc gỗ)</option>
-                      <option value="Logs, in bundle/bunch/truss">Logs, in bundle</option>
-                      <option value="MST">MST</option>
-                      <option value="Mat (Thảm)">Mat (Thảm)</option>
-                      <option value="Net (Cuộn)">Net (Cuộn)</option>
-                      <option value="Packet (Gói)">Packet (Gói)</option>
-                      <option value="Pail (Thùng đựng nước)">Pail</option>
-                      <option value="Parcel (Lô, bưu kiện, gói hàng)">Parcel (Bưu kiện)</option>
-                      <option value="Pen (Lồng)">Pen (Lồng)</option>
-                      <option value="Pipe (ống)">Pipe (Ống)</option>
-                      <option value="Plate (Đĩa)">Plate (Đĩa)</option>
-                      <option value="Tank (Thùng, két, bể chứa hình trụ)">Tank (Bể chứa)</option>
-                      <option value="Tray (Khay)">Tray (Khay)</option>
-                      <option value="Unpacked or unpackaged (Hàng rời, không đóng gói)">Unpacked (Hàng rời)</option>
-                      <option value="Other (Loại khác)">Other (Loại khác)</option>
-                    </optgroup>
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label>Khối lượng (kg)</label>
-                  <input type="number" name="weight_kg" value={formData.weight_kg} onChange={handleInputChange} placeholder="VD: 500" />
-                </div>
-              </div>
-            </div>
-
             {/* Addresses */}
             <div className="form-section">
               <h3>Địa chỉ</h3>
@@ -3005,7 +3179,7 @@ function JobCreateForm({ onClose, onSuccess }) {
                     )}
                   </div>
                   <div className="form-grid">
-                    <div className="form-group">
+                    <div className="form-group rong-2">
                       <label>Loại dịch vụ</label>
                       <select value={svc.service_type} onChange={e => handleServiceChange(idx, 'service_type', e.target.value)}>
                         <optgroup label="🚚 Vận tải Đường bộ">
@@ -3053,13 +3227,138 @@ function JobCreateForm({ onClose, onSuccess }) {
                         </optgroup>
                       </select>
                     </div>
-                    <div className="form-group">
-                      <label>Mô tả hàng</label>
+                    <div className="form-group rong-2">
+                      <label>Loại hàng</label>
                       <input type="text" value={svc.cargo_type} onChange={e => handleServiceChange(idx, 'cargo_type', e.target.value)} placeholder="VD: CNC Main Unit" />
                     </div>
                     <div className="form-group">
+                      <label>Số lượng</label>
+                      <input type="number" value={svc.package_quantity} onChange={e => handleServiceChange(idx, 'package_quantity', e.target.value)} placeholder="VD: 10" />
+                    </div>
+                    <div className="form-group">
+                      <label>Đơn vị</label>
+                      {/* Mọi dịch vụ đều được chọn đơn vị: hàng biển và hàng bộ đều có thể
+                          đi nguyên cont (FCL) hoặc ghép (LCL); lưu kho tính theo m² hoặc kg. */}
+                      <select value={svc.package_unit} onChange={e => handleServiceChange(idx, 'package_unit', e.target.value)}>
+                        {DON_VI.map(g => (
+                          <optgroup key={g.nhom} label={g.nhom}>
+                            {g.ds.map(([ma, ten]) => <option key={ma} value={ma}>{ten}</option>)}
+                          </optgroup>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="form-group">
                       <label>Khối lượng (kg)</label>
-                      <input type="number" value={svc.weight_kg} onChange={e => handleServiceChange(idx, 'weight_kg', e.target.value)} />
+                      <input type="number" value={svc.weight_kg} onChange={e => handleServiceChange(idx, 'weight_kg', e.target.value)} placeholder="VD: 500" />
+                    </div>
+                    <div className="form-group">
+                      <label>Số hoá đơn</label>
+                      <input type="text" value={svc.invoice_numbers} onChange={e => handleServiceChange(idx, 'invoice_numbers', e.target.value)} placeholder="VD: 260922DS-33" />
+                    </div>
+
+                    {/* Ô riêng của TỪNG dịch vụ — đổi theo loại dịch vụ của chính nó */}
+                    {nhomDichVu(svc.service_type) === 'HAI_QUAN' && (
+                      <>
+                        <div className="form-group">
+                          <label>Loại hình tờ khai</label>
+                          <input type="text" value={svc.loai_hinh} onChange={e => handleServiceChange(idx, 'loai_hinh', e.target.value)} placeholder="VD: E11, B13, A12" />
+                        </div>
+                        <div className="form-group">
+                          <label>Số tờ khai</label>
+                          <input type="text" value={svc.cd_no} onChange={e => handleServiceChange(idx, 'cd_no', e.target.value)} placeholder="VD: 108473708010" />
+                        </div>
+                        <div className="form-group">
+                          <label>Chi cục hải quan</label>
+                          <input type="text" value={svc.customs_port} onChange={e => handleServiceChange(idx, 'customs_port', e.target.value)} placeholder="VD: 18B1" />
+                        </div>
+                      </>
+                    )}
+
+                    {nhomDichVu(svc.service_type) === 'QUOC_TE' && (
+                      <>
+                        <div className="form-group">
+                          <label>Số vận đơn (B/L, AWB)</label>
+                          <input type="text" value={svc.bl_awb_no} onChange={e => handleServiceChange(idx, 'bl_awb_no', e.target.value)} placeholder="VD: SHHPH26018169" />
+                        </div>
+                        <div className="form-group">
+                          <label>Số C/O</label>
+                          <input type="text" value={svc.co_no} onChange={e => handleServiceChange(idx, 'co_no', e.target.value)} placeholder="VD: VN-IT 26/01/970939" />
+                        </div>
+                      </>
+                    )}
+
+                    {nhomDichVu(svc.service_type) === 'VAN_TAI' && (
+                      <>
+                        <div className="form-group">
+                          <label>Biển số xe</label>
+                          <input type="text" value={svc.vehicle_plate} onChange={e => handleServiceChange(idx, 'vehicle_plate', e.target.value)} placeholder="VD: 29H-123.45" />
+                        </div>
+                        <div className="form-group">
+                          <label>Loại xe</label>
+                          <input type="text" value={svc.truck_capacity} onChange={e => handleServiceChange(idx, 'truck_capacity', e.target.value)} placeholder="VD: 5T, 10T, cont 40HC" />
+                        </div>
+                        <div className="form-group">
+                          <label>Lái xe</label>
+                          <input type="text" value={svc.driver_name} onChange={e => handleServiceChange(idx, 'driver_name', e.target.value)} placeholder="Tên lái xe" />
+                        </div>
+                        <div className="form-group">
+                          <label>Điện thoại lái xe</label>
+                          <input type="text" value={svc.driver_phone} onChange={e => handleServiceChange(idx, 'driver_phone', e.target.value)} placeholder="VD: 0912345678" />
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Trường tự thêm — chỉ chọn được từ danh sách cột có sẵn của hệ thống */}
+            <div className="form-section">
+              <div className="section-header">
+                <h3>Trường bổ sung {truongThem.length > 0 && `(${truongThem.length})`}</h3>
+                <button type="button" className="btn-add"
+                  onClick={() => setTruongThem(prev => [...prev, { cot: '', nhan: '', kieu: 'text', gia_tri: '' }])}>
+                  + Thêm trường
+                </button>
+              </div>
+              {truongThem.length === 0 ? (
+                <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '4px 0 0' }}>
+                  Form chưa có ô mình cần? Bấm “Thêm trường” để chọn từ {truongCoSan.length} trường có sẵn của hệ thống.
+                </p>
+              ) : truongThem.map((t, i) => (
+                <div key={i} className="form-grid cols-2" style={{ marginBottom: '10px' }}>
+                  <div className="form-group">
+                    <label>Chọn trường</label>
+                    <select value={t.cot} onChange={e => {
+                      const ch = truongCoSan.find(x => x.cot === e.target.value)
+                      setTruongThem(prev => prev.map((x, j) => j === i
+                        ? { ...x, cot: e.target.value, nhan: ch?.nhan || '', kieu: ch?.kieu || 'text', gia_tri: '' }
+                        : x))
+                    }}>
+                      <option value="">— chọn trường —</option>
+                      {truongCoSan
+                        .filter(x => x.cot === t.cot || !truongThem.some(y => y.cot === x.cot))
+                        .map(x => <option key={x.cot} value={x.cot}>{x.nhan}</option>)}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label>{t.nhan || 'Giá trị'}</label>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      {t.kieu === 'bool' ? (
+                        <select value={t.gia_tri} onChange={e => setTruongThem(prev => prev.map((x, j) => j === i ? { ...x, gia_tri: e.target.value } : x))}>
+                          <option value="">—</option>
+                          <option value="true">Có</option>
+                          <option value="false">Không</option>
+                        </select>
+                      ) : (
+                        <input
+                          type={t.kieu === 'number' ? 'number' : t.kieu === 'date' ? 'date' : t.kieu === 'datetime' ? 'datetime-local' : 'text'}
+                          value={t.gia_tri} disabled={!t.cot}
+                          placeholder={t.cot ? '' : 'chọn trường trước'}
+                          onChange={e => setTruongThem(prev => prev.map((x, j) => j === i ? { ...x, gia_tri: e.target.value } : x))} />
+                      )}
+                      <button type="button" className="btn-remove"
+                        onClick={() => setTruongThem(prev => prev.filter((_, j) => j !== i))}>✕</button>
                     </div>
                   </div>
                 </div>

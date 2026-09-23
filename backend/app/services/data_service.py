@@ -420,13 +420,34 @@ class DataService:
             booking_date_raw = job_data.get("booking_date") or job_data.get("storage_start_date")
             etd_date = format_date_iso(booking_date_raw) if booking_date_raw else today.isoformat()
 
-            # Insert job
+            # Insert job — GHI DẠNG NHÁP TRƯỚC.
+            #
+            # ⚠️ KHÔNG đổi 'DRAFT' thành 'PENDING' ở đây. DB có hàng rào
+            # (trigger) cấm job rời trạng thái nháp khi chưa có dịch vụ nào:
+            #     "Job {id} (status PENDING) chưa có service nào — không được rời DRAFT."
+            # Ghi thẳng PENDING = bị chặn ngay dòng này, dịch vụ không bao giờ
+            # được tạo, người dùng thấy lỗi kỹ thuật khó hiểu và mất hết dữ liệu
+            # vừa nhập. Đo ngày 23/09/2026: form tạo job trên web hỏng hẳn vì đúng chỗ này.
+            #
+            # Thứ tự đúng (skill 5p-slms ghi từ 25/07/2026):
+            #     1. ghi job DRAFT  →  2. ghi đủ job_services  →  3. nâng lên PENDING
+            # Số hoá đơn phải điền vào ĐÚNG Ô, không chỉ nằm trong câu mô tả.
+            # DB có hàng rào riêng cho chuyện này:
+            #   "Số hóa đơn/INV phát hiện trong MÔ TẢ nhưng chưa điền field."
+            # Mô tả được ghép sẵn ở trên có chuỗi "Invoice: ..." nên hàng rào luôn
+            # bắt được — trước đây web chết ở bước ghi job nên chưa ai gặp lỗi này.
+            _inv = job_data.get("invoice_numbers")
+            if isinstance(_inv, list):
+                _inv = ", ".join(str(x) for x in _inv if x)
+            _inv = (str(_inv).strip() or None) if _inv else None
+
             job_result = self.client.table('jobs').insert({
                 'job_no': job_no,
                 'customer_id': job_data.get("customer_id"),
                 'description': description.strip(),
                 'etd': etd_date,
-                'status_code': 'PENDING',
+                'status_code': 'DRAFT',
+                'invoice_number': _inv,
                 'created_by': user_id
             }).execute()
 
@@ -499,6 +520,25 @@ class DataService:
                     "cargo_type": job_data.get("cargo_type"),
                 }
 
+                # Gộp thông tin xe người dùng nhập vào ĐÚNG khoá chuẩn.
+                # Khoá chuẩn là 'vehicle_plate' — cùng một thứ từng bị gọi bằng 4 tên
+                # khác nhau (bks, bien_so_xe, vehicle_TQ, vehicle_plate) nên máy không
+                # gộp được, người phải mở từng lô chép tay.
+                # CHỈ gắn thông tin xe cho dịch vụ CÓ XE. Job nhiều dịch vụ (vd trucking
+                # + lưu kho) thì trước đây biển số bị chép sang CẢ dịch vụ kho — kho thì
+                # làm gì có biển số, nhìn vào rất vô lý và gây nhầm khi làm bảng kê.
+                # (Phát hiện 23/09/2026 khi soi job TRK-2309-0003 của Khánh.)
+                # Dịch vụ nào THỰC SỰ có xe. Air CŨNG có — xe chở hàng từ kho ra sân bay,
+                # kiểm dữ liệu thật ngày 23/09/2026 thấy 5 job AIR_DOM/AIR_EXP có biển số
+                # hợp lệ ("Hàng gom sân bay", "Tân Yên Bắc Ninh → Nội Bài").
+                # Suýt nữa tao xoá nhầm cả 5 vì tưởng air thì không có xe.
+                _co_xe = str(svc_type or "").startswith(("TRUCK", "BORDER", "LIFT_", "AIR_"))
+                _sd_in = job_data.get("service_details_input")
+                if _co_xe and isinstance(_sd_in, dict):
+                    for _k in ("vehicle_plate", "driver_name", "driver_phone"):
+                        if _sd_in.get(_k):
+                            service_details_json[_k] = _sd_in[_k]
+
                 # Use smart parser for flexible date/time handling
                 scheduled_date_str = format_date_iso(job_data.get("booking_date")) or today.isoformat()
                 scheduled_time_str = format_time_str(job_data.get("pickup_time"))
@@ -523,6 +563,7 @@ class DataService:
                     'dimension_width_cm': job_data.get("dimension_width_cm"),
                     'dimension_height_cm': job_data.get("dimension_height_cm"),
                     'invoice_numbers': job_data.get("invoice_numbers"),
+                    'truck_capacity': job_data.get("truck_capacity") if _co_xe else None,
                     'special_requirements': job_data.get("special_requirements"),
                     'storage_start_date': storage_start,
                     'storage_end_date': storage_end,
@@ -546,14 +587,34 @@ class DataService:
                     'service_details': service_details_json,
                     'created_by': user_id,
                     'updated_by': user_id,
+                    # ⚠️ PHẢI ĐỂ DÒNG CUỐI. Trường người dùng tự thêm phải ĐÈ LÊN giá trị
+                    # mặc định ở trên, không thì bị chính chúng ghi đè bằng None.
+                    # Lỗi đã gặp 23/09/2026: đặt ở giữa dict → hs_code và buyer_name người
+                    # dùng nhập bị 'None' phía dưới nuốt mất, lashing=true thành False.
+                    **(job_data.get("truong_them") or {}),
                 }).execute()
 
                 logger.info(f"Created job_service for type={svc_type}")
 
+            # Bước 3 — đã có dịch vụ, giờ mới nâng job từ nháp lên chờ xử lý.
+            # Nếu không nâng được thì job nằm lại dạng nháp: nhân viên vẫn thấy
+            # và sửa tiếp được, KHÔNG mất dữ liệu vừa nhập.
+            so_dich_vu = len(services) or len(items_to_process)
+            if so_dich_vu:
+                try:
+                    self.client.table('jobs').update(
+                        {'status_code': 'PENDING'}
+                    ).eq('job_id', job_id).execute()
+                    logger.info(f"Job {job_no}: DRAFT → PENDING ({so_dich_vu} dịch vụ)")
+                except Exception as e:
+                    logger.error(f"Job {job_no} không nâng được lên PENDING, để nguyên DRAFT: {e}")
+            else:
+                logger.warning(f"Job {job_no} không có dịch vụ nào — giữ DRAFT")
+
             return {
                 "id": job_id,
                 "job_number": job_no,
-                "services_count": len(services) or len(items_to_process),
+                "services_count": so_dich_vu,
                 "services": services
             }
 

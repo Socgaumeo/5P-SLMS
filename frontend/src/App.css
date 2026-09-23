@@ -1828,20 +1828,29 @@ body {
   padding: 0;
 }
 
+/* Lưới tự co giãn thay vì 3 cột cứng — 3 cột cứng làm ô bị bóp méo trên
+   màn hẹp và lệch nhau khi số ô không chia hết cho 3
+   (Khánh 23/09/2026: "các ô, cột kích thước rất xấu, không đồng nhất"). */
 .form-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
   gap: 16px;
+  align-items: start;
 }
 
 .form-grid.cols-2 {
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
 }
+
+/* Ô cần bề ngang: chọn loại dịch vụ, mô tả hàng, địa chỉ */
+.form-group.rong-2 { grid-column: span 2; }
+@media (max-width: 640px) { .form-group.rong-2 { grid-column: span 1; } }
 
 .form-group {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  min-width: 0;            /* không cho ô tràn ra ngoài lưới */
 }
 
 .form-group label {
@@ -1853,6 +1862,10 @@ body {
 .form-group input,
 .form-group select,
 .form-group textarea {
+  height: auto;
+  width: 100%;
+  box-sizing: border-box;   /* thiếu dòng này thì ô có padding sẽ rộng hơn ô khác */
+  height: 42px;             /* input và select cao bằng nhau */
   padding: 10px 14px;
   border: 1px solid var(--border);
   border-radius: 8px;
