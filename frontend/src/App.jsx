@@ -395,21 +395,14 @@ function QuotationSelector({ type, rates, standardRates = [], selectedRateId, se
               </select>
             )}
           </div>
-          {/* Row 2: Quantity, pencil button, price */}
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <QuantityInput />
-            <button
-              onClick={() => setManualMode(true)}
-              disabled={disabled}
-              title="Nhập tay"
-              style={{ padding: '6px 10px', background: 'var(--border)', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-            >
-              ✏️
-            </button>
-            {selectedPrice > 0 && (
+          {/* Dòng "SL: 1 ✏️" đã bỏ — Khánh 23/09/2026. Lần trước tôi mới tắt nửa dưới
+              (đơn giá + đơn vị + OK/Hủy) mà quên nửa trên này nên Khánh báo "vẫn chưa
+              thấy có hiệu lực". Số lượng và đơn giá nhập ngay trên từng dòng chi phí. */}
+          {selectedPrice > 0 && (
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
               <span style={{ fontSize: '12px', fontWeight: 'bold', color }}>{formatPriceDisplay(selectedPrice)}</span>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -438,6 +431,9 @@ function JobDetailModal({ job, onClose, onUpdate }) {
   const [jobCosts, setJobCosts] = useState([])
   const [loading, setLoading] = useState(true)
   const [editMode, setEditMode] = useState(false)
+  // Mở/thu gọn RIÊNG từng dịch vụ (Khánh 23/09/2026: "muốn có nút sửa ở từng dịch vụ con,
+  // vì có những dịch vụ sẽ không cần sửa"). Mặc định mở, bấm nút thì thu gọn.
+  const [dvThuGon, setDvThuGon] = useState({})
   const [vendors, setVendors] = useState([])
   const [employees, setEmployees] = useState([])
   const [customers, setCustomers] = useState([])
@@ -1320,6 +1316,21 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                   <div key={idx} className="service-card">
                     <div className="service-card-header">
                       <span className="service-type-badge">{SERVICE_TYPE_LABELS[svc.service_type_code] || svc.service_type_code}</span>
+                      {editMode && (
+                        <button
+                          type="button"
+                          onClick={() => setDvThuGon(prev => ({ ...prev, [svc.svc_id]: !prev[svc.svc_id] }))}
+                          title={dvThuGon[svc.svc_id] ? 'Mở dịch vụ này ra sửa' : 'Thu gọn dịch vụ này'}
+                          style={{
+                            padding: '3px 9px', marginRight: '6px', cursor: 'pointer', fontSize: '11px',
+                            borderRadius: '4px', border: '1px solid var(--border)',
+                            background: dvThuGon[svc.svc_id] ? 'var(--bg-card)' : 'var(--primary)',
+                            color: dvThuGon[svc.svc_id] ? 'var(--text)' : '#fff',
+                          }}
+                        >
+                          {dvThuGon[svc.svc_id] ? '✏️ Sửa' : '🔽 Thu gọn'}
+                        </button>
+                      )}
                       {editMode ? (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                           <select
@@ -1359,6 +1370,8 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                         <StatusBadge status={svc.status_code || 'PENDING'} />
                       )}
                     </div>
+                    {/* Thu gọn thì ẩn phần thân — chỉ ẩn khỏi màn hình, KHÔNG đụng dữ liệu */}
+                    {!dvThuGon[svc.svc_id] && (<>
 
                     {/* Assignment info - Editable (auto-saves on selection) */}
                     <div className="service-assignment">
@@ -2471,6 +2484,8 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                           </button>
                         </div>
                       )}
+                    </>
+                    )}
                   </div>
                 ))}
               </div>
