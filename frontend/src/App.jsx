@@ -22,34 +22,41 @@ import CongNoPage from './components/congno/CongNoPage'
 // Lưu ý dữ liệu cũ đang rất bẩn: cùng "pallet" có 'pallet', '1 Pallet', '1 PALLET',
 // 'PL', 'PLT', 'PP'... thậm chí lẫn cả số lượng ('3 box') và loại hàng ('PCB; FPC').
 const DON_VI = [
-  { nhom: 'Kiện hàng', ds: [
-    ['Package (Kiện, gói)', 'Kiện / gói'],
-    ['Pallet & Package', 'Pallet'],
-    ['Carton (Thùng carton)', 'Thùng carton'],
-    ['Case (Thùng)', 'Thùng'],
-    ['Box (Hộp)', 'Hộp'],
-    ['Bundle (Gói)', 'Bó / gói'],
-    ['Roll(Cuộn)', 'Cuộn'],
-    ['Bag (Túi)', 'Bao / túi'],
-    ['Piece', 'Chiếc'],
+  { nhom: 'Đóng gói', ds: [
+    ['PK',  'Kiện'],
+    ['PX',  'Pallet'],
+    ['CT',  'Thùng carton'],
+    ['CS',  'Thùng gỗ / case'],
+    ['BX',  'Hộp'],
+    ['BG',  'Bao / túi'],
+    ['RO',  'Cuộn'],
+    ['BE',  'Bó'],
+    ['DR',  'Phuy'],
+  ]},
+  { nhom: 'Đếm', ds: [
+    ['C62', 'Chiếc'],
+    ['SET', 'Bộ'],
   ]},
   { nhom: 'Container', ds: [
-    ['Container', "Container (chung)"],
-    ["Container 20'", "Cont 20'"],
-    ["Container 40'", "Cont 40'"],
-    ["Container 40'HC", "Cont 40'HC"],
-    ['LCL', 'LCL (hàng ghép)'],
+    ['20GP', "Cont 20'"],
+    ['40GP', "Cont 40'"],
+    ['40HC', "Cont 40'HC"],
+    ['45HC', "Cont 45'HC"],
+    ['20RF', "Cont lạnh 20' (Reefer)"],
+    ['40RF', "Cont lạnh 40' (Reefer)"],
+    ['20FR', "Cont Flat Rack 20'"],
+    ['40FR', "Cont Flat Rack 40'"],
+    ['LCL',  'Hàng ghép (LCL)'],
   ]},
-  { nhom: 'Cân / khối / diện tích', ds: [
-    ['Kg', 'Kg'],
-    ['Ton', 'Tấn'],
-    ['CBM', 'CBM (m³)'],
-    ['M2', 'm² (diện tích kho)'],
+  { nhom: 'Cân đo', ds: [
+    ['KGM', 'Kg'],
+    ['TNE', 'Tấn'],
+    ['MTQ', 'm³ (CBM)'],
+    ['MTK', 'm² (diện tích kho)'],
   ]},
-  { nhom: 'Theo lần / thời gian', ds: [
-    ['Chuyen', 'Chuyến'],
-    ['Ngay', 'Ngày'],
-    ['Lan', 'Lần'],
+  { nhom: 'Dịch vụ', ds: [
+    ['E48', 'Chuyến'],
+    ['DAY', 'Ngày'],
   ]},
 ]
 
@@ -2795,7 +2802,7 @@ function JobCreateForm({ onClose, onSuccess }) {
     service_type: 'TRUCKING',
     cargo_type: '',
     package_quantity: '',
-    package_unit: 'Package (Kiện, gói)',
+    package_unit: 'PK',
     weight_kg: '',
     pickup_address: '',
     delivery_address: '',
@@ -2814,7 +2821,7 @@ function JobCreateForm({ onClose, onSuccess }) {
     vehicle_plate: '', driver_name: '', driver_phone: '', truck_capacity: ''
   })
   const [services, setServices] = useState([{
-    service_type: 'TRUCKING', cargo_type: '', package_quantity: '', package_unit: 'Package (Kiện, gói)',
+    service_type: 'TRUCKING', cargo_type: '', package_quantity: '', package_unit: 'PK',
     weight_kg: '', dimension_length_cm: '', dimension_width_cm: '', dimension_height_cm: '',
     invoice_numbers: '', cd_no: '', bl_awb_no: '', co_no: '',
     loai_hinh: '', customs_port: '',
@@ -2853,7 +2860,7 @@ function JobCreateForm({ onClose, onSuccess }) {
   // đọc services[0] nên đổi loại dịch vụ thứ 2 trở đi không ăn thua
   // (Khánh 23/09/2026: "các dịch vụ đều cố định trường thông tin, không tự thay đổi").
   const dichVuTrong = () => ({
-    service_type: 'TRUCKING', cargo_type: '', package_quantity: '', package_unit: 'Package (Kiện, gói)',
+    service_type: 'TRUCKING', cargo_type: '', package_quantity: '', package_unit: 'PK',
     weight_kg: '', dimension_length_cm: '', dimension_width_cm: '', dimension_height_cm: '',
     invoice_numbers: '', cd_no: '', bl_awb_no: '', co_no: '',
     loai_hinh: '', customs_port: '',
