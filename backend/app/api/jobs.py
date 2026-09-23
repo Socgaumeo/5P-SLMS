@@ -289,6 +289,14 @@ async def create_job(request: JobCreateFromChatRequest, req: Request):
             
             # Special requirements
             'special_requirements': entities.get('special_requirements') or enriched.get('special_requirements'),
+
+            # Thông tin xe — PHẢI đi tiếp xuống job_services.service_details.vehicle_plate.
+            # Không chuyển tiếp ở đây thì form web gửi biển số lên cũng rơi mất giữa đường:
+            # đo 23/09/2026 có 97% lô vận tải (1027/1056) không có biển số đúng khoá,
+            # khiến máy không gộp được, người phải mở từng lô chép tay → bảng kê KCIL T3
+            # phải làm lại 14 bản.
+            'service_details_input': entities.get('service_details') or enriched.get('service_details'),
+            'truck_capacity': entities.get('truck_capacity') or enriched.get('truck_capacity'),
             
             # Warehouse-specific
             'storage_start_date': entities.get('storage_start_date'),
