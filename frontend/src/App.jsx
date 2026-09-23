@@ -2767,21 +2767,39 @@ function JobDetailModal({ job, onClose, onUpdate }) {
 // ========================================
 function JobCreateForm({ onClose, onSuccess }) {
   const [customers, setCustomers] = useState([])
+  // Nhóm dịch vụ → quyết định hiện ô nào. Hệ thống có 32 loại dịch vụ, mỗi nhóm
+  // cần thông tin khác hẳn; một form phẳng không phục vụ nổi cả 32 loại.
+  const nhomDichVu = (code) => {
+    const c = String(code || '')
+    if (c.startsWith('CUS_')) return 'HAI_QUAN'
+    if (c.startsWith('SEA_') || c.startsWith('AIR_') || c.startsWith('BORDER_')) return 'QUOC_TE'
+    if (c.startsWith('TRUCK') || c.startsWith('LIFT_')) return 'VAN_TAI'
+    return 'KHAC'
+  }
+
   const [formData, setFormData] = useState({
     customer_id: '',
     booking_date: new Date().toISOString().split('T')[0],
     pickup_time: '',
-    service_type: 'TRUCKING_DOM',
+    service_type: 'TRUCKING',
     cargo_type: '',
     package_quantity: '',
     package_unit: 'Package (Kiện, gói)',
     weight_kg: '',
     pickup_address: '',
     delivery_address: '',
-    special_requirements: ''
+    special_requirements: '',
+    // Chứng từ — job không có số nào thì sau này không tra ra, không làm bảng kê được.
+    // Đo 23/09/2026: 21% dịch vụ (418/1962) trắng cả ba ô này vì form cũ không hỏi.
+    invoice_numbers: '', cd_no: '', bl_awb_no: '', co_no: '',
+    // Hải quan — DB BẮT BUỘC loai_hinh cho mọi dịch vụ CUS_*, thiếu là chặn thẳng.
+    loai_hinh: '', customs_port: '',
+    // Xe — phải vào đúng khoá vehicle_plate. Đo 23/09: 97% lô vận tải (1027/1056)
+    // không có biển số đúng chỗ → bảng kê KCIL tháng 3 phải làm lại 14 bản.
+    vehicle_plate: '', driver_name: '', driver_phone: '', truck_capacity: ''
   })
   const [services, setServices] = useState([
-    { service_type: 'TRUCKING_DOM', cargo_type: '', weight_kg: '', dimension_length_cm: '', dimension_width_cm: '', dimension_height_cm: '' }
+    { service_type: 'TRUCKING', cargo_type: '', weight_kg: '', dimension_length_cm: '', dimension_width_cm: '', dimension_height_cm: '' }
   ])
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
@@ -2840,7 +2858,21 @@ function JobCreateForm({ onClose, onSuccess }) {
           weight_kg: parseFloat(formData.weight_kg) || null,
           pickup_address: formData.pickup_address,
           delivery_address: formData.delivery_address,
-          special_requirements: formData.special_requirements
+          special_requirements: formData.special_requirements,
+          // Trước đây form KHÔNG gửi ô nào dưới đây → job từ web luôn trắng chứng từ, trắng biển số.
+          invoice_numbers: formData.invoice_numbers || null,
+          cd_no: formData.cd_no || null,
+          bl_awb_no: formData.bl_awb_no || null,
+          co_no: formData.co_no || null,
+          loai_hinh: formData.loai_hinh || null,
+          customs_port: formData.customs_port || null,
+          truck_capacity: formData.truck_capacity || null,
+          // Biển số phải vào ĐÚNG khoá vehicle_plate; nhét chỗ khác thì máy không gộp được.
+          service_details: (formData.vehicle_plate || formData.driver_name) ? {
+            vehicle_plate: formData.vehicle_plate || null,
+            driver_name: formData.driver_name || null,
+            driver_phone: formData.driver_phone || null
+          } : null
         },
         enriched_data: {
           customer_id: parseInt(formData.customer_id),
@@ -2987,6 +3019,66 @@ function JobCreateForm({ onClose, onSuccess }) {
                   <label>Điểm giao hàng</label>
                   <input type="text" name="delivery_address" value={formData.delivery_address} onChange={handleInputChange} placeholder="VD: Sân bay Nội Bài" />
                 </div>
+              </div>
+            </div>
+
+            {/* Ô đổi theo loại dịch vụ — chỉ hiện ô của nhóm đang chọn,
+                người nhập không phải nhìn 30 ô không liên quan. */}
+            <div className="form-section">
+              <h3>Chứng từ & thông tin riêng của dịch vụ</h3>
+              <div className="form-grid cols-2">
+                <div className="form-group">
+                  <label>Số hoá đơn</label>
+                  <input type="text" name="invoice_numbers" value={formData.invoice_numbers} onChange={handleInputChange} placeholder="VD: 260922DS-33" />
+                </div>
+                {nhomDichVu(services[0]?.service_type) === 'HAI_QUAN' && (
+                  <>
+                    <div className="form-group">
+                      <label>Loại hình tờ khai *</label>
+                      <input type="text" name="loai_hinh" value={formData.loai_hinh} onChange={handleInputChange} placeholder="VD: E11, B13, A12" required />
+                    </div>
+                    <div className="form-group">
+                      <label>Số tờ khai</label>
+                      <input type="text" name="cd_no" value={formData.cd_no} onChange={handleInputChange} placeholder="VD: 108473708010" />
+                    </div>
+                    <div className="form-group">
+                      <label>Chi cục hải quan</label>
+                      <input type="text" name="customs_port" value={formData.customs_port} onChange={handleInputChange} placeholder="VD: 18B1" />
+                    </div>
+                  </>
+                )}
+                {nhomDichVu(services[0]?.service_type) === 'QUOC_TE' && (
+                  <>
+                    <div className="form-group">
+                      <label>Số vận đơn (B/L, AWB)</label>
+                      <input type="text" name="bl_awb_no" value={formData.bl_awb_no} onChange={handleInputChange} placeholder="VD: SHHPH26018169" />
+                    </div>
+                    <div className="form-group">
+                      <label>Số C/O</label>
+                      <input type="text" name="co_no" value={formData.co_no} onChange={handleInputChange} placeholder="VD: VN-IT 26/01/970939" />
+                    </div>
+                  </>
+                )}
+                {nhomDichVu(services[0]?.service_type) === 'VAN_TAI' && (
+                  <>
+                    <div className="form-group">
+                      <label>Biển số xe</label>
+                      <input type="text" name="vehicle_plate" value={formData.vehicle_plate} onChange={handleInputChange} placeholder="VD: 29H-123.45" />
+                    </div>
+                    <div className="form-group">
+                      <label>Lái xe</label>
+                      <input type="text" name="driver_name" value={formData.driver_name} onChange={handleInputChange} placeholder="Tên lái xe" />
+                    </div>
+                    <div className="form-group">
+                      <label>Điện thoại lái xe</label>
+                      <input type="text" name="driver_phone" value={formData.driver_phone} onChange={handleInputChange} placeholder="VD: 0912345678" />
+                    </div>
+                    <div className="form-group">
+                      <label>Loại xe</label>
+                      <input type="text" name="truck_capacity" value={formData.truck_capacity} onChange={handleInputChange} placeholder="VD: 5T, 10T, cont 40HC" />
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 
