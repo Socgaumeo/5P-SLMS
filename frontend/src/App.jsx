@@ -2792,7 +2792,11 @@ function JobCreateForm({ onClose, onSuccess }) {
     // Chứng từ — job không có số nào thì sau này không tra ra, không làm bảng kê được.
     // Đo 23/09/2026: 21% dịch vụ (418/1962) trắng cả ba ô này vì form cũ không hỏi.
     invoice_numbers: '', cd_no: '', bl_awb_no: '', co_no: '',
-    // Hải quan — DB BẮT BUỘC loai_hinh cho mọi dịch vụ CUS_*, thiếu là chặn thẳng.
+    // Hải quan — hàng rào DB HIỆN ĐANG bắt buộc loai_hinh cho dịch vụ CUS_*:
+    //   "Job tờ khai bắt buộc phải có 'Loại hình' (mã loại hình hải quan)."
+    // (Đã KIỂM CHỨNG bằng cách tạo thử job CUS_EXPORT không có loại hình → bị chặn.)
+    // Khánh 23/09/2026 nói "không nhất thiết phải điền" → đang chờ chốt có gỡ ràng buộc
+    // này ở DB hay không. Chưa gỡ thì form vẫn phải nhập, nếu không sẽ lỗi lúc lưu.
     loai_hinh: '', customs_port: '',
     // Xe — phải vào đúng khoá vehicle_plate. Đo 23/09: 97% lô vận tải (1027/1056)
     // không có biển số đúng chỗ → bảng kê KCIL tháng 3 phải làm lại 14 bản.
@@ -3033,12 +3037,37 @@ function JobCreateForm({ onClose, onSuccess }) {
                       </select>
                     </div>
                     <div className="form-group rong-2">
-                      <label>Mô tả hàng</label>
+                      <label>Loại hàng</label>
                       <input type="text" value={svc.cargo_type} onChange={e => handleServiceChange(idx, 'cargo_type', e.target.value)} placeholder="VD: CNC Main Unit" />
                     </div>
                     <div className="form-group">
-                      <label>Số kiện</label>
+                      <label>Số lượng</label>
                       <input type="number" value={svc.package_quantity} onChange={e => handleServiceChange(idx, 'package_quantity', e.target.value)} placeholder="VD: 10" />
+                    </div>
+                    <div className="form-group">
+                      <label>Đơn vị</label>
+                      {/* Mọi dịch vụ đều được chọn đơn vị: hàng biển và hàng bộ đều có thể
+                          đi nguyên cont (FCL) hoặc ghép (LCL); lưu kho tính theo m² hoặc kg. */}
+                      <select value={svc.package_unit} onChange={e => handleServiceChange(idx, 'package_unit', e.target.value)}>
+                        <option value="kien">Kiện</option>
+                        <option value="pallet">Pallet</option>
+                        <option value="thung">Thùng / carton</option>
+                        <option value="cuon">Cuộn</option>
+                        <option value="bao">Bao</option>
+                        <option value="chiec">Chiếc</option>
+                        <option value="kg">Kg</option>
+                        <option value="tan">Tấn</option>
+                        <option value="m3">m³ (khối)</option>
+                        <option value="m2">m² (diện tích kho)</option>
+                        <option value="cbm">CBM</option>
+                        <option value="cont20">Cont 20'</option>
+                        <option value="cont40">Cont 40'</option>
+                        <option value="cont40hc">Cont 40'HC</option>
+                        <option value="lcl">LCL (hàng ghép)</option>
+                        <option value="chuyen">Chuyến</option>
+                        <option value="ngay">Ngày</option>
+                        <option value="lan">Lần</option>
+                      </select>
                     </div>
                     <div className="form-group">
                       <label>Khối lượng (kg)</label>
@@ -3053,7 +3082,7 @@ function JobCreateForm({ onClose, onSuccess }) {
                     {nhomDichVu(svc.service_type) === 'HAI_QUAN' && (
                       <>
                         <div className="form-group">
-                          <label>Loại hình tờ khai *</label>
+                          <label>Loại hình tờ khai</label>
                           <input type="text" value={svc.loai_hinh} onChange={e => handleServiceChange(idx, 'loai_hinh', e.target.value)} placeholder="VD: E11, B13, A12" />
                         </div>
                         <div className="form-group">
