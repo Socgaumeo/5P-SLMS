@@ -420,13 +420,23 @@ class DataService:
             booking_date_raw = job_data.get("booking_date") or job_data.get("storage_start_date")
             etd_date = format_date_iso(booking_date_raw) if booking_date_raw else today.isoformat()
 
-            # Insert job
+            # Insert job — GHI DẠNG NHÁP TRƯỚC.
+            #
+            # ⚠️ KHÔNG đổi 'DRAFT' thành 'PENDING' ở đây. DB có hàng rào
+            # (trigger) cấm job rời trạng thái nháp khi chưa có dịch vụ nào:
+            #     "Job {id} (status PENDING) chưa có service nào — không được rời DRAFT."
+            # Ghi thẳng PENDING = bị chặn ngay dòng này, dịch vụ không bao giờ
+            # được tạo, người dùng thấy lỗi kỹ thuật khó hiểu và mất hết dữ liệu
+            # vừa nhập. Đo ngày 23/09/2026: form tạo job trên web hỏng hẳn vì đúng chỗ này.
+            #
+            # Thứ tự đúng (skill 5p-slms ghi từ 25/07/2026):
+            #     1. ghi job DRAFT  →  2. ghi đủ job_services  →  3. nâng lên PENDING
             job_result = self.client.table('jobs').insert({
                 'job_no': job_no,
                 'customer_id': job_data.get("customer_id"),
                 'description': description.strip(),
                 'etd': etd_date,
-                'status_code': 'PENDING',
+                'status_code': 'DRAFT',
                 'created_by': user_id
             }).execute()
 
@@ -550,10 +560,25 @@ class DataService:
 
                 logger.info(f"Created job_service for type={svc_type}")
 
+            # Bước 3 — đã có dịch vụ, giờ mới nâng job từ nháp lên chờ xử lý.
+            # Nếu không nâng được thì job nằm lại dạng nháp: nhân viên vẫn thấy
+            # và sửa tiếp được, KHÔNG mất dữ liệu vừa nhập.
+            so_dich_vu = len(services) or len(items_to_process)
+            if so_dich_vu:
+                try:
+                    self.client.table('jobs').update(
+                        {'status_code': 'PENDING'}
+                    ).eq('job_id', job_id).execute()
+                    logger.info(f"Job {job_no}: DRAFT → PENDING ({so_dich_vu} dịch vụ)")
+                except Exception as e:
+                    logger.error(f"Job {job_no} không nâng được lên PENDING, để nguyên DRAFT: {e}")
+            else:
+                logger.warning(f"Job {job_no} không có dịch vụ nào — giữ DRAFT")
+
             return {
                 "id": job_id,
                 "job_number": job_no,
-                "services_count": len(services) or len(items_to_process),
+                "services_count": so_dich_vu,
                 "services": services
             }
 
