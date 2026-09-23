@@ -60,6 +60,15 @@ const DON_VI = [
   ]},
 ]
 
+// Nhóm dịch vụ → quyết định hiện ô nào. Hệ thống có 32 loại dịch vụ, mỗi nhóm
+// cần thông tin khác hẳn; một form phẳng không phục vụ nổi cả 32 loại.
+const nhomDichVu = (code) => {
+  const c = String(code || '')
+  if (c.startsWith('CUS_')) return 'HAI_QUAN'
+  if (c.startsWith('SEA_') || c.startsWith('AIR_') || c.startsWith('BORDER_')) return 'QUOC_TE'
+  if (c.startsWith('TRUCK') || c.startsWith('LIFT_')) return 'VAN_TAI'
+  return 'KHAC'
+}
 
 // Theme colors from 5P Vietnam logo
 const theme = {
@@ -2865,15 +2874,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
 function JobCreateForm({ onClose, onSuccess }) {
   const [customers, setCustomers] = useState([])
 
-  // Nhóm dịch vụ → quyết định hiện ô nào. Hệ thống có 32 loại dịch vụ, mỗi nhóm
-  // cần thông tin khác hẳn; một form phẳng không phục vụ nổi cả 32 loại.
-  const nhomDichVu = (code) => {
-    const c = String(code || '')
-    if (c.startsWith('CUS_')) return 'HAI_QUAN'
-    if (c.startsWith('SEA_') || c.startsWith('AIR_') || c.startsWith('BORDER_')) return 'QUOC_TE'
-    if (c.startsWith('TRUCK') || c.startsWith('LIFT_')) return 'VAN_TAI'
-    return 'KHAC'
-  }
+
 
   const [formData, setFormData] = useState({
     customer_id: '',
