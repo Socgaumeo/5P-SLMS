@@ -391,6 +391,15 @@ function QuotationSelector({ type, rates, standardRates = [], selectedRateId, se
 // JOB DETAIL MODAL (with Edit Mode)
 // ========================================
 function JobDetailModal({ job, onClose, onUpdate }) {
+  // Danh sách trường được phép thêm — lấy TỪ MÁY CHỦ, dùng chung với form tạo job
+  // (Khánh 23/09/2026: "khi edit job cũng cho phép thêm trường y hệt như khi tạo job").
+  const [truongCoSanSua, setTruongCoSanSua] = useState([])
+  useEffect(() => {
+    authFetch(`${API_URL}/api/jobs/truong-them-duoc`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => d?.truong && setTruongCoSanSua(d.truong))
+      .catch(() => {})
+  }, [])
   const [services, setServices] = useState([])
   const [jobCosts, setJobCosts] = useState([])
   const [loading, setLoading] = useState(true)
@@ -1424,11 +1433,11 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                         /* Editable service details */
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', width: '100%' }}>
                           <div>
-                            <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Hàng</label>
+                            <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Loại hàng</label>
                             <input type="text" value={svc.cargo_type || ''} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, cargo_type: e.target.value } : s))} placeholder="VD: loc khi, linh kien..." style={{ width: '100%', padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px' }} />
                           </div>
                           <div>
-                            <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Số kiện</label>
+                            <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Số lượng</label>
                             <div style={{ display: 'flex', gap: '4px' }}>
                               <input type="text" value={svc.package_quantity || ''} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, package_quantity: e.target.value } : s))} placeholder="38" style={{ width: '60px', padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px' }} />
                               <select value={svc.package_unit || ''} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, package_unit: e.target.value } : s))} style={{ flex: 1, padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px', background: 'var(--bg-primary)' }}>
@@ -1456,7 +1465,11 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                             <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{(svc.service_type_code || '').startsWith('AIR_') ? 'AOD' : 'Điểm đến'}</label>
                             <input type="text" value={svc.dest_address || ''} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, dest_address: e.target.value } : s))} placeholder={(svc.service_type_code || '').startsWith('AIR_') ? 'Airport of Discharge' : 'VD: KCN Song Cong'} style={{ width: '100%', padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px' }} />
                           </div>
-                          {(svc.service_type_code || '').startsWith('AIR_') && (
+                          {/* Trước đây khối này CHỈ hiện cho dịch vụ hàng không, nên job
+                              hải quan / đường biển / vận tải bộ không có ô nhập chứng từ.
+                              Khánh 23/09/2026: "phần sửa thông tin job cũng cần đồng bộ với
+                              phần nhập job". Nay dùng CHUNG hàm nhomDichVu() với form tạo. */}
+                          {nhomDichVu(svc.service_type_code) !== 'KHAC' && (
                             <>
                               <div>
                                 <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Route</label>
@@ -1473,6 +1486,18 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                               <div>
                                 <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Quotation No.</label>
                                 <input type="text" value={svc.quotation_no || ''} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, quotation_no: e.target.value } : s))} placeholder="QT-2026-001" style={{ width: '100%', padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px' }} />
+                              </div>
+                              <div>
+                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Loại hình tờ khai</label>
+                                <input type="text" value={svc.loai_hinh || ''} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, loai_hinh: e.target.value } : s))} placeholder="VD: E11, B13, A12" style={{ width: '100%', padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px' }} />
+                              </div>
+                              <div>
+                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Chi cục hải quan</label>
+                                <input type="text" value={svc.customs_port || ''} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, customs_port: e.target.value } : s))} placeholder="VD: 18B1" style={{ width: '100%', padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px' }} />
+                              </div>
+                              <div>
+                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Loại xe</label>
+                                <input type="text" value={svc.truck_capacity || ''} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, truck_capacity: e.target.value } : s))} placeholder="VD: 5T, cont 40HC" style={{ width: '100%', padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px' }} />
                               </div>
                               <div>
                                 <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Tờ khai (CD No.)</label>
@@ -1617,6 +1642,41 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                               }} style={{ padding: '4px 8px', background: '#FEE2E2', color: '#DC2626', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '11px' }}>✕</button>
                             </div>
                           ))}
+                          {/* Thêm trường từ DANH SÁCH CỘT CÓ SẴN — giống hệt form tạo job.
+                              Khác với "Thêm thông tin" bên dưới (ghi chú tự do, không vào cột riêng). */}
+                          {Object.entries(svc.truong_them_sua || {}).map(([cot, gt]) => {
+                            const tt = truongCoSanSua.find(x => x.cot === cot)
+                            return (
+                              <div key={cot}>
+                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{tt?.nhan || cot}</label>
+                                <div style={{ display: 'flex', gap: '6px' }}>
+                                  <input
+                                    type={tt?.kieu === 'number' ? 'number' : tt?.kieu === 'date' ? 'date' : 'text'}
+                                    value={gt || ''}
+                                    onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id
+                                      ? { ...s, truong_them_sua: { ...(s.truong_them_sua || {}), [cot]: e.target.value } } : s))}
+                                    style={{ flex: 1, padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px' }} />
+                                  <button type="button" onClick={() => setServices(prev => prev.map(s => {
+                                    if (s.svc_id !== svc.svc_id) return s
+                                    const con = { ...(s.truong_them_sua || {}) }; delete con[cot]
+                                    return { ...s, truong_them_sua: con }
+                                  }))} style={{ padding: '4px 8px', background: '#FEE2E2', color: '#DC2626', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '11px' }}>✕</button>
+                                </div>
+                              </div>
+                            )
+                          })}
+                          <div style={{ gridColumn: '1 / -1' }}>
+                            <select value="" onChange={e => {
+                              if (!e.target.value) return
+                              setServices(prev => prev.map(s => s.svc_id === svc.svc_id
+                                ? { ...s, truong_them_sua: { ...(s.truong_them_sua || {}), [e.target.value]: '' } } : s))
+                            }} style={{ padding: '5px 8px', borderRadius: '4px', border: '1px dashed var(--primary)', fontSize: '11px', background: 'rgba(59,130,246,0.06)', color: 'var(--primary)' }}>
+                              <option value="">+ Thêm trường ({truongCoSanSua.length} trường có sẵn)</option>
+                              {truongCoSanSua
+                                .filter(x => !(svc.truong_them_sua || {})[x.cot] && (svc[x.cot] === null || svc[x.cot] === undefined || svc[x.cot] === ''))
+                                .map(x => <option key={x.cot} value={x.cot}>{x.nhan}</option>)}
+                            </select>
+                          </div>
                           <div style={{ gridColumn: '1 / -1', display: 'flex', gap: '8px', alignItems: 'center' }}>
                             <button type="button" onClick={() => {
                               const updated = [...(svc.extra_info || []), { label: '', value: '' }]
@@ -1647,6 +1707,10 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                   bl_awb_no: svc.bl_awb_no || null,
                                   co_no: svc.co_no || null,
                                   customs_status: svc.customs_status || null,
+                                  loai_hinh: svc.loai_hinh || null,
+                                  customs_port: svc.customs_port || null,
+                                  truck_capacity: svc.truck_capacity || null,
+                                  ...(svc.truong_them_sua || {}),
                                 }
                                 const res = await authFetch(`${API_URL}/api/jobs/services/${svc.svc_id}/details`, {
                                   method: 'PUT',

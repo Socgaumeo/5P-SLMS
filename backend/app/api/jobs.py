@@ -3175,7 +3175,11 @@ async def update_service_details(svc_id: int, request: Request):
             'bl_awb_no', 'co_no',
             'route', 'chargeable_weight_kg', 'quotation_no',
             'seller_name', 'buyer_name', 'cd_no', 'customs_status',
-            'loai_hinh',
+            'loai_hinh', 'customs_port', 'truck_capacity',
+            # Dùng CHUNG danh sách trường tự thêm với lúc tạo job, không viết tay lần hai
+            # (Khánh 23/09/2026: "khi edit job cũng cho phép thêm trường y hệt như khi tạo job").
+            # Viết tay hai nơi là chắc chắn có ngày lệch nhau — đúng cái vừa gây lỗi "1 thùng".
+            *TRUONG_THEM_DUOC.keys(),
         }
         update_data = {k: v for k, v in body.items() if k in allowed}
         # Map alias: destination_address → dest_address (DB column)
