@@ -524,8 +524,13 @@ class DataService:
                 # Khoá chuẩn là 'vehicle_plate' — cùng một thứ từng bị gọi bằng 4 tên
                 # khác nhau (bks, bien_so_xe, vehicle_TQ, vehicle_plate) nên máy không
                 # gộp được, người phải mở từng lô chép tay.
+                # CHỈ gắn thông tin xe cho dịch vụ CÓ XE. Job nhiều dịch vụ (vd trucking
+                # + lưu kho) thì trước đây biển số bị chép sang CẢ dịch vụ kho — kho thì
+                # làm gì có biển số, nhìn vào rất vô lý và gây nhầm khi làm bảng kê.
+                # (Phát hiện 23/09/2026 khi soi job TRK-2309-0003 của Khánh.)
+                _co_xe = str(svc_type or "").startswith(("TRUCK", "BORDER", "LIFT_"))
                 _sd_in = job_data.get("service_details_input")
-                if isinstance(_sd_in, dict):
+                if _co_xe and isinstance(_sd_in, dict):
                     for _k in ("vehicle_plate", "driver_name", "driver_phone"):
                         if _sd_in.get(_k):
                             service_details_json[_k] = _sd_in[_k]
@@ -554,7 +559,7 @@ class DataService:
                     'dimension_width_cm': job_data.get("dimension_width_cm"),
                     'dimension_height_cm': job_data.get("dimension_height_cm"),
                     'invoice_numbers': job_data.get("invoice_numbers"),
-                    'truck_capacity': job_data.get("truck_capacity"),
+                    'truck_capacity': job_data.get("truck_capacity") if _co_xe else None,
                     'special_requirements': job_data.get("special_requirements"),
                     'storage_start_date': storage_start,
                     'storage_end_date': storage_end,

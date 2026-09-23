@@ -592,6 +592,22 @@ function JobDetailModal({ job, onClose, onUpdate }) {
           }
           if (svc.license_plate) return svc
 
+          // Biển số do form tạo job ghi vào service_details.vehicle_plate — KHOÁ CHUẨN.
+          // Không đọc chỗ này thì job vừa tạo xong mở ra là thấy "Chưa gán", dù dữ liệu
+          // vẫn nằm nguyên trong hệ thống (Khánh báo 23/09/2026, job TRK-2309-0003).
+          {
+            const sd = svc.service_details || {}
+            if (sd.vehicle_plate) {
+              return {
+                ...svc,
+                license_plate: sd.vehicle_plate,
+                driver_name: sd.driver_name || svc.db_driver_name,
+                driver_phone: sd.driver_phone || svc.db_driver_phone,
+                vehicles: [{ license_plate: sd.vehicle_plate, driver_name: sd.driver_name, driver_phone: sd.driver_phone }],
+              }
+            }
+          }
+
           // Otherwise, try to parse vendor_text_input
           if (svc.vendor_text_input) {
             try {
