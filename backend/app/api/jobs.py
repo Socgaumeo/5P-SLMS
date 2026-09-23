@@ -152,6 +152,63 @@ async def get_job_by_number(job_number: str):
         logger.error(f"Error looking up job: {e}")
         return {"success": False, "message": str(e)}
 
+# ── Danh sách trường có thể thêm vào dịch vụ ─────────────────────────────
+# Khánh 23/09/2026: "chỉ được chọn từ danh sách cột có sẵn thôi... nội dung các
+# trường lấy theo db". Form không bao phủ hết 67 cột của job_services, nên cho
+# người dùng tự thêm — nhưng CHỈ trong danh sách này, không tự đặt tên cột mới.
+#
+# Cố tình LOẠI TRỪ: khoá chính, khoá ngoại, cột hệ thống (created_at/by...),
+# cột đã có sẵn trên form, và cột máy tự điền (vehicle_mail_sent_at...).
+TRUONG_THEM_DUOC = {
+    # số chứng từ
+    "quotation_no":        {"nhan": "Số báo giá",              "kieu": "text"},
+    "hs_code":             {"nhan": "Mã HS",                   "kieu": "text"},
+    "buyer_name":          {"nhan": "Bên mua (buyer)",         "kieu": "text"},
+    "seller_name":         {"nhan": "Bên bán (seller)",        "kieu": "text"},
+    # hải quan
+    "customs_type":        {"nhan": "Loại hình HQ (chi tiết)", "kieu": "text"},
+    "customs_status":      {"nhan": "Luồng tờ khai",           "kieu": "text"},
+    "declaration_datetime":{"nhan": "Ngày giờ tờ khai",        "kieu": "datetime"},
+    # kích thước / khối lượng
+    "volume_cbm":          {"nhan": "Số khối (CBM)",           "kieu": "number"},
+    "chargeable_weight_kg":{"nhan": "Trọng lượng tính cước",   "kieu": "number"},
+    "dimension_length_cm": {"nhan": "Dài (cm)",                "kieu": "number"},
+    "dimension_width_cm":  {"nhan": "Rộng (cm)",               "kieu": "number"},
+    "dimension_height_cm": {"nhan": "Cao (cm)",                "kieu": "number"},
+    # kho
+    "storage_start_date":  {"nhan": "Ngày vào kho",            "kieu": "date"},
+    "storage_end_date":    {"nhan": "Ngày ra kho",             "kieu": "date"},
+    # đóng gói
+    "packing_type":        {"nhan": "Kiểu đóng gói",           "kieu": "text"},
+    "items_count":         {"nhan": "Số món",                  "kieu": "number"},
+    "packages_output":     {"nhan": "Số kiện sau đóng",        "kieu": "number"},
+    "shrink_wrap":         {"nhan": "Cuốn màng co",            "kieu": "bool"},
+    "vacuum_pack":         {"nhan": "Hút chân không",          "kieu": "bool"},
+    "lashing":             {"nhan": "Chằng buộc",              "kieu": "bool"},
+    "fumigation":          {"nhan": "Hun trùng",               "kieu": "bool"},
+    # kích thước trước/sau đóng gói
+    "before_volume_cbm":   {"nhan": "Khối trước đóng (CBM)",   "kieu": "number"},
+    "after_volume_cbm":    {"nhan": "Khối sau đóng (CBM)",     "kieu": "number"},
+    # khác
+    "rate_unit":           {"nhan": "Đơn vị tính cước",        "kieu": "text"},
+    "sub_category":        {"nhan": "Phân loại phụ",           "kieu": "text"},
+    "msg_vendor":          {"nhan": "Ghi chú cho nhà thầu",    "kieu": "text"},
+    "msg_customer":        {"nhan": "Ghi chú cho khách",       "kieu": "text"},
+}
+
+
+@router.get("/truong-them-duoc")
+async def danh_sach_truong_them_duoc():
+    """Danh sách trường người dùng được phép thêm vào dịch vụ khi tạo job."""
+    return {
+        "success": True,
+        "truong": [
+            {"cot": cot, "nhan": v["nhan"], "kieu": v["kieu"]}
+            for cot, v in TRUONG_THEM_DUOC.items()
+        ],
+    }
+
+
 @router.post("/create", response_model=JobResponse)
 async def create_job(request: JobCreateFromChatRequest, req: Request):
     """
@@ -296,6 +353,13 @@ async def create_job(request: JobCreateFromChatRequest, req: Request):
             # khiến máy không gộp được, người phải mở từng lô chép tay → bảng kê KCIL T3
             # phải làm lại 14 bản.
             'service_details_input': entities.get('service_details') or enriched.get('service_details'),
+
+            # Trường người dùng tự thêm — CHỈ nhận cột nằm trong danh sách cho phép.
+            # Lọc ở đây chứ không tin phía web: web có thể bị sửa, còn đây là cửa cuối.
+            'truong_them': {
+                k: v for k, v in (entities.get('truong_them') or {}).items()
+                if k in TRUONG_THEM_DUOC and v not in (None, "")
+            },
             'truck_capacity': entities.get('truck_capacity') or enriched.get('truck_capacity'),
             
             # Warehouse-specific

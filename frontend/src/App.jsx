@@ -2830,6 +2830,11 @@ function JobCreateForm({ onClose, onSuccess }) {
   }])
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+  // Trường tự thêm — danh sách lấy TỪ MÁY CHỦ, không viết cứng trong web,
+  // để web và cơ sở dữ liệu không bao giờ lệch nhau
+  // (Khánh 23/09/2026: "chỉ được chọn từ danh sách cột có sẵn thôi").
+  const [truongCoSan, setTruongCoSan] = useState([])
+  const [truongThem, setTruongThem] = useState([])   // [{cot, nhan, kieu, gia_tri}]
 
   useEffect(() => {
     // Fetch customers
@@ -2845,6 +2850,10 @@ function JobCreateForm({ onClose, onSuccess }) {
       }
     }
     fetchCustomers()
+    authFetch(`${API_URL}/api/jobs/truong-them-duoc`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => d?.truong && setTruongCoSan(d.truong))
+      .catch(() => {})
   }, [])
 
   const handleInputChange = (e) => {
@@ -2906,6 +2915,10 @@ function JobCreateForm({ onClose, onSuccess }) {
           loai_hinh: sv0.loai_hinh || null,
           customs_port: sv0.customs_port || null,
           truck_capacity: sv0.truck_capacity || null,
+          truong_them: truongThem.reduce((acc, t) => {
+            if (t.cot && t.gia_tri !== '') acc[t.cot] = t.gia_tri
+            return acc
+          }, {}),
           service_details: (sv0.vehicle_plate || sv0.driver_name) ? {
             vehicle_plate: sv0.vehicle_plate || null,
             driver_name: sv0.driver_name || null,
@@ -3134,6 +3147,59 @@ function JobCreateForm({ onClose, onSuccess }) {
                         </div>
                       </>
                     )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Trường tự thêm — chỉ chọn được từ danh sách cột có sẵn của hệ thống */}
+            <div className="form-section">
+              <div className="section-header">
+                <h3>Trường bổ sung {truongThem.length > 0 && `(${truongThem.length})`}</h3>
+                <button type="button" className="btn-add"
+                  onClick={() => setTruongThem(prev => [...prev, { cot: '', nhan: '', kieu: 'text', gia_tri: '' }])}>
+                  + Thêm trường
+                </button>
+              </div>
+              {truongThem.length === 0 ? (
+                <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '4px 0 0' }}>
+                  Form chưa có ô mình cần? Bấm “Thêm trường” để chọn từ {truongCoSan.length} trường có sẵn của hệ thống.
+                </p>
+              ) : truongThem.map((t, i) => (
+                <div key={i} className="form-grid cols-2" style={{ marginBottom: '10px' }}>
+                  <div className="form-group">
+                    <label>Chọn trường</label>
+                    <select value={t.cot} onChange={e => {
+                      const ch = truongCoSan.find(x => x.cot === e.target.value)
+                      setTruongThem(prev => prev.map((x, j) => j === i
+                        ? { ...x, cot: e.target.value, nhan: ch?.nhan || '', kieu: ch?.kieu || 'text', gia_tri: '' }
+                        : x))
+                    }}>
+                      <option value="">— chọn trường —</option>
+                      {truongCoSan
+                        .filter(x => x.cot === t.cot || !truongThem.some(y => y.cot === x.cot))
+                        .map(x => <option key={x.cot} value={x.cot}>{x.nhan}</option>)}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label>{t.nhan || 'Giá trị'}</label>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      {t.kieu === 'bool' ? (
+                        <select value={t.gia_tri} onChange={e => setTruongThem(prev => prev.map((x, j) => j === i ? { ...x, gia_tri: e.target.value } : x))}>
+                          <option value="">—</option>
+                          <option value="true">Có</option>
+                          <option value="false">Không</option>
+                        </select>
+                      ) : (
+                        <input
+                          type={t.kieu === 'number' ? 'number' : t.kieu === 'date' ? 'date' : t.kieu === 'datetime' ? 'datetime-local' : 'text'}
+                          value={t.gia_tri} disabled={!t.cot}
+                          placeholder={t.cot ? '' : 'chọn trường trước'}
+                          onChange={e => setTruongThem(prev => prev.map((x, j) => j === i ? { ...x, gia_tri: e.target.value } : x))} />
+                      )}
+                      <button type="button" className="btn-remove"
+                        onClick={() => setTruongThem(prev => prev.filter((_, j) => j !== i))}>✕</button>
+                    </div>
                   </div>
                 </div>
               ))}

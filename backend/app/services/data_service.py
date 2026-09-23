@@ -578,6 +578,11 @@ class DataService:
                     'service_details': service_details_json,
                     'created_by': user_id,
                     'updated_by': user_id,
+                    # ⚠️ PHẢI ĐỂ DÒNG CUỐI. Trường người dùng tự thêm phải ĐÈ LÊN giá trị
+                    # mặc định ở trên, không thì bị chính chúng ghi đè bằng None.
+                    # Lỗi đã gặp 23/09/2026: đặt ở giữa dict → hs_code và buyer_name người
+                    # dùng nhập bị 'None' phía dưới nuốt mất, lashing=true thành False.
+                    **(job_data.get("truong_them") or {}),
                 }).execute()
 
                 logger.info(f"Created job_service for type={svc_type}")
