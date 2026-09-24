@@ -25,9 +25,8 @@ const DON_VI = [
   { nhom: 'Đóng gói', ds: [
     ['PK',  'Kiện'],
     ['PX',  'Pallet'],
-    ['CT',  'Thùng carton'],
+    ['CT',  'Thùng carton / hộp'],
     ['CS',  'Thùng gỗ / case'],
-    ['BX',  'Hộp'],
     ['BG',  'Bao / túi'],
     ['RO',  'Cuộn'],
     ['BE',  'Bó'],
