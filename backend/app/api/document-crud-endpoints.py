@@ -181,12 +181,29 @@ async def download_document(
 
         elif doc.get('external_url'):
             # Fetch from external URL (Supabase Storage etc.) and stream with proper filename
+            # 🔴 PHẢI đi theo chuyển hướng (sửa 28/09/2026 — Khánh: "fix xong lại lỗi tải về").
+            # Link tải Google Drive `uc?export=download&id=...` trả **302 redirect** sang máy
+            # chủ chứa file thật. httpx mặc định KHÔNG đi theo redirect ⇒ nhận 302, rơi vào
+            # nhánh `!= 200` ⇒ báo "Download failed" dù link hoàn toàn đúng.
+            #
+            # Và với file > ~25 MB, Drive trả trang HTML hỏi xác nhận quét virus thay vì file.
+            # Trang đó có `confirm=<token>` — phải gọi lại kèm token mới lấy được file.
             import httpx
-            async with httpx.AsyncClient(timeout=30.0) as http_client:
+            async with httpx.AsyncClient(timeout=60.0, follow_redirects=True) as http_client:
                 r = await http_client.get(doc['external_url'])
                 if r.status_code != 200:
                     raise HTTPException(502, f"Failed to fetch external file: HTTP {r.status_code}")
                 file_bytes = r.content
+                # Drive chặn file lớn bằng trang xác nhận HTML — lấy token rồi gọi lại
+                if (r.headers.get('content-type', '').startswith('text/html')
+                        and b'confirm=' in file_bytes[:4000]):
+                    import re as _re
+                    _m = _re.search(rb'confirm=([0-9A-Za-z_\-]+)', file_bytes[:4000])
+                    if _m:
+                        _tok = _m.group(1).decode()
+                        _sep = '&' if '?' in doc['external_url'] else '?'
+                        r = await http_client.get(f"{doc['external_url']}{_sep}confirm={_tok}")
+                        file_bytes = r.content
             content_type = doc.get('mime_type') or r.headers.get('content-type') or 'application/octet-stream'
             return StreamingResponse(
                 io.BytesIO(file_bytes),
