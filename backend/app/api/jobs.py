@@ -208,6 +208,16 @@ TRUONG_THEM_DUOC = {
 }
 
 
+# Ô cơ bản mỗi dịch vụ được mang riêng khi tạo job (xem 'chi_tiet_dich_vu').
+_O_CO_BAN_DICH_VU = (
+    "cargo_type", "package_quantity", "package_unit", "weight_kg",
+    "dimension_length_cm", "dimension_width_cm", "dimension_height_cm",
+    "invoice_numbers", "cd_no", "bl_awb_no", "co_no", "loai_hinh", "customs_port",
+    "truck_capacity", "buyer_name", "seller_name", "pickup_address", "delivery_address",
+    "service_details_input",
+)
+
+
 @router.get("/truong-them-duoc")
 async def danh_sach_truong_them_duoc():
     """Danh sách trường người dùng được phép thêm vào dịch vụ khi tạo job."""
@@ -384,6 +394,16 @@ async def create_job(request: JobCreateFromChatRequest, req: Request):
                 if k in TRUONG_THEM_DUOC and v not in (None, "")
             },
             'truck_capacity': entities.get('truck_capacity') or enriched.get('truck_capacity'),
+            # 01/10/2026: chi tiết RIÊNG của từng dịch vụ (cùng thứ tự với 'services').
+            # Chỉ nhận ô cơ bản + cột trong danh sách cho phép — lọc ở cửa cuối.
+            'chi_tiet_dich_vu': [
+                {
+                    **{k: ct.get(k) for k in _O_CO_BAN_DICH_VU if k in ct},
+                    'truong_them': {k: v for k, v in (ct.get('truong_them') or {}).items()
+                                    if k in TRUONG_THEM_DUOC and v not in (None, "")},
+                }
+                for ct in (entities.get('chi_tiet_dich_vu') or []) if isinstance(ct, dict)
+            ],
             
             # Warehouse-specific
             'storage_start_date': entities.get('storage_start_date'),

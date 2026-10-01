@@ -3219,6 +3219,27 @@ function JobCreateForm({ onClose, onSuccess }) {
             return acc
           }, ['incoterm','booking_no','mbl_no','carrier','vessel_flight','phan_luong','atd','delivery_date','container_no','declaration_datetime']
               .reduce((a, k) => { if (sv0[k]) a[k] = sv0[k]; return a }, {})),
+          // 01/10/2026: mỗi dịch vụ gửi chi tiết RIÊNG (trước đây chỉ dịch vụ đầu được lưu).
+          chi_tiet_dich_vu: services.map(s => ({
+            cargo_type: s.cargo_type || null,
+            package_quantity: parseInt(s.package_quantity) || null,
+            package_unit: s.package_unit || null,
+            weight_kg: parseFloat(s.weight_kg) || null,
+            dimension_length_cm: parseFloat(s.dimension_length_cm) || null,
+            dimension_width_cm: parseFloat(s.dimension_width_cm) || null,
+            dimension_height_cm: parseFloat(s.dimension_height_cm) || null,
+            invoice_numbers: s.invoice_numbers || null,
+            cd_no: s.cd_no || null, bl_awb_no: s.bl_awb_no || null, co_no: s.co_no || null,
+            loai_hinh: s.loai_hinh || null, customs_port: s.customs_port || null,
+            truck_capacity: s.truck_capacity || null,
+            buyer_name: s.buyer_name || null, seller_name: s.seller_name || null,
+            pickup_address: s.pickup_address || null, delivery_address: s.delivery_address || null,
+            service_details_input: (s.vehicle_plate || s.driver_name) ? {
+              vehicle_plate: s.vehicle_plate || null, driver_name: s.driver_name || null, driver_phone: s.driver_phone || null
+            } : null,
+            truong_them: ['incoterm','booking_no','mbl_no','carrier','vessel_flight','phan_luong','atd','delivery_date','container_no','declaration_datetime']
+              .reduce((a, k) => { if (s[k]) a[k] = s[k]; return a }, {}),
+          })),
           service_details: (sv0.vehicle_plate || sv0.driver_name) ? {
             vehicle_plate: sv0.vehicle_plate || null,
             driver_name: sv0.driver_name || null,
