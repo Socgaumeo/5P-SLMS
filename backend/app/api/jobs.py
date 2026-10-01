@@ -215,6 +215,8 @@ _O_CO_BAN_DICH_VU = (
     "invoice_numbers", "cd_no", "bl_awb_no", "co_no", "loai_hinh", "customs_port",
     "truck_capacity", "buyer_name", "seller_name", "pickup_address", "delivery_address",
     "service_details_input",
+    # 01/10/2026: ETD từng dịch vụ (đi vào scheduled_date) + vendor chọn lúc tạo job.
+    "booking_date", "vendor_id",
 )
 
 
