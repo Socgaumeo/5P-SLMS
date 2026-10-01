@@ -85,6 +85,20 @@ const NhanMoc = ({ tieuChi, code, cot }) => {
   return m ? <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 600, color: m.mau }}>· {m.nhan}</span> : null
 }
 
+// Dùng chung cho form tạo và form sửa: tải tiêu chí 1 lần, giữ trong bộ nhớ.
+let _tieuChiCache = null
+const useTieuChi = () => {
+  const [t, setT] = useState(_tieuChiCache)
+  useEffect(() => {
+    if (_tieuChiCache) return
+    authFetch(`${API_URL}/api/jobs/tieu-chi-nhap-job`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.dich_vu) { _tieuChiCache = d.dich_vu; setT(d.dich_vu) } })
+      .catch(() => {})
+  }, [])
+  return t
+}
+
 const nhomDichVu = (code) => {
   const c = String(code || '')
   if (c.startsWith('CUS_')) return 'HAI_QUAN'
@@ -430,6 +444,7 @@ function QuotationSelector({ type, rates, standardRates = [], selectedRateId, se
 // JOB DETAIL MODAL (with Edit Mode)
 // ========================================
 function JobDetailModal({ job, onClose, onUpdate }) {
+  const tieuChiSua = useTieuChi()
   // Danh sách trường được phép thêm — lấy TỪ MÁY CHỦ, dùng chung với form tạo job
   // (Khánh 23/09/2026: "khi edit job cũng cho phép thêm trường y hệt như khi tạo job").
   const [truongCoSanSua, setTruongCoSanSua] = useState([])
@@ -1567,6 +1582,77 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                 <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Quotation No.</label>
                                 <input type="text" value={svc.quotation_no || ''} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, quotation_no: e.target.value } : s))} placeholder="QT-2026-001" style={{ width: '100%', padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px' }} />
                               </div>
+{/* 01/10/2026 — ô theo file "THÔNG TIN NHẬP JOB" Khánh chốt 30/09; nhãn mốc lấy từ máy chủ */}
+{nhomDichVu(svc.service_type_code) === 'QUOC_TE' && (
+<>
+                              <div>
+                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Term<NhanMoc tieuChi={tieuChiSua} code={svc.service_type_code} cot="incoterm" /></label>
+                                <input type="text" value={(svc.incoterm || '').toString().slice(0, 200)} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, incoterm: e.target.value } : s))} style={{ width: '100%', padding: '6px 8px', fontSize: '13px', border: '1px solid var(--border)', borderRadius: '6px' }} />
+                              </div>
+</>)}
+{(String(svc.service_type_code).startsWith('AIR_') || String(svc.service_type_code).startsWith('SEA_')) && (
+<>
+                              <div>
+                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{String(svc.service_type_code).startsWith('AIR_') ? 'Số MAWB (= booking)' : 'Số booking'}<NhanMoc tieuChi={tieuChiSua} code={svc.service_type_code} cot="booking_no" /></label>
+                                <input type="text" value={(svc.booking_no || '').toString().slice(0, 200)} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, booking_no: e.target.value } : s))} style={{ width: '100%', padding: '6px 8px', fontSize: '13px', border: '1px solid var(--border)', borderRadius: '6px' }} />
+                              </div>
+</>)}
+{(String(svc.service_type_code).startsWith('AIR_') || String(svc.service_type_code).startsWith('SEA_')) && (
+<>
+                              <div>
+                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Carrier (hãng tàu/bay)<NhanMoc tieuChi={tieuChiSua} code={svc.service_type_code} cot="carrier" /></label>
+                                <input type="text" value={(svc.carrier || '').toString().slice(0, 200)} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, carrier: e.target.value } : s))} style={{ width: '100%', padding: '6px 8px', fontSize: '13px', border: '1px solid var(--border)', borderRadius: '6px' }} />
+                              </div>
+</>)}
+{(String(svc.service_type_code).startsWith('AIR_') || String(svc.service_type_code).startsWith('SEA_')) && (
+<>
+                              <div>
+                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{String(svc.service_type_code).startsWith('AIR_') ? 'Số chuyến bay' : 'Tên tàu / chuyến'}<NhanMoc tieuChi={tieuChiSua} code={svc.service_type_code} cot="vessel_flight" /></label>
+                                <input type="text" value={(svc.vessel_flight || '').toString().slice(0, 200)} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, vessel_flight: e.target.value } : s))} style={{ width: '100%', padding: '6px 8px', fontSize: '13px', border: '1px solid var(--border)', borderRadius: '6px' }} />
+                              </div>
+</>)}
+{String(svc.service_type_code).startsWith('SEA_') && (
+<>
+                              <div>
+                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Số MBL<NhanMoc tieuChi={tieuChiSua} code={svc.service_type_code} cot="mbl_no" /></label>
+                                <input type="text" value={(svc.mbl_no || '').toString().slice(0, 200)} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, mbl_no: e.target.value } : s))} style={{ width: '100%', padding: '6px 8px', fontSize: '13px', border: '1px solid var(--border)', borderRadius: '6px' }} />
+                              </div>
+</>)}
+{(String(svc.service_type_code).startsWith('SEA_') || String(svc.service_type_code).startsWith('BORDER_')) && (
+<>
+                              <div>
+                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Số container<NhanMoc tieuChi={tieuChiSua} code={svc.service_type_code} cot="container_no" /></label>
+                                <input type="text" value={(svc.container_no || '').toString().slice(0, 200)} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, container_no: e.target.value } : s))} style={{ width: '100%', padding: '6px 8px', fontSize: '13px', border: '1px solid var(--border)', borderRadius: '6px' }} />
+                              </div>
+</>)}
+{nhomDichVu(svc.service_type_code) === 'QUOC_TE' && (
+<>
+                              <div>
+                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>ATD (đi thực tế)<NhanMoc tieuChi={tieuChiSua} code={svc.service_type_code} cot="atd" /></label>
+                                <input type="date" value={(svc.atd || '').toString().slice(0, 10)} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, atd: e.target.value } : s))} style={{ width: '100%', padding: '6px 8px', fontSize: '13px', border: '1px solid var(--border)', borderRadius: '6px' }} />
+                              </div>
+</>)}
+{nhomDichVu(svc.service_type_code) === 'QUOC_TE' && (
+<>
+                              <div>
+                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Ngày giao hàng<NhanMoc tieuChi={tieuChiSua} code={svc.service_type_code} cot="delivery_date" /></label>
+                                <input type="date" value={(svc.delivery_date || '').toString().slice(0, 10)} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, delivery_date: e.target.value } : s))} style={{ width: '100%', padding: '6px 8px', fontSize: '13px', border: '1px solid var(--border)', borderRadius: '6px' }} />
+                              </div>
+</>)}
+{nhomDichVu(svc.service_type_code) === 'HAI_QUAN' && (
+<>
+                              <div>
+                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Ngày tờ khai<NhanMoc tieuChi={tieuChiSua} code={svc.service_type_code} cot="declaration_datetime" /></label>
+                                <input type="date" value={(svc.declaration_datetime || '').toString().slice(0, 10)} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, declaration_datetime: e.target.value } : s))} style={{ width: '100%', padding: '6px 8px', fontSize: '13px', border: '1px solid var(--border)', borderRadius: '6px' }} />
+                              </div>
+</>)}
+{nhomDichVu(svc.service_type_code) === 'HAI_QUAN' && (
+<>
+                              <div>
+                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Phân luồng (XANH/VANG/DO)<NhanMoc tieuChi={tieuChiSua} code={svc.service_type_code} cot="phan_luong" /></label>
+                                <input type="text" value={(svc.phan_luong || '').toString().slice(0, 200)} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, phan_luong: e.target.value } : s))} style={{ width: '100%', padding: '6px 8px', fontSize: '13px', border: '1px solid var(--border)', borderRadius: '6px' }} />
+                              </div>
+</>)}
                               <div>
                                 <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Loại hình tờ khai</label>
                                 <input type="text" value={svc.loai_hinh || ''} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, loai_hinh: e.target.value } : s))} placeholder="VD: E11, B13, A12" style={{ width: '100%', padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px' }} />
@@ -1790,6 +1876,10 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                   loai_hinh: svc.loai_hinh || null,
                                   customs_port: svc.customs_port || null,
                                   truck_capacity: svc.truck_capacity || null,
+                                  // 01/10/2026 — cột mới theo tiêu chí nhập job
+                                  ...['incoterm','booking_no','mbl_no','carrier','vessel_flight','atd','delivery_date','container_no','declaration_datetime']
+                                    .reduce((a, k) => { a[k] = svc[k] ? String(svc[k]).trim() : null; return a }, {}),
+                                  phan_luong: svc.phan_luong ? String(svc.phan_luong).trim().toUpperCase() : null,
                                   ...(svc.truong_them_sua || {}),
                                 }
                                 const res = await authFetch(`${API_URL}/api/jobs/services/${svc.svc_id}/details`, {
