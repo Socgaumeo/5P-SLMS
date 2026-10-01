@@ -1,0 +1,610 @@
+{
+ "nguon": "workspace-main/config/job_required_fields.yaml v0.4",
+ "dich_vu": {
+  "TRUCKING": {
+   "tao_job": [
+    "origin_address",
+    "dest_address",
+    "scheduled_date",
+    "vendor_id"
+   ],
+   "tao_job_any_of": [
+    [
+     "package_quantity",
+     "weight_kg",
+     "volume_cbm",
+     "items_count"
+    ]
+   ],
+   "tao_job_nen_co": [
+    "vehicle_type",
+    "driver_id",
+    "vendor_text_input",
+    "cargo_type",
+    "invoice_numbers"
+   ],
+   "hoan_thien": [
+    "xe",
+    "gia_mua",
+    "gia_ban"
+   ],
+   "hoan_thien_nen_co": []
+  },
+  "BORDER_IMP": {
+   "tao_job": [
+    "vendor_id",
+    "origin_address",
+    "dest_address",
+    "etd"
+   ],
+   "tao_job_any_of": [
+    [
+     "package_quantity",
+     "weight_kg",
+     "volume_cbm",
+     "items_count"
+    ]
+   ],
+   "tao_job_nen_co": [
+    "incoterm",
+    "seller_name",
+    "weight_kg",
+    "invoice_numbers",
+    "cargo_type",
+    "scheduled_date"
+   ],
+   "hoan_thien": [
+    "atd",
+    "eta",
+    "gia_mua",
+    "gia_ban",
+    "bl_awb_no"
+   ],
+   "hoan_thien_nen_co": [
+    "container_no",
+    "delivery_date"
+   ]
+  },
+  "BORDER_EXP": {
+   "tao_job": [
+    "vendor_id",
+    "origin_address",
+    "dest_address",
+    "etd"
+   ],
+   "tao_job_any_of": [
+    [
+     "package_quantity",
+     "weight_kg",
+     "volume_cbm",
+     "items_count"
+    ]
+   ],
+   "tao_job_nen_co": [
+    "incoterm",
+    "weight_kg",
+    "invoice_numbers",
+    "scheduled_date"
+   ],
+   "hoan_thien": [
+    "eta",
+    "gia_mua",
+    "gia_ban",
+    "bl_awb_no",
+    "buyer_name"
+   ],
+   "hoan_thien_nen_co": [
+    "container_no"
+   ]
+  },
+  "CUS_IMPORT": {
+   "tao_job": [
+    "loai_hinh",
+    "cd_no",
+    "declaration_datetime"
+   ],
+   "tao_job_any_of": [
+    [
+     "vendor_id",
+     "employee_id"
+    ]
+   ],
+   "tao_job_nen_co": [
+    "phan_luong",
+    "customs_port",
+    "invoice_numbers",
+    "buyer_name",
+    "seller_name",
+    "hs_code"
+   ],
+   "hoan_thien": [],
+   "hoan_thien_nen_co": []
+  },
+  "CUS_EXPORT": {
+   "tao_job": [
+    "loai_hinh",
+    "cd_no",
+    "declaration_datetime"
+   ],
+   "tao_job_any_of": [
+    [
+     "vendor_id",
+     "employee_id"
+    ]
+   ],
+   "tao_job_nen_co": [
+    "phan_luong",
+    "customs_port",
+    "invoice_numbers",
+    "buyer_name",
+    "seller_name"
+   ],
+   "hoan_thien": [],
+   "hoan_thien_nen_co": []
+  },
+  "CUS_TRANSIT": {
+   "tao_job": [
+    "loai_hinh",
+    "cd_no"
+   ],
+   "tao_job_any_of": [
+    [
+     "vendor_id",
+     "employee_id"
+    ]
+   ],
+   "tao_job_nen_co": [
+    "customs_port",
+    "invoice_numbers"
+   ],
+   "hoan_thien": [],
+   "hoan_thien_nen_co": []
+  },
+  "CUS_CO": {
+   "tao_job": [
+    "co_no"
+   ],
+   "tao_job_any_of": [
+    [
+     "vendor_id",
+     "employee_id"
+    ]
+   ],
+   "tao_job_nen_co": [
+    "invoice_numbers",
+    "hs_code"
+   ],
+   "hoan_thien": [],
+   "hoan_thien_nen_co": []
+  },
+  "SEA_IMP": {
+   "tao_job": [
+    "bl_awb_no",
+    "vendor_id",
+    "origin_address",
+    "dest_address",
+    "etd"
+   ],
+   "tao_job_any_of": [
+    [
+     "package_quantity",
+     "weight_kg",
+     "volume_cbm",
+     "items_count"
+    ]
+   ],
+   "tao_job_nen_co": [
+    "incoterm",
+    "seller_name",
+    "weight_kg",
+    "volume_cbm"
+   ],
+   "hoan_thien": [
+    "carrier",
+    "booking_no",
+    "atd",
+    "eta",
+    "gia_mua",
+    "gia_ban",
+    "vessel_flight",
+    "mbl_no",
+    "container_no"
+   ],
+   "hoan_thien_nen_co": [
+    "delivery_date"
+   ]
+  },
+  "SEA_EXP": {
+   "tao_job": [
+    "bl_awb_no",
+    "vendor_id",
+    "origin_address",
+    "dest_address",
+    "etd"
+   ],
+   "tao_job_any_of": [
+    [
+     "package_quantity",
+     "weight_kg",
+     "volume_cbm",
+     "items_count"
+    ]
+   ],
+   "tao_job_nen_co": [
+    "incoterm",
+    "booking_no",
+    "carrier",
+    "scheduled_date",
+    "volume_cbm",
+    "invoice_numbers"
+   ],
+   "hoan_thien": [
+    "eta",
+    "gia_mua",
+    "gia_ban",
+    "vessel_flight",
+    "mbl_no",
+    "container_no",
+    "buyer_name"
+   ],
+   "hoan_thien_nen_co": []
+  },
+  "SEA_DOM": {
+   "tao_job": [
+    "bl_awb_no",
+    "vendor_id",
+    "origin_address",
+    "dest_address",
+    "scheduled_date"
+   ],
+   "tao_job_any_of": [],
+   "tao_job_nen_co": [
+    "package_quantity",
+    "weight_kg",
+    "volume_cbm"
+   ],
+   "hoan_thien": [],
+   "hoan_thien_nen_co": []
+  },
+  "AIR_IMP": {
+   "tao_job": [
+    "bl_awb_no",
+    "vendor_id",
+    "origin_address",
+    "dest_address",
+    "etd"
+   ],
+   "tao_job_any_of": [
+    [
+     "package_quantity",
+     "weight_kg",
+     "volume_cbm",
+     "items_count"
+    ]
+   ],
+   "tao_job_nen_co": [
+    "incoterm",
+    "seller_name",
+    "weight_kg",
+    "chargeable_weight_kg"
+   ],
+   "hoan_thien": [
+    "booking_no",
+    "carrier",
+    "atd",
+    "eta",
+    "gia_mua",
+    "gia_ban"
+   ],
+   "hoan_thien_nen_co": [
+    "vessel_flight",
+    "delivery_date"
+   ]
+  },
+  "AIR_EXP": {
+   "tao_job": [
+    "bl_awb_no",
+    "vendor_id",
+    "origin_address",
+    "dest_address",
+    "etd"
+   ],
+   "tao_job_any_of": [
+    [
+     "package_quantity",
+     "weight_kg",
+     "volume_cbm",
+     "items_count"
+    ]
+   ],
+   "tao_job_nen_co": [
+    "incoterm",
+    "booking_no",
+    "carrier",
+    "scheduled_date",
+    "weight_kg",
+    "chargeable_weight_kg"
+   ],
+   "hoan_thien": [
+    "eta",
+    "gia_mua",
+    "gia_ban",
+    "buyer_name"
+   ],
+   "hoan_thien_nen_co": [
+    "vessel_flight"
+   ]
+  },
+  "AIR_DOM": {
+   "tao_job": [
+    "vendor_id",
+    "origin_address",
+    "dest_address"
+   ],
+   "tao_job_any_of": [],
+   "tao_job_nen_co": [
+    "bl_awb_no",
+    "scheduled_date",
+    "weight_kg",
+    "package_quantity"
+   ],
+   "hoan_thien": [],
+   "hoan_thien_nen_co": []
+  },
+  "WHS_HANDLE": {
+   "tao_job": [
+    "vendor_id",
+    "scheduled_date"
+   ],
+   "tao_job_any_of": [
+    [
+     "package_quantity",
+     "weight_kg",
+     "volume_cbm",
+     "container_no",
+     "vehicle_count"
+    ]
+   ],
+   "tao_job_nen_co": [
+    "cargo_type",
+    "package_unit"
+   ],
+   "hoan_thien": [],
+   "hoan_thien_nen_co": []
+  },
+  "WHS_STORAGE": {
+   "tao_job": [
+    "vendor_id",
+    "storage_start_date"
+   ],
+   "tao_job_any_of": [],
+   "tao_job_nen_co": [
+    "storage_end_date",
+    "package_quantity",
+    "cargo_type"
+   ],
+   "hoan_thien": [],
+   "hoan_thien_nen_co": []
+  },
+  "WHS_VAS": {
+   "tao_job": [
+    "vendor_id"
+   ],
+   "tao_job_any_of": [],
+   "tao_job_nen_co": [
+    "scheduled_date",
+    "package_quantity"
+   ],
+   "hoan_thien": [],
+   "hoan_thien_nen_co": []
+  },
+  "WHS_CSHT": {
+   "tao_job": [
+    "vendor_id"
+   ],
+   "tao_job_any_of": [],
+   "tao_job_nen_co": [
+    "scheduled_date"
+   ],
+   "hoan_thien": [],
+   "hoan_thien_nen_co": []
+  },
+  "WHS_THC": {
+   "tao_job": [
+    "vendor_id"
+   ],
+   "tao_job_any_of": [],
+   "tao_job_nen_co": [
+    "scheduled_date"
+   ],
+   "hoan_thien": [],
+   "hoan_thien_nen_co": []
+  },
+  "CUS_INSPECT": {
+   "tao_job": [
+    "cd_no"
+   ],
+   "tao_job_any_of": [
+    [
+     "vendor_id",
+     "employee_id"
+    ]
+   ],
+   "tao_job_nen_co": [
+    "customs_port",
+    "declaration_datetime"
+   ],
+   "hoan_thien": [],
+   "hoan_thien_nen_co": []
+  },
+  "CUS_SUPERVISE": {
+   "tao_job": [
+    "cd_no"
+   ],
+   "tao_job_any_of": [
+    [
+     "vendor_id",
+     "employee_id"
+    ]
+   ],
+   "tao_job_nen_co": [
+    "customs_port"
+   ],
+   "hoan_thien": [],
+   "hoan_thien_nen_co": []
+  },
+  "CUS_TRANSFER": {
+   "tao_job": [
+    "loai_hinh",
+    "cd_no"
+   ],
+   "tao_job_any_of": [
+    [
+     "vendor_id",
+     "employee_id"
+    ]
+   ],
+   "tao_job_nen_co": [
+    "customs_port",
+    "declaration_datetime"
+   ],
+   "hoan_thien": [],
+   "hoan_thien_nen_co": []
+  },
+  "SVC_LASHING": {
+   "tao_job": [
+    "vendor_id",
+    "scheduled_date"
+   ],
+   "tao_job_any_of": [],
+   "tao_job_nen_co": [
+    "package_quantity"
+   ],
+   "hoan_thien": [],
+   "hoan_thien_nen_co": []
+  },
+  "SVC_LASHING_TRUCK": {
+   "tao_job": [
+    "vendor_id",
+    "scheduled_date"
+   ],
+   "tao_job_any_of": [],
+   "tao_job_nen_co": [
+    "package_quantity"
+   ],
+   "hoan_thien": [],
+   "hoan_thien_nen_co": []
+  },
+  "SVC_LASHING_CONT": {
+   "tao_job": [
+    "vendor_id",
+    "scheduled_date"
+   ],
+   "tao_job_any_of": [],
+   "tao_job_nen_co": [
+    "package_quantity",
+    "container_no"
+   ],
+   "hoan_thien": [],
+   "hoan_thien_nen_co": []
+  },
+  "SVC_LASHING_FR": {
+   "tao_job": [
+    "vendor_id",
+    "scheduled_date"
+   ],
+   "tao_job_any_of": [],
+   "tao_job_nen_co": [
+    "package_quantity",
+    "container_no"
+   ],
+   "hoan_thien": [],
+   "hoan_thien_nen_co": []
+  },
+  "SVC_OTHER": {
+   "tao_job": [
+    "vendor_id",
+    "cost_description"
+   ],
+   "tao_job_any_of": [],
+   "tao_job_nen_co": [
+    "scheduled_date"
+   ],
+   "hoan_thien": [],
+   "hoan_thien_nen_co": []
+  },
+  "LIFT_ON": {
+   "tao_job": [
+    "vendor_id",
+    "scheduled_date"
+   ],
+   "tao_job_any_of": [],
+   "tao_job_nen_co": [
+    "package_quantity"
+   ],
+   "hoan_thien": [],
+   "hoan_thien_nen_co": []
+  },
+  "LIFT_OFF": {
+   "tao_job": [
+    "vendor_id",
+    "scheduled_date"
+   ],
+   "tao_job_any_of": [],
+   "tao_job_nen_co": [
+    "package_quantity"
+   ],
+   "hoan_thien": [],
+   "hoan_thien_nen_co": []
+  },
+  "SVC_PACK": {
+   "tao_job": [
+    "vendor_id",
+    "scheduled_date"
+   ],
+   "tao_job_any_of": [],
+   "tao_job_nen_co": [
+    "package_quantity",
+    "cargo_type"
+   ],
+   "hoan_thien": [],
+   "hoan_thien_nen_co": []
+  },
+  "SVC_FUMI": {
+   "tao_job": [
+    "vendor_id",
+    "scheduled_date"
+   ],
+   "tao_job_any_of": [],
+   "tao_job_nen_co": [
+    "package_quantity"
+   ],
+   "hoan_thien": [],
+   "hoan_thien_nen_co": []
+  },
+  "SVC_VACUUM": {
+   "tao_job": [
+    "vendor_id",
+    "scheduled_date"
+   ],
+   "tao_job_any_of": [],
+   "tao_job_nen_co": [
+    "package_quantity"
+   ],
+   "hoan_thien": [],
+   "hoan_thien_nen_co": []
+  },
+  "SVC_SHRINK": {
+   "tao_job": [
+    "vendor_id",
+    "scheduled_date"
+   ],
+   "tao_job_any_of": [],
+   "tao_job_nen_co": [
+    "package_quantity"
+   ],
+   "hoan_thien": [],
+   "hoan_thien_nen_co": []
+  }
+ }
+}
