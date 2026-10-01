@@ -1,5 +1,5 @@
 {
- "nguon": "workspace-main/config/job_required_fields.yaml v0.4",
+ "nguon": "workspace-main/config/job_required_fields.yaml v0.5",
  "dich_vu": {
   "TRUCKING": {
    "tao_job": [
@@ -28,7 +28,8 @@
     "gia_mua",
     "gia_ban"
    ],
-   "hoan_thien_nen_co": []
+   "hoan_thien_nen_co": [],
+   "kem_van_chuyen": null
   },
   "BORDER_IMP": {
    "tao_job": [
@@ -63,7 +64,8 @@
    "hoan_thien_nen_co": [
     "container_no",
     "delivery_date"
-   ]
+   ],
+   "kem_van_chuyen": null
   },
   "BORDER_EXP": {
    "tao_job": [
@@ -95,7 +97,8 @@
    ],
    "hoan_thien_nen_co": [
     "container_no"
-   ]
+   ],
+   "kem_van_chuyen": null
   },
   "CUS_IMPORT": {
    "tao_job": [
@@ -118,7 +121,15 @@
     "hs_code"
    ],
    "hoan_thien": [],
-   "hoan_thien_nen_co": []
+   "hoan_thien_nen_co": [],
+   "kem_van_chuyen": {
+    "required": [],
+    "hoan_thien": [
+     "loai_hinh",
+     "cd_no",
+     "declaration_datetime"
+    ]
+   }
   },
   "CUS_EXPORT": {
    "tao_job": [
@@ -140,7 +151,15 @@
     "seller_name"
    ],
    "hoan_thien": [],
-   "hoan_thien_nen_co": []
+   "hoan_thien_nen_co": [],
+   "kem_van_chuyen": {
+    "required": [],
+    "hoan_thien": [
+     "loai_hinh",
+     "cd_no",
+     "declaration_datetime"
+    ]
+   }
   },
   "CUS_TRANSIT": {
    "tao_job": [
@@ -158,7 +177,14 @@
     "invoice_numbers"
    ],
    "hoan_thien": [],
-   "hoan_thien_nen_co": []
+   "hoan_thien_nen_co": [],
+   "kem_van_chuyen": {
+    "required": [],
+    "hoan_thien": [
+     "loai_hinh",
+     "cd_no"
+    ]
+   }
   },
   "CUS_CO": {
    "tao_job": [
@@ -175,7 +201,8 @@
     "hs_code"
    ],
    "hoan_thien": [],
-   "hoan_thien_nen_co": []
+   "hoan_thien_nen_co": [],
+   "kem_van_chuyen": null
   },
   "SEA_IMP": {
    "tao_job": [
@@ -212,7 +239,8 @@
    ],
    "hoan_thien_nen_co": [
     "delivery_date"
-   ]
+   ],
+   "kem_van_chuyen": null
   },
   "SEA_EXP": {
    "tao_job": [
@@ -247,7 +275,8 @@
     "container_no",
     "buyer_name"
    ],
-   "hoan_thien_nen_co": []
+   "hoan_thien_nen_co": [],
+   "kem_van_chuyen": null
   },
   "SEA_DOM": {
    "tao_job": [
@@ -264,7 +293,8 @@
     "volume_cbm"
    ],
    "hoan_thien": [],
-   "hoan_thien_nen_co": []
+   "hoan_thien_nen_co": [],
+   "kem_van_chuyen": null
   },
   "AIR_IMP": {
    "tao_job": [
@@ -299,7 +329,8 @@
    "hoan_thien_nen_co": [
     "vessel_flight",
     "delivery_date"
-   ]
+   ],
+   "kem_van_chuyen": null
   },
   "AIR_EXP": {
    "tao_job": [
@@ -333,7 +364,8 @@
    ],
    "hoan_thien_nen_co": [
     "vessel_flight"
-   ]
+   ],
+   "kem_van_chuyen": null
   },
   "AIR_DOM": {
    "tao_job": [
@@ -349,7 +381,8 @@
     "package_quantity"
    ],
    "hoan_thien": [],
-   "hoan_thien_nen_co": []
+   "hoan_thien_nen_co": [],
+   "kem_van_chuyen": null
   },
   "WHS_HANDLE": {
    "tao_job": [
@@ -370,7 +403,8 @@
     "package_unit"
    ],
    "hoan_thien": [],
-   "hoan_thien_nen_co": []
+   "hoan_thien_nen_co": [],
+   "kem_van_chuyen": null
   },
   "WHS_STORAGE": {
    "tao_job": [
@@ -384,7 +418,8 @@
     "cargo_type"
    ],
    "hoan_thien": [],
-   "hoan_thien_nen_co": []
+   "hoan_thien_nen_co": [],
+   "kem_van_chuyen": null
   },
   "WHS_VAS": {
    "tao_job": [
@@ -396,7 +431,8 @@
     "package_quantity"
    ],
    "hoan_thien": [],
-   "hoan_thien_nen_co": []
+   "hoan_thien_nen_co": [],
+   "kem_van_chuyen": null
   },
   "WHS_CSHT": {
    "tao_job": [
@@ -407,7 +443,8 @@
     "scheduled_date"
    ],
    "hoan_thien": [],
-   "hoan_thien_nen_co": []
+   "hoan_thien_nen_co": [],
+   "kem_van_chuyen": null
   },
   "WHS_THC": {
    "tao_job": [
@@ -418,7 +455,8 @@
     "scheduled_date"
    ],
    "hoan_thien": [],
-   "hoan_thien_nen_co": []
+   "hoan_thien_nen_co": [],
+   "kem_van_chuyen": null
   },
   "CUS_INSPECT": {
    "tao_job": [
@@ -435,7 +473,8 @@
     "declaration_datetime"
    ],
    "hoan_thien": [],
-   "hoan_thien_nen_co": []
+   "hoan_thien_nen_co": [],
+   "kem_van_chuyen": null
   },
   "CUS_SUPERVISE": {
    "tao_job": [
@@ -451,7 +490,8 @@
     "customs_port"
    ],
    "hoan_thien": [],
-   "hoan_thien_nen_co": []
+   "hoan_thien_nen_co": [],
+   "kem_van_chuyen": null
   },
   "CUS_TRANSFER": {
    "tao_job": [
@@ -469,7 +509,14 @@
     "declaration_datetime"
    ],
    "hoan_thien": [],
-   "hoan_thien_nen_co": []
+   "hoan_thien_nen_co": [],
+   "kem_van_chuyen": {
+    "required": [],
+    "hoan_thien": [
+     "loai_hinh",
+     "cd_no"
+    ]
+   }
   },
   "SVC_LASHING": {
    "tao_job": [
@@ -481,7 +528,8 @@
     "package_quantity"
    ],
    "hoan_thien": [],
-   "hoan_thien_nen_co": []
+   "hoan_thien_nen_co": [],
+   "kem_van_chuyen": null
   },
   "SVC_LASHING_TRUCK": {
    "tao_job": [
@@ -493,7 +541,8 @@
     "package_quantity"
    ],
    "hoan_thien": [],
-   "hoan_thien_nen_co": []
+   "hoan_thien_nen_co": [],
+   "kem_van_chuyen": null
   },
   "SVC_LASHING_CONT": {
    "tao_job": [
@@ -506,7 +555,8 @@
     "container_no"
    ],
    "hoan_thien": [],
-   "hoan_thien_nen_co": []
+   "hoan_thien_nen_co": [],
+   "kem_van_chuyen": null
   },
   "SVC_LASHING_FR": {
    "tao_job": [
@@ -519,7 +569,8 @@
     "container_no"
    ],
    "hoan_thien": [],
-   "hoan_thien_nen_co": []
+   "hoan_thien_nen_co": [],
+   "kem_van_chuyen": null
   },
   "SVC_OTHER": {
    "tao_job": [
@@ -531,7 +582,8 @@
     "scheduled_date"
    ],
    "hoan_thien": [],
-   "hoan_thien_nen_co": []
+   "hoan_thien_nen_co": [],
+   "kem_van_chuyen": null
   },
   "LIFT_ON": {
    "tao_job": [
@@ -543,7 +595,8 @@
     "package_quantity"
    ],
    "hoan_thien": [],
-   "hoan_thien_nen_co": []
+   "hoan_thien_nen_co": [],
+   "kem_van_chuyen": null
   },
   "LIFT_OFF": {
    "tao_job": [
@@ -555,7 +608,8 @@
     "package_quantity"
    ],
    "hoan_thien": [],
-   "hoan_thien_nen_co": []
+   "hoan_thien_nen_co": [],
+   "kem_van_chuyen": null
   },
   "SVC_PACK": {
    "tao_job": [
@@ -568,7 +622,8 @@
     "cargo_type"
    ],
    "hoan_thien": [],
-   "hoan_thien_nen_co": []
+   "hoan_thien_nen_co": [],
+   "kem_van_chuyen": null
   },
   "SVC_FUMI": {
    "tao_job": [
@@ -580,7 +635,8 @@
     "package_quantity"
    ],
    "hoan_thien": [],
-   "hoan_thien_nen_co": []
+   "hoan_thien_nen_co": [],
+   "kem_van_chuyen": null
   },
   "SVC_VACUUM": {
    "tao_job": [
@@ -592,7 +648,8 @@
     "package_quantity"
    ],
    "hoan_thien": [],
-   "hoan_thien_nen_co": []
+   "hoan_thien_nen_co": [],
+   "kem_van_chuyen": null
   },
   "SVC_SHRINK": {
    "tao_job": [
@@ -604,7 +661,13 @@
     "package_quantity"
    ],
    "hoan_thien": [],
-   "hoan_thien_nen_co": []
+   "hoan_thien_nen_co": [],
+   "kem_van_chuyen": null
   }
- }
+ },
+ "nhom_van_chuyen_quoc_te": [
+  "AIR_",
+  "SEA_",
+  "BORDER_"
+ ]
 }

@@ -70,9 +70,15 @@ const DON_VI = [
 // Mốc nhập của từng trường theo file "THÔNG TIN NHẬP JOB" (Khánh chốt 30/09–01/10/2026).
 // Danh sách lấy TỪ MÁY CHỦ (/api/jobs/tieu-chi-nhap-job), sinh từ ma trận của Sen —
 // web không tự khai lại, để web và Sen không lệch nhau.
-const mocTruong = (tieuChi, code, cot) => {
-  const t = tieuChi?.[code]
+// v0.5: CD là DỊCH VỤ trong job AIR_/SEA_/BORDER_ (tạo lúc có booking) → số TK, loại hình,
+// ngày TK dời sang mốc hoàn thiện. Job CD thuần (tạo khi đã truyền TK) vẫn bắt lúc tạo.
+const coVanChuyenQuocTe = (ds) => (ds || []).some(c => nhomDichVu(c) === 'QUOC_TE')
+const mocTruong = (tieuChi, code, cot, ds) => {
+  let t = tieuChi?.[code]
   if (!t) return null
+  if (t.kem_van_chuyen && coVanChuyenQuocTe(ds)) {
+    t = { ...t, tao_job: t.kem_van_chuyen.required || [], hoan_thien: [...(t.hoan_thien || []), ...(t.kem_van_chuyen.hoan_thien || [])] }
+  }
   const trongAnyOf = (t.tao_job_any_of || []).some(g => g.includes(cot))
   if ((t.tao_job || []).includes(cot) || trongAnyOf) return { nhan: 'bắt buộc lúc tạo', mau: '#DC2626' }
   if ((t.tao_job_nen_co || []).includes(cot)) return { nhan: 'nên có lúc tạo', mau: '#D97706' }
@@ -80,8 +86,8 @@ const mocTruong = (tieuChi, code, cot) => {
   if ((t.hoan_thien_nen_co || []).includes(cot)) return { nhan: 'nếu có', mau: '#64748B' }
   return null
 }
-const NhanMoc = ({ tieuChi, code, cot }) => {
-  const m = mocTruong(tieuChi, code, cot)
+const NhanMoc = ({ tieuChi, code, cot, ds }) => {
+  const m = mocTruong(tieuChi, code, cot, ds)
   return m ? <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 600, color: m.mau }}>· {m.nhan}</span> : null
 }
 
@@ -1586,70 +1592,70 @@ function JobDetailModal({ job, onClose, onUpdate }) {
 {nhomDichVu(svc.service_type_code) === 'QUOC_TE' && (
 <>
                               <div>
-                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Term<NhanMoc tieuChi={tieuChiSua} code={svc.service_type_code} cot="incoterm" /></label>
+                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Term<NhanMoc tieuChi={tieuChiSua} ds={services.map(x => x.service_type_code)} code={svc.service_type_code} cot="incoterm" /></label>
                                 <input type="text" value={(svc.incoterm || '').toString().slice(0, 200)} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, incoterm: e.target.value } : s))} style={{ width: '100%', padding: '6px 8px', fontSize: '13px', border: '1px solid var(--border)', borderRadius: '6px' }} />
                               </div>
 </>)}
 {(String(svc.service_type_code).startsWith('AIR_') || String(svc.service_type_code).startsWith('SEA_')) && (
 <>
                               <div>
-                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{String(svc.service_type_code).startsWith('AIR_') ? 'Số MAWB (= booking)' : 'Số booking'}<NhanMoc tieuChi={tieuChiSua} code={svc.service_type_code} cot="booking_no" /></label>
+                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{String(svc.service_type_code).startsWith('AIR_') ? 'Số MAWB (= booking)' : 'Số booking'}<NhanMoc tieuChi={tieuChiSua} ds={services.map(x => x.service_type_code)} code={svc.service_type_code} cot="booking_no" /></label>
                                 <input type="text" value={(svc.booking_no || '').toString().slice(0, 200)} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, booking_no: e.target.value } : s))} style={{ width: '100%', padding: '6px 8px', fontSize: '13px', border: '1px solid var(--border)', borderRadius: '6px' }} />
                               </div>
 </>)}
 {(String(svc.service_type_code).startsWith('AIR_') || String(svc.service_type_code).startsWith('SEA_')) && (
 <>
                               <div>
-                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Carrier (hãng tàu/bay)<NhanMoc tieuChi={tieuChiSua} code={svc.service_type_code} cot="carrier" /></label>
+                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Carrier (hãng tàu/bay)<NhanMoc tieuChi={tieuChiSua} ds={services.map(x => x.service_type_code)} code={svc.service_type_code} cot="carrier" /></label>
                                 <input type="text" value={(svc.carrier || '').toString().slice(0, 200)} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, carrier: e.target.value } : s))} style={{ width: '100%', padding: '6px 8px', fontSize: '13px', border: '1px solid var(--border)', borderRadius: '6px' }} />
                               </div>
 </>)}
 {(String(svc.service_type_code).startsWith('AIR_') || String(svc.service_type_code).startsWith('SEA_')) && (
 <>
                               <div>
-                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{String(svc.service_type_code).startsWith('AIR_') ? 'Số chuyến bay' : 'Tên tàu / chuyến'}<NhanMoc tieuChi={tieuChiSua} code={svc.service_type_code} cot="vessel_flight" /></label>
+                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{String(svc.service_type_code).startsWith('AIR_') ? 'Số chuyến bay' : 'Tên tàu / chuyến'}<NhanMoc tieuChi={tieuChiSua} ds={services.map(x => x.service_type_code)} code={svc.service_type_code} cot="vessel_flight" /></label>
                                 <input type="text" value={(svc.vessel_flight || '').toString().slice(0, 200)} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, vessel_flight: e.target.value } : s))} style={{ width: '100%', padding: '6px 8px', fontSize: '13px', border: '1px solid var(--border)', borderRadius: '6px' }} />
                               </div>
 </>)}
 {String(svc.service_type_code).startsWith('SEA_') && (
 <>
                               <div>
-                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Số MBL<NhanMoc tieuChi={tieuChiSua} code={svc.service_type_code} cot="mbl_no" /></label>
+                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Số MBL<NhanMoc tieuChi={tieuChiSua} ds={services.map(x => x.service_type_code)} code={svc.service_type_code} cot="mbl_no" /></label>
                                 <input type="text" value={(svc.mbl_no || '').toString().slice(0, 200)} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, mbl_no: e.target.value } : s))} style={{ width: '100%', padding: '6px 8px', fontSize: '13px', border: '1px solid var(--border)', borderRadius: '6px' }} />
                               </div>
 </>)}
 {(String(svc.service_type_code).startsWith('SEA_') || String(svc.service_type_code).startsWith('BORDER_')) && (
 <>
                               <div>
-                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Số container<NhanMoc tieuChi={tieuChiSua} code={svc.service_type_code} cot="container_no" /></label>
+                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Số container<NhanMoc tieuChi={tieuChiSua} ds={services.map(x => x.service_type_code)} code={svc.service_type_code} cot="container_no" /></label>
                                 <input type="text" value={(svc.container_no || '').toString().slice(0, 200)} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, container_no: e.target.value } : s))} style={{ width: '100%', padding: '6px 8px', fontSize: '13px', border: '1px solid var(--border)', borderRadius: '6px' }} />
                               </div>
 </>)}
 {nhomDichVu(svc.service_type_code) === 'QUOC_TE' && (
 <>
                               <div>
-                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>ATD (đi thực tế)<NhanMoc tieuChi={tieuChiSua} code={svc.service_type_code} cot="atd" /></label>
+                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>ATD (đi thực tế)<NhanMoc tieuChi={tieuChiSua} ds={services.map(x => x.service_type_code)} code={svc.service_type_code} cot="atd" /></label>
                                 <input type="date" value={(svc.atd || '').toString().slice(0, 10)} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, atd: e.target.value } : s))} style={{ width: '100%', padding: '6px 8px', fontSize: '13px', border: '1px solid var(--border)', borderRadius: '6px' }} />
                               </div>
 </>)}
 {nhomDichVu(svc.service_type_code) === 'QUOC_TE' && (
 <>
                               <div>
-                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Ngày giao hàng<NhanMoc tieuChi={tieuChiSua} code={svc.service_type_code} cot="delivery_date" /></label>
+                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Ngày giao hàng<NhanMoc tieuChi={tieuChiSua} ds={services.map(x => x.service_type_code)} code={svc.service_type_code} cot="delivery_date" /></label>
                                 <input type="date" value={(svc.delivery_date || '').toString().slice(0, 10)} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, delivery_date: e.target.value } : s))} style={{ width: '100%', padding: '6px 8px', fontSize: '13px', border: '1px solid var(--border)', borderRadius: '6px' }} />
                               </div>
 </>)}
 {nhomDichVu(svc.service_type_code) === 'HAI_QUAN' && (
 <>
                               <div>
-                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Ngày tờ khai<NhanMoc tieuChi={tieuChiSua} code={svc.service_type_code} cot="declaration_datetime" /></label>
+                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Ngày tờ khai<NhanMoc tieuChi={tieuChiSua} ds={services.map(x => x.service_type_code)} code={svc.service_type_code} cot="declaration_datetime" /></label>
                                 <input type="date" value={(svc.declaration_datetime || '').toString().slice(0, 10)} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, declaration_datetime: e.target.value } : s))} style={{ width: '100%', padding: '6px 8px', fontSize: '13px', border: '1px solid var(--border)', borderRadius: '6px' }} />
                               </div>
 </>)}
 {nhomDichVu(svc.service_type_code) === 'HAI_QUAN' && (
 <>
                               <div>
-                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Phân luồng (XANH/VANG/DO)<NhanMoc tieuChi={tieuChiSua} code={svc.service_type_code} cot="phan_luong" /></label>
+                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Phân luồng (XANH/VANG/DO)<NhanMoc tieuChi={tieuChiSua} ds={services.map(x => x.service_type_code)} code={svc.service_type_code} cot="phan_luong" /></label>
                                 <input type="text" value={(svc.phan_luong || '').toString().slice(0, 200)} onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id ? { ...s, phan_luong: e.target.value } : s))} style={{ width: '100%', padding: '6px 8px', fontSize: '13px', border: '1px solid var(--border)', borderRadius: '6px' }} />
                               </div>
 </>)}
@@ -3426,7 +3432,7 @@ function JobCreateForm({ onClose, onSuccess }) {
                     </div>
 
                     <div className="form-group">
-                      <label>Vendor (nhà thầu)<NhanMoc tieuChi={tieuChi} code={svc.service_type} cot="vendor_id" /></label>
+                      <label>Vendor (nhà thầu)<NhanMoc tieuChi={tieuChi} ds={services.map(x => x.service_type)} code={svc.service_type} cot="vendor_id" /></label>
                       <select value={svc.vendor_id || ''} onChange={e => handleServiceChange(idx, 'vendor_id', e.target.value)}>
                         <option value="">— chọn vendor —</option>
                         {dsVendor.map(v => <option key={v.vendor_id} value={v.vendor_id}>{v.short_name || v.company_name}</option>)}
@@ -3437,11 +3443,11 @@ function JobCreateForm({ onClose, onSuccess }) {
                     {nhomDichVu(svc.service_type) === 'HAI_QUAN' && (
                       <>
                         <div className="form-group">
-                          <label>Loại hình tờ khai<NhanMoc tieuChi={tieuChi} code={svc.service_type} cot="loai_hinh" /></label>
+                          <label>Loại hình tờ khai<NhanMoc tieuChi={tieuChi} ds={services.map(x => x.service_type)} code={svc.service_type} cot="loai_hinh" /></label>
                           <input type="text" value={svc.loai_hinh} onChange={e => handleServiceChange(idx, 'loai_hinh', e.target.value)} placeholder="VD: E11, B13, A12" />
                         </div>
                         <div className="form-group">
-                          <label>Số tờ khai<NhanMoc tieuChi={tieuChi} code={svc.service_type} cot="cd_no" /></label>
+                          <label>Số tờ khai<NhanMoc tieuChi={tieuChi} ds={services.map(x => x.service_type)} code={svc.service_type} cot="cd_no" /></label>
                           <input type="text" value={svc.cd_no} onChange={e => handleServiceChange(idx, 'cd_no', e.target.value)} placeholder="VD: 108473708010" />
                         </div>
                         <div className="form-group">
@@ -3449,11 +3455,11 @@ function JobCreateForm({ onClose, onSuccess }) {
                           <input type="text" value={svc.customs_port} onChange={e => handleServiceChange(idx, 'customs_port', e.target.value)} placeholder="VD: 18B1" />
                         </div>
                         <div className="form-group">
-                          <label>Ngày tờ khai<NhanMoc tieuChi={tieuChi} code={svc.service_type} cot="declaration_datetime" /></label>
+                          <label>Ngày tờ khai<NhanMoc tieuChi={tieuChi} ds={services.map(x => x.service_type)} code={svc.service_type} cot="declaration_datetime" /></label>
                           <input type="date" value={svc.declaration_datetime || ''} onChange={e => handleServiceChange(idx, 'declaration_datetime', e.target.value)} placeholder="" />
                         </div>
                         <div className="form-group">
-                          <label>Phân luồng<NhanMoc tieuChi={tieuChi} code={svc.service_type} cot="phan_luong" /></label>
+                          <label>Phân luồng<NhanMoc tieuChi={tieuChi} ds={services.map(x => x.service_type)} code={svc.service_type} cot="phan_luong" /></label>
                           <select value={svc.phan_luong || ''} onChange={e => handleServiceChange(idx, 'phan_luong', e.target.value)}>
                             <option value="">— chọn —</option><option value="XANH">Xanh</option><option value="VANG">Vàng</option><option value="DO">Đỏ</option>
                           </select>
@@ -3464,19 +3470,19 @@ function JobCreateForm({ onClose, onSuccess }) {
                     {nhomDichVu(svc.service_type) === 'QUOC_TE' && (
                       <>
                         <div className="form-group">
-                          <label>{String(svc.service_type).startsWith('BORDER_') ? 'Cửa khẩu / điểm đi' : String(svc.service_type).startsWith('AIR_') ? 'Sân bay đi (AOL)' : 'Cảng đi (POL)'}<NhanMoc tieuChi={tieuChi} code={svc.service_type} cot="origin_address" /></label>
+                          <label>{String(svc.service_type).startsWith('BORDER_') ? 'Cửa khẩu / điểm đi' : String(svc.service_type).startsWith('AIR_') ? 'Sân bay đi (AOL)' : 'Cảng đi (POL)'}<NhanMoc tieuChi={tieuChi} ds={services.map(x => x.service_type)} code={svc.service_type} cot="origin_address" /></label>
                           <input type="text" value={svc.pickup_address} onChange={e => handleServiceChange(idx, 'pickup_address', e.target.value)} placeholder={String(svc.service_type).startsWith('AIR_') ? 'VD: PVG, TPE' : 'VD: Shenzhen, Xiamen'} />
                         </div>
                         <div className="form-group">
-                          <label>{String(svc.service_type).startsWith('BORDER_') ? 'Cửa khẩu / điểm đến' : String(svc.service_type).startsWith('AIR_') ? 'Sân bay đến (AOD)' : 'Cảng đến (POD)'}<NhanMoc tieuChi={tieuChi} code={svc.service_type} cot="dest_address" /></label>
+                          <label>{String(svc.service_type).startsWith('BORDER_') ? 'Cửa khẩu / điểm đến' : String(svc.service_type).startsWith('AIR_') ? 'Sân bay đến (AOD)' : 'Cảng đến (POD)'}<NhanMoc tieuChi={tieuChi} ds={services.map(x => x.service_type)} code={svc.service_type} cot="dest_address" /></label>
                           <input type="text" value={svc.delivery_address} onChange={e => handleServiceChange(idx, 'delivery_address', e.target.value)} placeholder={String(svc.service_type).startsWith('AIR_') ? 'VD: HAN' : 'VD: Hải Phòng'} />
                         </div>
                         <div className="form-group">
-                          <label>ETD (dự kiến)<NhanMoc tieuChi={tieuChi} code={svc.service_type} cot="etd" /></label>
+                          <label>ETD (dự kiến)<NhanMoc tieuChi={tieuChi} ds={services.map(x => x.service_type)} code={svc.service_type} cot="etd" /></label>
                           <input type="date" value={svc.etd || ''} onChange={e => handleServiceChange(idx, 'etd', e.target.value)} />
                         </div>
                         <div className="form-group">
-                          <label>{String(svc.service_type).startsWith('BORDER_') ? 'Số vận đơn' : 'Số HBL / vận đơn'}<NhanMoc tieuChi={tieuChi} code={svc.service_type} cot="bl_awb_no" /></label>
+                          <label>{String(svc.service_type).startsWith('BORDER_') ? 'Số vận đơn' : 'Số HBL / vận đơn'}<NhanMoc tieuChi={tieuChi} ds={services.map(x => x.service_type)} code={svc.service_type} cot="bl_awb_no" /></label>
                           <input type="text" value={svc.bl_awb_no} onChange={e => handleServiceChange(idx, 'bl_awb_no', e.target.value)} placeholder="VD: SHHPH26018169" />
                         </div>
                         <div className="form-group">
@@ -3484,51 +3490,51 @@ function JobCreateForm({ onClose, onSuccess }) {
                           <input type="text" value={svc.co_no} onChange={e => handleServiceChange(idx, 'co_no', e.target.value)} placeholder="VD: VN-IT 26/01/970939" />
                         </div>
                         <div className="form-group">
-                          <label>Term<NhanMoc tieuChi={tieuChi} code={svc.service_type} cot="incoterm" /></label>
+                          <label>Term<NhanMoc tieuChi={tieuChi} ds={services.map(x => x.service_type)} code={svc.service_type} cot="incoterm" /></label>
                           <input type="text" value={svc.incoterm || ''} onChange={e => handleServiceChange(idx, 'incoterm', e.target.value)} placeholder="VD: EXW, FOB, CIF, CIP" />
                         </div>
                         {!(String(svc.service_type).startsWith('BORDER_')) && (<>
                         <div className="form-group">
-                          <label>{String(svc.service_type).startsWith('AIR_') ? 'Số MAWB (= số booking)' : 'Số booking'}<NhanMoc tieuChi={tieuChi} code={svc.service_type} cot="booking_no" /></label>
+                          <label>{String(svc.service_type).startsWith('AIR_') ? 'Số MAWB (= số booking)' : 'Số booking'}<NhanMoc tieuChi={tieuChi} ds={services.map(x => x.service_type)} code={svc.service_type} cot="booking_no" /></label>
                           <input type="text" value={svc.booking_no || ''} onChange={e => handleServiceChange(idx, 'booking_no', e.target.value)} placeholder="" />
                         </div>
                         <div className="form-group">
-                          <label>{String(svc.service_type).startsWith('AIR_') ? 'Hãng bay (carrier)' : 'Hãng tàu (carrier)'}<NhanMoc tieuChi={tieuChi} code={svc.service_type} cot="carrier" /></label>
+                          <label>{String(svc.service_type).startsWith('AIR_') ? 'Hãng bay (carrier)' : 'Hãng tàu (carrier)'}<NhanMoc tieuChi={tieuChi} ds={services.map(x => x.service_type)} code={svc.service_type} cot="carrier" /></label>
                           <input type="text" value={svc.carrier || ''} onChange={e => handleServiceChange(idx, 'carrier', e.target.value)} placeholder="Khác vendor = bên 5P trả tiền" />
                         </div>
                         <div className="form-group">
-                          <label>{String(svc.service_type).startsWith('AIR_') ? 'Số chuyến bay' : 'Tên tàu / chuyến'}<NhanMoc tieuChi={tieuChi} code={svc.service_type} cot="vessel_flight" /></label>
+                          <label>{String(svc.service_type).startsWith('AIR_') ? 'Số chuyến bay' : 'Tên tàu / chuyến'}<NhanMoc tieuChi={tieuChi} ds={services.map(x => x.service_type)} code={svc.service_type} cot="vessel_flight" /></label>
                           <input type="text" value={svc.vessel_flight || ''} onChange={e => handleServiceChange(idx, 'vessel_flight', e.target.value)} placeholder="" />
                         </div>
                         </>)}
                         {String(svc.service_type).startsWith('SEA_') && (<>
                         <div className="form-group">
-                          <label>Số MBL<NhanMoc tieuChi={tieuChi} code={svc.service_type} cot="mbl_no" /></label>
+                          <label>Số MBL<NhanMoc tieuChi={tieuChi} ds={services.map(x => x.service_type)} code={svc.service_type} cot="mbl_no" /></label>
                           <input type="text" value={svc.mbl_no || ''} onChange={e => handleServiceChange(idx, 'mbl_no', e.target.value)} placeholder="" />
                         </div>
                         </>)}
                         {!(String(svc.service_type).startsWith('AIR_')) && (<>
                         <div className="form-group">
-                          <label>Số container<NhanMoc tieuChi={tieuChi} code={svc.service_type} cot="container_no" /></label>
+                          <label>Số container<NhanMoc tieuChi={tieuChi} ds={services.map(x => x.service_type)} code={svc.service_type} cot="container_no" /></label>
                           <input type="text" value={svc.container_no || ''} onChange={e => handleServiceChange(idx, 'container_no', e.target.value)} placeholder="VD: TGHU1234567" />
                         </div>
                         </>)}
                         {String(svc.service_type).endsWith('_EXP') ? (<>
                         <div className="form-group">
-                          <label>Tên CNEE (người nhận nước ngoài)<NhanMoc tieuChi={tieuChi} code={svc.service_type} cot="buyer_name" /></label>
+                          <label>Tên CNEE (người nhận nước ngoài)<NhanMoc tieuChi={tieuChi} ds={services.map(x => x.service_type)} code={svc.service_type} cot="buyer_name" /></label>
                           <input type="text" value={svc.buyer_name || ''} onChange={e => handleServiceChange(idx, 'buyer_name', e.target.value)} placeholder="" />
                         </div>
                         </>) : (<>
                         <div className="form-group">
-                          <label>Tên shipper (người gửi nước ngoài)<NhanMoc tieuChi={tieuChi} code={svc.service_type} cot="seller_name" /></label>
+                          <label>Tên shipper (người gửi nước ngoài)<NhanMoc tieuChi={tieuChi} ds={services.map(x => x.service_type)} code={svc.service_type} cot="seller_name" /></label>
                           <input type="text" value={svc.seller_name || ''} onChange={e => handleServiceChange(idx, 'seller_name', e.target.value)} placeholder="" />
                         </div>
                         <div className="form-group">
-                          <label>ATD (ngày đi thực tế)<NhanMoc tieuChi={tieuChi} code={svc.service_type} cot="atd" /></label>
+                          <label>ATD (ngày đi thực tế)<NhanMoc tieuChi={tieuChi} ds={services.map(x => x.service_type)} code={svc.service_type} cot="atd" /></label>
                           <input type="date" value={svc.atd || ''} onChange={e => handleServiceChange(idx, 'atd', e.target.value)} placeholder="" />
                         </div>
                         <div className="form-group">
-                          <label>Ngày giao hàng<NhanMoc tieuChi={tieuChi} code={svc.service_type} cot="delivery_date" /></label>
+                          <label>Ngày giao hàng<NhanMoc tieuChi={tieuChi} ds={services.map(x => x.service_type)} code={svc.service_type} cot="delivery_date" /></label>
                           <input type="date" value={svc.delivery_date || ''} onChange={e => handleServiceChange(idx, 'delivery_date', e.target.value)} placeholder="" />
                         </div>
                         </>)}
@@ -3538,11 +3544,11 @@ function JobCreateForm({ onClose, onSuccess }) {
                     {nhomDichVu(svc.service_type) === 'VAN_TAI' && (
                       <>
                         <div className="form-group">
-                          <label>Biển số xe<NhanMoc tieuChi={tieuChi} code={svc.service_type} cot="xe" /></label>
+                          <label>Biển số xe<NhanMoc tieuChi={tieuChi} ds={services.map(x => x.service_type)} code={svc.service_type} cot="xe" /></label>
                           <input type="text" value={svc.vehicle_plate} onChange={e => handleServiceChange(idx, 'vehicle_plate', e.target.value)} placeholder="VD: 29H-123.45" />
                         </div>
                         <div className="form-group">
-                          <label>Loại xe<NhanMoc tieuChi={tieuChi} code={svc.service_type} cot="vehicle_type" /></label>
+                          <label>Loại xe<NhanMoc tieuChi={tieuChi} ds={services.map(x => x.service_type)} code={svc.service_type} cot="vehicle_type" /></label>
                           <input type="text" value={svc.truck_capacity} onChange={e => handleServiceChange(idx, 'truck_capacity', e.target.value)} placeholder="VD: 5T, 10T, cont 40HC" />
                         </div>
                         <div className="form-group">
