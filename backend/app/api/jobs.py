@@ -1,6 +1,7 @@
 """
 Jobs API - Job management endpoints
 """
+import os
 
 from fastapi import APIRouter, HTTPException, Request, Query
 from pydantic import BaseModel
@@ -167,7 +168,17 @@ TRUONG_THEM_DUOC = {
     "seller_name":         {"nhan": "Bên bán (seller)",        "kieu": "text"},
     # hải quan
     "customs_type":        {"nhan": "Loại hình HQ (chi tiết)", "kieu": "text"},
-    "customs_status":      {"nhan": "Luồng tờ khai",           "kieu": "text"},
+    "customs_status":      {"nhan": "Trạng thái tờ khai",      "kieu": "text"},
+    # ── 01/10/2026: file "THÔNG TIN NHẬP JOB" Khánh chốt (cột mới, SQL 2026-10-01) ──
+    "incoterm":            {"nhan": "Term (EXW/FOB/CIF...)",   "kieu": "text"},
+    "booking_no":          {"nhan": "Số booking / MAWB",       "kieu": "text"},
+    "mbl_no":              {"nhan": "Số MBL",                  "kieu": "text"},
+    "carrier":             {"nhan": "Carrier (hãng tàu/bay)",  "kieu": "text"},
+    "vessel_flight":       {"nhan": "Tên tàu / số chuyến bay", "kieu": "text"},
+    "phan_luong":          {"nhan": "Phân luồng (XANH/VANG/DO)","kieu": "text"},
+    "atd":                 {"nhan": "ATD (ngày đi thực tế)",   "kieu": "date"},
+    "delivery_date":       {"nhan": "Ngày giao hàng",          "kieu": "date"},
+    "container_no":        {"nhan": "Số container",            "kieu": "text"},
     "declaration_datetime":{"nhan": "Ngày giờ tờ khai",        "kieu": "datetime"},
     # kích thước / khối lượng
     "volume_cbm":          {"nhan": "Số khối (CBM)",           "kieu": "number"},
@@ -197,6 +208,16 @@ TRUONG_THEM_DUOC = {
 }
 
 
+# Ô cơ bản mỗi dịch vụ được mang riêng khi tạo job (xem 'chi_tiet_dich_vu').
+_O_CO_BAN_DICH_VU = (
+    "cargo_type", "package_quantity", "package_unit", "weight_kg",
+    "dimension_length_cm", "dimension_width_cm", "dimension_height_cm",
+    "invoice_numbers", "cd_no", "bl_awb_no", "co_no", "loai_hinh", "customs_port",
+    "truck_capacity", "buyer_name", "seller_name", "pickup_address", "delivery_address",
+    "service_details_input",
+)
+
+
 @router.get("/truong-them-duoc")
 async def danh_sach_truong_them_duoc():
     """Danh sách trường người dùng được phép thêm vào dịch vụ khi tạo job."""
@@ -207,6 +228,18 @@ async def danh_sach_truong_them_duoc():
             for cot, v in TRUONG_THEM_DUOC.items()
         ],
     }
+
+
+# Tiêu chí nhập job 2 mốc (Tạo job / Hoàn thiện) — sinh từ ma trận của Sen,
+# KHÔNG sửa tay file json: sửa yaml rồi chạy scripts/sync_tieu_chi_nhap_job.py.
+_TIEU_CHI_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "config", "tieu_chi_nhap_job.json")
+
+
+@router.get("/tieu-chi-nhap-job")
+async def tieu_chi_nhap_job():
+    """Trường cần có ở mốc Tạo job / Hoàn thiện theo từng loại dịch vụ (file Khánh chốt 30/09)."""
+    with open(_TIEU_CHI_PATH, encoding="utf-8") as f:
+        return {"success": True, **json.load(f)}
 
 
 @router.post("/create", response_model=JobResponse)
@@ -361,6 +394,16 @@ async def create_job(request: JobCreateFromChatRequest, req: Request):
                 if k in TRUONG_THEM_DUOC and v not in (None, "")
             },
             'truck_capacity': entities.get('truck_capacity') or enriched.get('truck_capacity'),
+            # 01/10/2026: chi tiết RIÊNG của từng dịch vụ (cùng thứ tự với 'services').
+            # Chỉ nhận ô cơ bản + cột trong danh sách cho phép — lọc ở cửa cuối.
+            'chi_tiet_dich_vu': [
+                {
+                    **{k: ct.get(k) for k in _O_CO_BAN_DICH_VU if k in ct},
+                    'truong_them': {k: v for k, v in (ct.get('truong_them') or {}).items()
+                                    if k in TRUONG_THEM_DUOC and v not in (None, "")},
+                }
+                for ct in (entities.get('chi_tiet_dich_vu') or []) if isinstance(ct, dict)
+            ],
             
             # Warehouse-specific
             'storage_start_date': entities.get('storage_start_date'),

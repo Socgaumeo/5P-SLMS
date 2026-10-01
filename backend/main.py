@@ -37,7 +37,9 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     """Application lifespan events"""
     logger.info("🚀 Starting SLMS Backend...")
-    logger.info(f"📊 Database: {settings.DATABASE_URL[:50]}...")
+    # KHÔNG in DATABASE_URL: chuỗi có mật khẩu (Sen phát hiện 01/10/2026). Chỉ in host.
+    _db = settings.DATABASE_URL or ""
+    logger.info(f"📊 Database host: {_db.split('@')[-1].split('/')[0] if '@' in _db else '(chưa cấu hình)'}")
     logger.info(f"🤖 AI Provider: {settings.AI_PROVIDER}")
     yield
     logger.info("👋 Shutting down SLMS Backend...")

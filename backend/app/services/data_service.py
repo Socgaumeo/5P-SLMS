@@ -507,17 +507,29 @@ class DataService:
                 services = []
 
             # Create services (single-item mode)
-            for svc_type in services:
-                invoice_nums = job_data.get("invoice_numbers") or []
+            # 01/10/2026 (Khánh duyệt): mỗi dịch vụ mang chi tiết RIÊNG của nó.
+            # Trước đây mọi dịch vụ dùng chung thông tin của dịch vụ đầu → job 2 dịch vụ
+            # (vd trucking + khai HQ) thì dịch vụ thứ 2 mất số tờ khai/loại hình đã nhập.
+            _chi_tiet = job_data.get("chi_tiet_dich_vu") or []
+            for _i, svc_type in enumerate(services):
+                jd = dict(job_data)
+                if _i < len(_chi_tiet) and isinstance(_chi_tiet[_i], dict):
+                    _ct = {k: v for k, v in _chi_tiet[_i].items() if v not in (None, "")}
+                    _tt = {**((job_data.get("truong_them") or {}) if _i == 0 else {}), **(_ct.pop("truong_them", None) or {})}
+                    jd.update(_ct)
+                    jd["truong_them"] = _tt
+                elif _i > 0:
+                    jd["truong_them"] = {}
+                invoice_nums = jd.get("invoice_numbers") or []
                 if isinstance(invoice_nums, str):
                     invoice_nums = [i.strip() for i in invoice_nums.split(",") if i.strip()]
 
                 service_details_json = {
                     "invoice_numbers": invoice_nums,
                     "cargo_items": [],
-                    "package_quantity": job_data.get("package_quantity") or 0,
-                    "package_unit": job_data.get("package_unit") or "kien",
-                    "cargo_type": job_data.get("cargo_type"),
+                    "package_quantity": jd.get("package_quantity") or 0,
+                    "package_unit": jd.get("package_unit") or "kien",
+                    "cargo_type": jd.get("cargo_type"),
                 }
 
                 # Gộp thông tin xe người dùng nhập vào ĐÚNG khoá chuẩn.
@@ -533,57 +545,57 @@ class DataService:
                 # hợp lệ ("Hàng gom sân bay", "Tân Yên Bắc Ninh → Nội Bài").
                 # Suýt nữa tao xoá nhầm cả 5 vì tưởng air thì không có xe.
                 _co_xe = str(svc_type or "").startswith(("TRUCK", "BORDER", "LIFT_", "AIR_"))
-                _sd_in = job_data.get("service_details_input")
+                _sd_in = jd.get("service_details_input")
                 if _co_xe and isinstance(_sd_in, dict):
                     for _k in ("vehicle_plate", "driver_name", "driver_phone"):
                         if _sd_in.get(_k):
                             service_details_json[_k] = _sd_in[_k]
 
                 # Use smart parser for flexible date/time handling
-                scheduled_date_str = format_date_iso(job_data.get("booking_date")) or today.isoformat()
-                scheduled_time_str = format_time_str(job_data.get("pickup_time"))
-                storage_start = format_date_iso(job_data.get("storage_start_date"))
-                storage_end = format_date_iso(job_data.get("storage_end_date"))
+                scheduled_date_str = format_date_iso(jd.get("booking_date")) or today.isoformat()
+                scheduled_time_str = format_time_str(jd.get("pickup_time"))
+                storage_start = format_date_iso(jd.get("storage_start_date"))
+                storage_end = format_date_iso(jd.get("storage_end_date"))
 
                 self.client.table('job_services').insert({
                     'job_id': job_id,
                     'service_type_code': svc_type,
                     'scheduled_date': scheduled_date_str,
                     'scheduled_time': scheduled_time_str,
-                    'origin_address': job_data.get("pickup_address"),
-                    'dest_address': job_data.get("delivery_address"),
-                    'route': job_data.get("route"),
-                    'vendor_id': job_data.get("vendor_id"),
+                    'origin_address': jd.get("pickup_address"),
+                    'dest_address': jd.get("delivery_address"),
+                    'route': jd.get("route"),
+                    'vendor_id': jd.get("vendor_id"),
                     'status_code': 'PENDING',
-                    'cargo_type': job_data.get("cargo_type"),
-                    'package_quantity': job_data.get("package_quantity"),
-                    'package_unit': job_data.get("package_unit"),
-                    'weight_kg': job_data.get("weight_kg"),
-                    'dimension_length_cm': job_data.get("dimension_length_cm"),
-                    'dimension_width_cm': job_data.get("dimension_width_cm"),
-                    'dimension_height_cm': job_data.get("dimension_height_cm"),
-                    'invoice_numbers': job_data.get("invoice_numbers"),
-                    'truck_capacity': job_data.get("truck_capacity") if _co_xe else None,
-                    'special_requirements': job_data.get("special_requirements"),
+                    'cargo_type': jd.get("cargo_type"),
+                    'package_quantity': jd.get("package_quantity"),
+                    'package_unit': jd.get("package_unit"),
+                    'weight_kg': jd.get("weight_kg"),
+                    'dimension_length_cm': jd.get("dimension_length_cm"),
+                    'dimension_width_cm': jd.get("dimension_width_cm"),
+                    'dimension_height_cm': jd.get("dimension_height_cm"),
+                    'invoice_numbers': jd.get("invoice_numbers"),
+                    'truck_capacity': jd.get("truck_capacity") if _co_xe else None,
+                    'special_requirements': jd.get("special_requirements"),
                     'storage_start_date': storage_start,
                     'storage_end_date': storage_end,
-                    'cd_no': job_data.get("cd_no"),
+                    'cd_no': jd.get("cd_no"),
                     # Normalize so DB stores canonical uppercase (e.g. "a11 " → "A11")
-                    'loai_hinh': _customs_validator.normalize_loai_hinh(job_data.get("loai_hinh")) or None,
-                    'customs_type': job_data.get("customs_type"),
-                    'customs_port': job_data.get("customs_port"),
-                    'buyer_name': job_data.get("buyer_name"),
-                    'seller_name': job_data.get("seller_name"),
-                    'hs_code': job_data.get("hs_code"),
-                    'bl_awb_no': job_data.get("bl_awb_no"),
-                    'co_no': job_data.get("co_no"),
-                    'packing_type': job_data.get("packing_type"),
-                    'items_count': job_data.get("items_count"),
-                    'packages_output': job_data.get("packages_output"),
-                    'shrink_wrap': job_data.get("shrink_wrap") or False,
-                    'vacuum_pack': job_data.get("vacuum_pack") or False,
-                    'lashing': job_data.get("lashing") or False,
-                    'fumigation': job_data.get("fumigation") or False,
+                    'loai_hinh': _customs_validator.normalize_loai_hinh(jd.get("loai_hinh")) or None,
+                    'customs_type': jd.get("customs_type"),
+                    'customs_port': jd.get("customs_port"),
+                    'buyer_name': jd.get("buyer_name"),
+                    'seller_name': jd.get("seller_name"),
+                    'hs_code': jd.get("hs_code"),
+                    'bl_awb_no': jd.get("bl_awb_no"),
+                    'co_no': jd.get("co_no"),
+                    'packing_type': jd.get("packing_type"),
+                    'items_count': jd.get("items_count"),
+                    'packages_output': jd.get("packages_output"),
+                    'shrink_wrap': jd.get("shrink_wrap") or False,
+                    'vacuum_pack': jd.get("vacuum_pack") or False,
+                    'lashing': jd.get("lashing") or False,
+                    'fumigation': jd.get("fumigation") or False,
                     'service_details': service_details_json,
                     'created_by': user_id,
                     'updated_by': user_id,
@@ -591,7 +603,7 @@ class DataService:
                     # mặc định ở trên, không thì bị chính chúng ghi đè bằng None.
                     # Lỗi đã gặp 23/09/2026: đặt ở giữa dict → hs_code và buyer_name người
                     # dùng nhập bị 'None' phía dưới nuốt mất, lashing=true thành False.
-                    **(job_data.get("truong_them") or {}),
+                    **(jd.get("truong_them") or {}),
                 }).execute()
 
                 logger.info(f"Created job_service for type={svc_type}")
