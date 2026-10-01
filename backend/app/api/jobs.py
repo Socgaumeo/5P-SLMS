@@ -178,6 +178,7 @@ TRUONG_THEM_DUOC = {
     "phan_luong":          {"nhan": "Phân luồng (XANH/VANG/DO)","kieu": "text"},
     "atd":                 {"nhan": "ATD (ngày đi thực tế)",   "kieu": "date"},
     "delivery_date":       {"nhan": "Ngày giao hàng",          "kieu": "date"},
+    "container_no":        {"nhan": "Số container",            "kieu": "text"},
     "declaration_datetime":{"nhan": "Ngày giờ tờ khai",        "kieu": "datetime"},
     # kích thước / khối lượng
     "volume_cbm":          {"nhan": "Số khối (CBM)",           "kieu": "number"},
