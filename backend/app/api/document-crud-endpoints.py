@@ -26,6 +26,7 @@ from app.core.config import settings
 
 import importlib
 telegram_downloader = importlib.import_module("app.services.telegram-file-downloader")
+gdrive_svc = importlib.import_module("app.services.google-drive-upload-service")
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/documents", tags=["Documents"])
@@ -314,9 +315,12 @@ async def upload_document(
     current_user: dict = Depends(get_current_user),
 ):
     """
-    Upload document via web UI (fallback for non-Telegram uploads).
-    Sends file to Telegram storage chat to get file_id, then inserts DB record.
+    Upload document via web UI.
+    04/10/2026 (Khánh): mọi chứng từ lưu Google Drive như các kênh khác (Telegram, Zalo, mail).
+    Drive trước; chỉ khi Drive lỗi mới gửi Telegram storage chat để không mất file.
+    Chống trùng: cùng job + cùng sha256 → trả bản đã có.
     """
+    import hashlib
     import os
 
     # Validate file extension
@@ -343,11 +347,33 @@ async def upload_document(
             raise HTTPException(400, f"File too large. Max {MAX_FILE_SIZE // (1024*1024)}MB")
 
         mime_type = MIME_MAP.get(ext, 'application/octet-stream')
+        sha256 = hashlib.sha256(file_bytes).hexdigest()
 
-        # Send to Telegram storage chat to get file_id
+        # Chống trùng: cùng job + cùng nội dung
+        dup = client.table('documents').select('*').eq('job_id', job_id).eq('metadata->>sha256', sha256).limit(1).execute()
+        if dup.data:
+            return {"success": True, "document": dup.data[0], "duplicate": True}
+
+        # Drive trước (cùng cây thư mục với kênh Telegram)
+        gdrive_url = None
+        try:
+            cust = ''
+            jr = client.table('jobs').select('customer_id').eq('job_id', job_id).limit(1).execute()
+            if jr.data and jr.data[0].get('customer_id'):
+                cr = client.table('customers').select('short_name, company_name').eq('customer_id', jr.data[0]['customer_id']).limit(1).execute()
+                if cr.data:
+                    cust = cr.data[0].get('short_name') or cr.data[0].get('company_name') or ''
+            gdrive_url = gdrive_svc.upload_to_gdrive(
+                file_bytes=file_bytes, file_name=file.filename, mime_type=mime_type,
+                customer_name=cust, job_no=job_result.data[0]['job_no'],
+            )
+        except Exception as e:
+            logger.error(f"Web upload → GDrive failed, fallback Telegram: {e}")
+
+        # Fallback: Telegram storage chat (chỉ khi Drive lỗi)
         telegram_file_id = None
         storage_chat = settings.TELEGRAM_STORAGE_CHAT_ID
-        if storage_chat and settings.TELEGRAM_BOT_TOKEN:
+        if not gdrive_url and storage_chat and settings.TELEGRAM_BOT_TOKEN:
             telegram_file_id = await telegram_downloader.send_file_to_telegram(
                 chat_id=storage_chat,
                 file_bytes=file_bytes,
@@ -362,12 +388,16 @@ async def upload_document(
             'file_name': file.filename,
             'file_size': len(file_bytes),
             'mime_type': mime_type,
-            'storage_type': 'web_upload',
+            'storage_type': 'gdrive' if gdrive_url else 'web_upload',
+            'external_url': gdrive_url,
             'telegram_file_id': telegram_file_id,
             'uploaded_by': current_user.get('user_id'),
-            'cloud_backup_status': 'pending',
+            'cloud_backup_status': 'synced' if gdrive_url else 'pending',
             'notes': notes,
+            'metadata': {'sha256': sha256, 'kenh': 'web'},
         }
+        if not gdrive_url and not telegram_file_id:
+            raise HTTPException(502, "Không lưu được file lên Google Drive (và Telegram dự phòng). Thử lại sau.")
         result = client.table('documents').insert(doc_data).execute()
 
         if result.data:

@@ -196,9 +196,11 @@ def upload_to_gdrive(
             body={'type': 'anyone', 'role': 'reader'},
         ).execute()
 
-        # Get the direct download/view link
-        logger.info(f"Uploaded to GDrive: {file_name} → {web_link}")
-        return web_link
+        # Link TẢI TRỰC TIẾP (04/10/2026): webViewLink là trang xem, endpoint /download
+        # không stream được ⇒ dùng uc?export=download giống workspace gdrive_lib.
+        dl_link = f"https://drive.google.com/uc?export=download&id={file_id}"
+        logger.info(f"Uploaded to GDrive: {file_name} → {dl_link} (view {web_link})")
+        return dl_link
 
     except Exception as e:
         logger.error(f"GDrive upload error for {file_name}: {e}")
