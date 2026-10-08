@@ -6,18 +6,18 @@ import './LandingPage.css';
 
 const SERVICES = [
   { icon: '🚚', vi: 'Vận tải đường bộ', en: 'Trucking', desc: 'Xe tải và container nội địa, xuyên biên giới; giao tận nhà máy, khu công nghiệp.' },
-  { icon: '✈️', vi: 'Hàng không', en: 'Air freight', desc: 'Xuất nhập khẩu hàng không, gom hàng, giao nhận tại Nội Bài.' },
-  { icon: '🚢', vi: 'Đường biển & container', en: 'Sea freight', desc: 'FCL, LCL qua Hải Phòng; booking, vận đơn, khai thác cảng.' },
+  { icon: '✈️', vi: 'Hàng không', en: 'Air freight', desc: 'Xuất nhập khẩu hàng không quốc tế, gom hàng, giao nhận tại sân bay Nội Bài.' },
+  { icon: '🚢', vi: 'Đường biển & container', en: 'Sea freight', desc: 'FCL, LCL đi và đến các cảng quốc tế qua Hải Phòng; booking, vận đơn, khai thác cảng.' },
   { icon: '📋', vi: 'Thủ tục hải quan', en: 'Customs brokerage', desc: 'Khai báo, kiểm hoá, C/O, tư vấn mã HS và loại hình tờ khai.' },
   { icon: '🏭', vi: 'Kho bãi', en: 'Warehousing', desc: 'Lưu kho, bốc xếp, quản lý xuất nhập tồn.' },
   { icon: '📦', vi: 'Đóng gói', en: 'Packing', desc: 'Đóng pallet, gia cố, chèn lót cho hàng dễ vỡ và hàng xuất khẩu.' },
 ];
 
 const AI_POINTS = [
-  'Đọc và đối chiếu chứng từ: invoice, packing list, vận đơn, tờ khai',
-  'Theo dõi lô hàng, chi phí, doanh thu trên hệ thống SLMS',
-  'Nhắc đúng người khi lô hàng thiếu chứng từ',
-  'Nhân viên làm việc qua Telegram và Zalo, có người duyệt trước khi ghi dữ liệu',
+  { t: 'Chứng từ chuẩn ngay từ đầu', d: 'Invoice, packing list, vận đơn, tờ khai được đối chiếu chéo trước khi khai báo — hạn chế phát sinh sửa đổi, phạt chậm.' },
+  { t: 'Theo sát từng lô hàng', d: 'Lịch trình, chứng từ và chi phí nằm chung trên một hệ thống, thông tin luôn sẵn sàng khi Quý khách cần.' },
+  { t: 'Không để lô hàng phải chờ', d: 'Thiếu chứng từ là đúng người phụ trách được nhắc ngay, không để việc trôi qua ngày.' },
+  { t: 'AI hỗ trợ, con người chịu trách nhiệm', d: 'Mọi cập nhật dữ liệu đều có nhân viên 5P kiểm duyệt trước khi ghi nhận.' },
 ];
 
 function goLogin() {
@@ -43,11 +43,13 @@ export default function LandingPage() {
       <section className="lp-hero">
         <div className="lp-hero-overlay" />
         <div className="lp-hero-inner">
-          <p className="lp-eyebrow">Logistics · Customs · Warehousing</p>
-          <h1>Giao nhận và vận tải trọn gói, vận hành bằng AI</h1>
+          <p className="lp-eyebrow">International Freight · Customs · Logistics</p>
+          <h1>Đưa hàng hoá của bạn ra thế giới — nhanh, đúng hẹn, minh bạch</h1>
           <p className="lp-lead">
-            5P Vietnam lo trọn chặng hàng của doanh nghiệp sản xuất và xuất nhập khẩu:
-            đường bộ, hàng không, đường biển, hải quan và kho bãi tại miền Bắc Việt Nam.
+            5P Vietnam là đối tác logistics trọn gói của doanh nghiệp sản xuất và xuất nhập khẩu:
+            vận chuyển quốc tế bằng đường hàng không, đường biển và đường bộ xuyên biên giới, cùng thủ tục hải quan,
+            kho bãi và giao nhận nội địa. Một đầu mối duy nhất theo sát lô hàng từ cửa nhà máy đến tay người nhận,
+            với hệ thống vận hành bằng AI.
           </p>
           <div className="lp-cta">
             <a className="lp-btn lp-btn-primary" href="#lien-he">Liên hệ báo giá</a>
@@ -73,13 +75,15 @@ export default function LandingPage() {
 
       <section className="lp-section lp-ai" id="cong-nghe">
         <div className="lp-ai-text">
-          <h2>Vận hành bằng AI</h2>
+          <h2>Công nghệ AI — lô hàng luôn trong tầm kiểm soát</h2>
           <p className="lp-sub">
-            Chúng tôi tự xây hệ thống quản lý logistics SLMS và trợ lý vận hành Sen,
-            chạy trên mô hình Claude. Nhân viên dùng hằng ngày để xử lý lô hàng nhanh và ít sai sót hơn.
+            5P tự phát triển hệ thống quản lý logistics SLMS và trợ lý vận hành AI Sen, chạy trên mô hình Claude của Anthropic.
+            Mỗi lô hàng của Quý khách được theo dõi từ lúc nhận booking đến khi giao xong: chứng từ kiểm tra kỹ, xử lý nhanh, sai sót được chặn từ sớm.
           </p>
-          <ul>
-            {AI_POINTS.map((t) => <li key={t}>{t}</li>)}
+          <ul className="lp-ai-list">
+            {AI_POINTS.map((x) => (
+              <li key={x.t}><strong>{x.t}</strong><span>{x.d}</span></li>
+            ))}
           </ul>
         </div>
         <div className="lp-ai-badge">

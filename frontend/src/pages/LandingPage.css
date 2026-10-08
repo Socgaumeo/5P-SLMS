@@ -92,3 +92,8 @@
   .lp-login { margin-left: auto; }
   .lp-ai { grid-template-columns: 1fr; }
 }
+
+.lp-ai-list { list-style: none; padding: 0 !important; display: grid; gap: 14px; }
+.lp-ai-list li { padding-left: 18px; border-left: 3px solid var(--lp-blue); line-height: 1.5; }
+.lp-ai-list strong { display: block; color: var(--lp-navy); font-size: 16px; }
+.lp-ai-list span { color: var(--lp-muted); font-size: 15px; }
