@@ -101,7 +101,9 @@ export default function LandingPage() {
             <p>Số nhà 2, ngõ 1H, phố Trần Quang Diệu, Hà Nội, Việt Nam</p>
           </div>
           <div>
-            <h4>Email</h4>
+            <h4>Điện thoại</h4>
+            <p><a href="tel:+84848346886">084 834 6886</a></p>
+            <h4 style={{ marginTop: 14 }}>Email</h4>
             <p><a href="mailto:info@5pvietnam.com">info@5pvietnam.com</a></p>
           </div>
         </div>
