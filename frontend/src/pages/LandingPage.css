@@ -1,0 +1,94 @@
+/* Landing page — www.5pvietnam.com */
+.lp {
+  --lp-navy: #0f1e3a;
+  --lp-blue: #1d4ed8;
+  --lp-ink: #0f172a;
+  --lp-muted: #475569;
+  --lp-line: #e2e8f0;
+  position: fixed;
+  inset: 0;
+  overflow-y: auto;
+  background: #fff;
+  color: var(--lp-ink);
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+  text-align: left;
+  scroll-behavior: smooth;
+}
+.lp a { color: inherit; text-decoration: none; }
+
+/* Nav */
+.lp-nav {
+  position: sticky; top: 0; z-index: 10;
+  display: flex; align-items: center; gap: 24px;
+  padding: 14px clamp(16px, 4vw, 48px);
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--lp-line);
+}
+.lp-brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; color: var(--lp-navy); }
+.lp-brand img { height: 38px; width: auto; display: block; }
+.lp-links { display: flex; gap: 22px; margin-left: auto; font-size: 15px; color: var(--lp-muted); }
+.lp-links a:hover { color: var(--lp-blue); }
+.lp-login {
+  padding: 9px 20px; border-radius: 8px; border: none; cursor: pointer;
+  background: var(--lp-blue); color: #fff; font-weight: 600; font-size: 15px;
+  white-space: nowrap; flex-shrink: 0;
+}
+.lp-login:hover { background: #1e40af; }
+
+/* Hero */
+.lp-hero {
+  position: relative;
+  min-height: min(78vh, 640px);
+  display: flex; align-items: center;
+  padding: 64px clamp(16px, 6vw, 80px);
+  background-image: url('https://images.unsplash.com/photo-1578575437130-527eed3abbec?auto=format&fit=crop&w=2000&q=80');
+  background-size: cover; background-position: center;
+  color: #fff;
+}
+.lp-hero-overlay { position: absolute; inset: 0; background: linear-gradient(100deg, rgba(15, 30, 58, 0.92) 0%, rgba(15, 30, 58, 0.55) 70%, rgba(15, 30, 58, 0.35) 100%); }
+.lp-hero-inner { position: relative; max-width: 640px; }
+.lp-eyebrow { text-transform: uppercase; letter-spacing: 0.12em; font-size: 13px; color: #93c5fd; margin: 0 0 14px; }
+.lp-hero h1 { font-size: clamp(30px, 4.6vw, 50px); line-height: 1.15; margin: 0 0 18px; font-weight: 800; }
+.lp-lead { font-size: clamp(16px, 1.6vw, 19px); line-height: 1.6; color: #e2e8f0; margin: 0 0 28px; }
+.lp-cta { display: flex; gap: 12px; flex-wrap: wrap; }
+.lp-btn { padding: 12px 22px; border-radius: 8px; font-weight: 600; font-size: 15px; }
+.lp-btn-primary { background: #fff; color: var(--lp-navy) !important; }
+.lp-btn-ghost { border: 1px solid rgba(255, 255, 255, 0.6); color: #fff; }
+
+/* Sections */
+.lp-section { padding: 72px clamp(16px, 6vw, 80px); max-width: 1200px; margin: 0 auto; }
+.lp-section h2 { font-size: clamp(26px, 3vw, 34px); margin: 0 0 8px; color: var(--lp-navy); }
+.lp-sub { color: var(--lp-muted); font-size: 17px; line-height: 1.6; margin: 0 0 32px; max-width: 680px; }
+
+.lp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 18px; }
+.lp-card { border: 1px solid var(--lp-line); border-radius: 12px; padding: 22px; background: #fff; }
+.lp-card-icon { font-size: 28px; margin-bottom: 10px; }
+.lp-card h3 { margin: 0; font-size: 18px; color: var(--lp-navy); }
+.lp-card-en { display: block; font-size: 13px; color: #64748b; margin: 2px 0 10px; }
+.lp-card p { margin: 0; color: var(--lp-muted); line-height: 1.55; font-size: 15px; }
+
+/* AI */
+.lp-ai { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 40px; align-items: center; }
+.lp-ai ul { margin: 0; padding-left: 20px; color: var(--lp-ink); line-height: 1.9; font-size: 16px; }
+.lp-ai-badge {
+  border-radius: 16px; padding: 40px 28px; text-align: center;
+  background: linear-gradient(135deg, var(--lp-navy), #1e3a8a); color: #fff;
+}
+.lp-ai-badge span { display: block; font-size: 44px; font-weight: 800; letter-spacing: 0.06em; }
+.lp-ai-badge small { color: #bfdbfe; font-size: 14px; }
+
+/* Contact */
+.lp-contact { border-top: 1px solid var(--lp-line); }
+.lp-contact-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 24px; }
+.lp-contact h4 { margin: 0 0 8px; color: var(--lp-navy); font-size: 16px; }
+.lp-contact p { margin: 0 0 4px; color: var(--lp-muted); line-height: 1.55; }
+.lp-contact a { color: var(--lp-blue); }
+
+.lp-footer { padding: 22px; text-align: center; font-size: 13px; color: #64748b; background: #f8fafc; border-top: 1px solid var(--lp-line); }
+
+@media (max-width: 720px) {
+  .lp-links { display: none; }
+  .lp-login { margin-left: auto; }
+  .lp-ai { grid-template-columns: 1fr; }
+}

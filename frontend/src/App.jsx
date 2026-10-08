@@ -4,6 +4,7 @@ import ChatWindow from './components/chat/ChatWindow'
 import AdminPanel from './components/admin/AdminPanel'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import LoginPage from './pages/LoginPage'
+import LandingPage from './pages/LandingPage'
 import SearchBox from './components/SearchBox'
 import { authFetch, API_URL } from './utils/auth-fetch'
 import DocumentUploadZone from './components/documents/document-upload-zone'
@@ -3836,7 +3837,7 @@ function ResetPasswordPage({ token }) {
     finally { setLoading(false) }
   }
 
-  const goLogin = () => { window.location.href = window.location.origin + window.location.pathname }
+  const goLogin = () => { window.location.href = window.location.origin + '/login' }
 
   return (
     <div className="login-page">
@@ -3908,9 +3909,14 @@ function App() {
   }
 
   if (!isAuthenticated) {
+    // Trang chủ công khai = giới thiệu công ty; màn đăng nhập ở /login
+    const p = window.location.pathname
+    if (p === '/' || p === '' || p === '/index.html') return <LandingPage />
     return <LoginPage />
   }
 
+  // Đăng nhập xong ở /login thì đưa về trang chủ của app
+  if (window.location.pathname === '/login') window.history.replaceState(null, '', '/')
   return <MainDashboard />
 }
 
