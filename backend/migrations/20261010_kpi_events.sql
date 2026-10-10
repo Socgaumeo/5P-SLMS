@@ -184,3 +184,25 @@ select b.*, r.han_phut,
 from buoc b join kpi_rules r on r.mau = b.mau and r.buoc = b.buoc;
 
 commit;
+
+-- ==== bổ sung sau test web 10/10 ====
+-- (a) người làm: lấy từ app.actor (script Sen) hoặc header x-actor do backend gửi qua PostgREST
+create or replace function kpi_log_event(p_job integer, p_svc integer, p_type text,
+                                         p_field text, p_from text, p_to text)
+returns void language plpgsql as $$
+declare v_actor text;
+begin
+  v_actor := coalesce(nullif(current_setting('app.actor', true), ''),
+                      nullif(current_setting('request.headers', true), '')::json->>'x-actor',
+                      'unknown');
+  insert into job_events(job_id, svc_id, event_type, field, from_value, to_value, actor)
+  values (p_job, p_svc, p_type, p_field, p_from, p_to, v_actor);
+exception when others then
+  raise warning 'kpi_log_event lỗi (bỏ qua): %', sqlerrm;
+end $$;
+
+-- (b) loại chứng từ theo file V1
+alter table documents drop constraint if exists documents_doc_type_check;
+alter table documents add constraint documents_doc_type_check check (doc_type = any (array[
+  'AN','DEBIT','DO','CD','CO','INVOICE','AWB','BL','PACKING_LIST','BBGH',
+  'BOOKING','WEIGHT_SLIP','PHOTO_PICKUP','PHOTO_DELIVERY','SERVICE_CONFIRM','QUOTATION','OTHER']));

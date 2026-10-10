@@ -1,3 +1,4 @@
+import re
 """
 Data Service - Database lookups and enrichment using Supabase SDK
 """
@@ -336,49 +337,35 @@ class DataService:
             if loai_hinh_error is not None:
                 return loai_hinh_error
 
+            # 10/10: cùng quy ước với Sen (create_job_db.py): {PREFIX}-{customer_id}-{YYMM}-{SEQ:03}
+            # Tiền tố lấy theo dịch vụ CHÍNH của job: vận chuyển quốc tế > hải quan > còn lại.
             prefix_map = {
-                "BORDER_IMP": "BI",
-                "BORDER_EXP": "BE",
-                "SEA_DOM": "SD",
-                "SEA_IMP": "SI",
-                "SEA_EXP": "SE",
-                "AIR_IMP": "AI",
-                "AIR_EXP": "AE",
-                "AIR_DOM": "AD",
-                "WHS": "WHS",
-                "CUS_CO": "CO",
-                "CUS": "CC",
-                "SVC": "PKG",
+                "BORDER_IMP": "BI", "BORDER_EXP": "BE",
+                "SEA_DOM": "SD", "SEA_IMP": "SI", "SEA_EXP": "SE",
+                "AIR_IMP": "AI", "AIR_EXP": "AE", "AIR_DOM": "AD",
+                "WHS_STORAGE": "WHS", "WHS": "SV", "CUS": "CUS", "SVC": "SV", "LIFT": "SV",
             }
-            prefix = next(
-                (v for k, v in prefix_map.items() if service_type.startswith(k)),
-                "TRK"
-            )
+            _all = [str(x).upper() for x in (job_data.get("services") or [])] + [service_type.upper()]
+            _main = (next((s for s in _all if s.startswith(("AIR_", "SEA_", "BORDER_"))), None)
+                     or next((s for s in _all if s.startswith("CUS")), None) or service_type.upper())
+            prefix = next((v for k, v in prefix_map.items() if _main.startswith(k)), "TRK")
 
-            # Generate job number: {PREFIX}-{DDMM}-{SEQ:4}
-            # (Removed customer_id segment for readability — sequence is global per (prefix, date))
-            today = date.today()
-            date_part = today.strftime('%d%m')
-            pattern = f"{prefix}-{date_part}-%"
-            max_result = self.client.table('jobs').select(
-                'job_no'
-            ).ilike('job_no', pattern).execute()
-
-            next_num = 1
-            if max_result.data:
-                seq_nums = []
-                for row in max_result.data:
-                    try:
-                        # job_no format: PREFIX-DDMM-SEQ → 3 parts; reject old format (4 parts) to avoid mixing
-                        parts = row['job_no'].split('-')
-                        if len(parts) == 3:
-                            seq_nums.append(int(parts[-1]))
-                    except (ValueError, IndexError):
-                        pass
-                if seq_nums:
-                    next_num = max(seq_nums) + 1
-
-            job_no = f"{prefix}-{date_part}-{next_num:04d}"
+            _d = str(job_data.get("booking_date") or job_data.get("etd") or date.today().isoformat())[:10]
+            try:
+                _y, _m = _d[2:4], _d[5:7]
+                int(_y); int(_m)
+            except ValueError:
+                _y, _m = date.today().strftime('%y'), date.today().strftime('%m')
+            _cid = job_data.get("customer_id") or 0
+            base = f"{prefix}-{_cid}-{_y}{_m}"
+            max_result = self.client.table('jobs').select('job_no').ilike('job_no', f"{base}-%").execute()
+            seq_nums = []
+            for row in (max_result.data or []):
+                m_ = re.search(r"-(\d+)$", row['job_no'] or '')
+                if m_:
+                    seq_nums.append(int(m_.group(1)))
+            next_num = (max(seq_nums) + 1) if seq_nums else 1
+            job_no = f"{base}-{next_num:03d}"
 
             # Build description
             dims = ""

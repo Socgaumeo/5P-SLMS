@@ -14,3 +14,8 @@ alter table job_services drop column if exists pickup_at, drop column if exists 
   drop column if exists delivery_contact, drop column if exists cd_main_count, drop column if exists cd_branch_count;
 alter table jobs drop column if exists confirmed_at, drop column if exists reconciled_at;
 commit;
+
+-- hoàn tác loại chứng từ (chỉ chạy khi chưa có chứng từ loại mới)
+alter table documents drop constraint if exists documents_doc_type_check;
+alter table documents add constraint documents_doc_type_check check (doc_type = any (array[
+  'AN','DEBIT','DO','CD','CO','INVOICE','AWB','BL','PACKING_LIST','BBGH','OTHER']));

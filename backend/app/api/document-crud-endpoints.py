@@ -329,7 +329,8 @@ async def upload_document(
         raise HTTPException(400, f"File type {ext} not allowed. Allowed: {', '.join(ALLOWED_EXTENSIONS)}")
 
     # Validate doc_type
-    valid_types = ['AN', 'DEBIT', 'DO', 'CD', 'CO', 'INVOICE', 'AWB', 'BL', 'PACKING_LIST', 'BBGH', 'OTHER']
+    valid_types = ['AN', 'DEBIT', 'DO', 'CD', 'CO', 'INVOICE', 'AWB', 'BL', 'PACKING_LIST', 'BBGH',
+                   'BOOKING', 'WEIGHT_SLIP', 'PHOTO_PICKUP', 'PHOTO_DELIVERY', 'SERVICE_CONFIRM', 'QUOTATION', 'OTHER']
     if doc_type not in valid_types:
         raise HTTPException(400, f"Invalid doc_type. Must be one of: {', '.join(valid_types)}")
 
@@ -407,7 +408,7 @@ async def upload_document(
                     _cur = (job_result.data[0].get('status_code') or '').upper() if 'status_code' in job_result.data[0] else ''
                     _jr = client.table('jobs').select('status_code').eq('job_id', job_id).limit(1).execute()
                     _cur = (_jr.data[0].get('status_code') or '').upper() if _jr.data else ''
-                    if _cur in ('IN_PROGRESS', 'PENDING', 'NEW', ''):
+                    if _cur in ('IN_PROGRESS', 'PENDING', 'NEW', 'ASSIGNED', 'DISPATCHED', 'IN_TRANSIT', ''):
                         client.table('jobs').update(
                             {'status_code': 'DELIVERED', 'updated_by': current_user.get('user_id')}
                         ).eq('job_id', job_id).execute()
