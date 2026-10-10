@@ -21,6 +21,7 @@ for j in jobs:
         du_luc = K._ts(d["done_at"]).astimezone(K.VN) if d else None
         nguoi = d["actor"] if d else ""
         uid = nguoi.split("|")[0] if nguoi else ""
+        kenh = {"sen": "Sen nhập hộ", "web": "Tự nhập web"}.get(nguoi.split("|")[1] if "|" in nguoi else "", "")
         nguoi_ten = users.get(int(uid)) if uid.isdigit() else (nguoi or "")
         h = r["han"]
         if du_luc:
@@ -32,9 +33,9 @@ for j in jobs:
         rows.append({
             "Job": r["job_no"], "Người tạo job": users.get(r["created_by"], ""), "Dịch vụ": r["svc_type"],
             "Bước": f'{r["buoc"]}. {r["ten_buoc"]}', "Trạng thái V1": r["trang_thai"], "KPI": r["kpi"],
-            "Mốc T": r["ten_moc"], "Giờ T": r["T"].astimezone(K.VN).strftime("%d/%m %H:%M") if r["T"] else "",
+            "Mốc T (thao tác)": r["ten_moc"], "Giờ T": r["T"].astimezone(K.VN).strftime("%d/%m %H:%M") if r["T"] else "",
             "Hạn": h.strftime("%d/%m %H:%M") if h else "", "Nhập đủ lúc": du_luc.strftime("%d/%m %H:%M") if du_luc else "",
-            "Người nhập": nguoi_ten, "Người chịu KPI": nguoi_ten or users.get(r["created_by"], "") or "(không rõ)", "Kết quả": kq, "Trễ (giờ)": tre,
+            "Người nhập": nguoi_ten, "Kênh": kenh, "Người chịu KPI": nguoi_ten or users.get(r["created_by"], "") or "(không rõ)", "Kết quả": kq, "Trễ (giờ)": tre,
             "Còn thiếu ô": ", ".join(K.NHAN.get(x, x) for x in r["thieu_o"]),
             "Còn thiếu chứng từ": ", ".join(K.DOC_NHAN.get(x, x) for x in r["thieu_ct"]),
         })
@@ -76,8 +77,9 @@ def tong(key):
 
 ws = wb.active; ws.title = "Tổng hợp"
 ws.append([f"BÁO CÁO KPI NHẬP JOB — bản test, lập {now:%d/%m/%Y %H:%M}"]); ws["A1"].font = Font(bold=True, size=13)
-ws.append(["Cách tính: mỗi bước = lúc nhập ĐỦ ô + chứng từ bắt buộc của bước (lần đầu) so với hạn tính từ mốc T (file V1). "
-           "Tỷ lệ đúng hạn = Đạt / (Đạt + Trễ + Quá hạn chưa đủ)."])
+ws.append(["Cách tính: mọi mốc giờ = thời điểm nhân viên/Sen thao tác trên hệ thống (không nhập tay giờ). Mốc T = thao tác đầu tiên báo việc xảy ra "
+           "(tạo job, gán xe, báo đã giao/tải BBGH, nhập số TK, nhập vận đơn). Sen nhập hộ: tính cho nhân viên gửi, giờ = lúc nhân viên gửi tin/file. "
+           "Bước đạt khi nhập ĐỦ ô + chứng từ bắt buộc trong hạn file V1. Tỷ lệ đúng hạn = Đạt / (Đạt + Trễ + Quá hạn chưa đủ)."])
 ws.append([])
 cnt = collections.Counter(r["Kết quả"] for r in rows)
 for k in ["Đạt", "Trễ", "Quá hạn, chưa đủ", "Trong hạn, chưa đủ", "Chưa có mốc"]:

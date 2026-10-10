@@ -205,12 +205,7 @@ TRUONG_THEM_DUOC = {
     "sub_category":        {"nhan": "Phân loại phụ",           "kieu": "text"},
     "msg_vendor":          {"nhan": "Ghi chú cho nhà thầu",    "kieu": "text"},
     "msg_customer":        {"nhan": "Ghi chú cho khách",       "kieu": "text"},
-    # ── 10/10/2026: mốc thời gian THỰC TẾ cho KPI nhập job (file V1 chị Hà) ──
-    "confirmed_at":        {"nhan": "Giờ khách confirm (cả job)", "kieu": "datetime"},
-    "pickup_at":           {"nhan": "Giờ lấy hàng thực tế",    "kieu": "datetime"},
-    "delivered_at":        {"nhan": "Giờ giao hàng thực tế",   "kieu": "datetime"},
-    "cleared_at":          {"nhan": "Giờ thông quan",          "kieu": "datetime"},
-    "service_done_at":     {"nhan": "Giờ xong dịch vụ",        "kieu": "datetime"},
+    # (10/10: bỏ ô giờ nhập tay — mốc KPI lấy tự động từ thời điểm thao tác)
     # ── ô file V1 trước nằm lẫn trong service_details ──
     "nguoi_book":          {"nhan": "Người đặt dịch vụ",       "kieu": "text"},
     "intl_truck_plate":    {"nhan": "Biển số xe quốc tế",      "kieu": "text"},

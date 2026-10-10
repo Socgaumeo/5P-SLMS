@@ -121,37 +121,78 @@ def _ts(v):
         return None
 
 
-def moc(buoc, svc, job, svcs):
-    """Mốc T của bước: (datetime, tên mốc)."""
+# ── Mốc T = THAO TÁC của nhân viên / Sen (Khánh chốt 10/10): không nhập tay giờ ──
+_DI = ("ASSIGNED", "DISPATCHED", "IN_TRANSIT", "IN_PROGRESS")
+_XONG = ("DELIVERED", "COMPLETED")
+
+
+def _ev_ts(e):
+    return _ts(e["event_at"])
+
+
+def _dau_tien(evs, ok, nhan):
+    hit = sorted((e for e in evs if ok(e)), key=lambda e: e["event_at"])
+    if not hit:
+        return None, nhan
+    e = hit[0]
+    return _ev_ts(e), f"{nhan} ({e.get('actor') or 'unknown'})"
+
+
+def moc(buoc, svc, job, svcs, evs):
+    """Mốc T của bước = lần đầu có THAO TÁC báo việc đó đã xảy ra. Trả (datetime, mô tả nguồn)."""
+    sid = svc["svc_id"]
     ten = buoc["ten"].lower()
-
-    def lay(field):
-        if svc.get(field):
-            return _ts(svc[field]), field
-        vals = [_ts(s.get(field)) for s in svcs if s.get(field)]
-        vals = [v for v in vals if v]
-        return (max(vals), field + " (dịch vụ khác)") if vals else (None, field)
-
     st = svc["service_type_code"]
+    cua_dv = [e for e in evs if e.get("svc_id") in (sid, None)]
+
+    def nhan_lo():
+        return _dau_tien(evs, lambda e: True, "tạo job")
+
+    def lay_hang():
+        return _dau_tien(cua_dv, lambda e: (e["event_type"] == "MOC" and e["field"] in ("vehicle_plate", "driver_id"))
+                         or (e["event_type"] == "SVC_STATUS" and e["to_value"] in _DI and e.get("svc_id") == sid),
+                         "gán xe / chuyển đang chạy")
+
+    def giao():
+        return _dau_tien(cua_dv, lambda e: (e["event_type"] == "DOC" and e["to_value"] == "BBGH")
+                         or (e["event_type"] == "SVC_STATUS" and e["to_value"] in _XONG and e.get("svc_id") == sid)
+                         or (e["event_type"] == "STATUS" and e["to_value"] == "DELIVERED")
+                         or (e["event_type"] == "MOC" and e["field"] == "delivery_date" and e.get("svc_id") == sid),
+                         "tải BBGH / báo đã giao")
+
+    def thong_quan():
+        return _dau_tien(cua_dv, lambda e: (e["event_type"] == "MOC" and e["field"] in ("cd_no", "declaration_datetime") and e.get("svc_id") == sid)
+                         or (e["event_type"] == "DOC" and e["to_value"] == "CD")
+                         or (e["event_type"] == "SVC_STATUS" and e["to_value"] in ("CUS_APPROVED", "COMPLETED") and e.get("svc_id") == sid),
+                         "nhập số tờ khai / tải tờ khai")
+
+    def van_don():
+        return _dau_tien(cua_dv, lambda e: (e["event_type"] == "MOC" and e["field"] in ("bl_awb_no", "mbl_no", "atd") and e.get("svc_id") == sid)
+                         or (e["event_type"] == "DOC" and e["to_value"] in ("AWB", "BL")),
+                         "nhập vận đơn / tải AWB-BL")
+
+    def xong_dv():
+        return _dau_tien(cua_dv, lambda e: (e["event_type"] == "SVC_STATUS" and e["to_value"] == "COMPLETED" and e.get("svc_id") == sid)
+                         or (e["event_type"] == "DOC" and e["to_value"] == "SERVICE_CONFIRM"),
+                         "báo xong dịch vụ")
+
     if buoc["buoc"] == 1:
-        if job.get("confirmed_at"):
-            return _ts(job["confirmed_at"]), "giờ khách confirm"
-        return _ts(job.get("created_at")), "lúc tạo job (chưa nhập giờ confirm)"
+        return nhan_lo()
     if ten.startswith("thông quan"):
-        return lay("cleared_at")
+        return thong_quan()
     if ten.startswith("thực hiện"):
-        return lay("service_done_at")
+        return xong_dv()
     if ten.startswith("booking"):
-        return lay("atd")
+        return van_don()
     if ten.startswith("lấy"):
-        return lay("pickup_at")
+        return lay_hang()
     if "giá" in ten:
         if st.startswith("CUS"):
-            return lay("cleared_at")
+            return thong_quan()
         if st.startswith(("WHS", "SVC", "LIFT")):
-            return lay("service_done_at")
-        return lay("delivered_at")
-    return lay("delivered_at")   # giao hàng, hàng đến, đã giao, đối chiếu
+            return xong_dv()
+        return giao()
+    return giao()
 
 
 def han(kpi, T):
@@ -188,6 +229,9 @@ def danh_gia_job(client, job_id):
             if (s.get("status_code") or "") != "CANCELLED"]
     docs = {d["doc_type"] for d in (client.table("documents").select("doc_type").eq("job_id", job_id).execute().data or [])}
     costs = client.table("job_costs").select("svc_id,buying_amount,selling_amount").eq("job_id", job_id).execute().data or []
+    evs = client.table("job_events").select("event_type,field,to_value,svc_id,event_at,actor") \
+        .eq("job_id", job_id).order("event_at").execute().data or []
+    last = evs[-1] if evs else None
     out = []
     for svc in svcs:
         tc = TC["dich_vu"].get(svc["service_type_code"]) or {}
@@ -195,23 +239,18 @@ def danh_gia_job(client, job_id):
             thieu_o = [c for c in b.get("cot", []) if not _co(c, job, svc, costs)]
             can_doc = [t for t in (doc_bat_buoc(x, svc["service_type_code"]) for x in b.get("chung_tu", [])) if t]
             thieu_ct = [t for t in dict.fromkeys(can_doc) if t not in docs]
-            T, ten_moc = moc(b, svc, job, svcs)
+            T, ten_moc = moc(b, svc, job, svcs, evs)
             out.append({"job_id": job_id, "job_no": job["job_no"], "created_by": job.get("created_by"),
                         "svc_id": svc["svc_id"], "svc_type": svc["service_type_code"],
                         "buoc": b["buoc"], "ten_buoc": b["ten"], "trang_thai": b.get("trang_thai"), "kpi": b.get("kpi"),
                         "thieu_o": thieu_o, "thieu_ct": thieu_ct, "du": not thieu_o and not thieu_ct,
-                        "T": T, "ten_moc": ten_moc, "han": han(b.get("kpi"), T)})
+                        "T": T, "ten_moc": ten_moc, "han": han(b.get("kpi"), T),
+                        "thao_tac_cuoi": last})
     return out
 
 
-def _actor(client, job_id):
-    ev = client.table("job_events").select("actor").eq("job_id", job_id).neq("actor", "unknown") \
-        .order("event_id", desc=True).limit(1).execute().data
-    return ev[0]["actor"] if ev else "unknown"
-
-
 def ghi_buoc_du(client, job_id):
-    """Ghi LẦN ĐẦU các bước vừa đủ. Không ghi đè (unique svc_id+buoc)."""
+    """Ghi LẦN ĐẦU các bước vừa đủ. Lúc đủ = thời điểm THAO TÁC vừa làm bước đó đủ (không phải lúc quét)."""
     rows = [r for r in danh_gia_job(client, job_id) if r["du"]]
     if not rows:
         return 0
@@ -220,10 +259,13 @@ def ghi_buoc_du(client, job_id):
     moi = [r for r in rows if (r["svc_id"], r["buoc"]) not in da]
     if not moi:
         return 0
-    actor = _actor(client, job_id)
+    last = moi[0]["thao_tac_cuoi"] or {}
     client.table("job_step_done").upsert([{
         "job_id": r["job_id"], "svc_id": r["svc_id"], "svc_type": r["svc_type"], "buoc": r["buoc"],
-        "ten_buoc": r["ten_buoc"], "trang_thai": r["trang_thai"], "kpi": r["kpi"], "actor": actor,
+        "ten_buoc": r["ten_buoc"], "trang_thai": r["trang_thai"], "kpi": r["kpi"],
+        "done_at": last.get("event_at") or dt.datetime.now(dt.timezone.utc).isoformat(),
+        "actor": last.get("actor") or "unknown",
+        "moc_t": r["T"].isoformat() if r["T"] else None, "nguon_moc": r["ten_moc"],
     } for r in moi], on_conflict="svc_id,buoc", ignore_duplicates=True).execute()
     return len(moi)
 
