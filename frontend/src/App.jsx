@@ -1843,7 +1843,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                 <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{tt?.nhan || cot}</label>
                                 <div style={{ display: 'flex', gap: '6px' }}>
                                   <input
-                                    type={tt?.kieu === 'number' ? 'number' : tt?.kieu === 'date' ? 'date' : 'text'}
+                                    type={tt?.kieu === 'number' ? 'number' : tt?.kieu === 'date' ? 'date' : tt?.kieu === 'datetime' ? 'datetime-local' : 'text'}
                                     value={gt || ''}
                                     onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id
                                       ? { ...s, truong_them_sua: { ...(s.truong_them_sua || {}), [cot]: e.target.value } } : s))}

@@ -590,8 +590,12 @@ class DataService:
                     # mặc định ở trên, không thì bị chính chúng ghi đè bằng None.
                     # Lỗi đã gặp 23/09/2026: đặt ở giữa dict → hs_code và buyer_name người
                     # dùng nhập bị 'None' phía dưới nuốt mất, lashing=true thành False.
-                    **(jd.get("truong_them") or {}),
+                    **{k: v for k, v in (jd.get("truong_them") or {}).items() if k != "confirmed_at"},
                 }).execute()
+                _cf = (jd.get("truong_them") or {}).get("confirmed_at")
+                if _cf:
+                    from app.api.jobs import _gio_vn
+                    self.client.table('jobs').update({'confirmed_at': _gio_vn(_cf)}).eq('job_id', job_id).execute()
 
                 logger.info(f"Created job_service for type={svc_type}")
 

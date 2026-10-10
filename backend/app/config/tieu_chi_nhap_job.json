@@ -1,5 +1,5 @@
 {
- "nguon": "workspace-main/config/job_required_fields.yaml v0.5",
+ "nguon": "workspace-main/config/job_required_fields.yaml v0.6",
  "dich_vu": {
   "TRUCKING": {
    "tao_job": [
@@ -21,15 +21,104 @@
     "driver_id",
     "vendor_text_input",
     "cargo_type",
-    "invoice_numbers"
+    "invoice_numbers",
+    "nguoi_book",
+    "truck_capacity"
    ],
    "hoan_thien": [
     "xe",
     "gia_mua",
     "gia_ban"
    ],
-   "hoan_thien_nen_co": [],
-   "kem_van_chuyen": null
+   "hoan_thien_nen_co": [
+    "scheduled_time",
+    "delivery_date",
+    "rate_unit",
+    "special_requirements"
+   ],
+   "kem_van_chuyen": null,
+   "buoc": [
+    {
+     "buoc": 1,
+     "ten": "Nhận lô",
+     "khi": "ngay khi khách confirm làm hàng",
+     "kpi": "T+4h",
+     "trang_thai": "Start",
+     "cot": [
+      "nguoi_book",
+      "vehicle_type",
+      "truck_capacity",
+      "invoice_numbers",
+      "origin_address",
+      "dest_address"
+     ],
+     "chung_tu": [
+      "file đặt xe (nếu có)"
+     ]
+    },
+    {
+     "buoc": 2,
+     "ten": "Lấy, giao hàng",
+     "khi": "ngay khi lấy hàng xong",
+     "kpi": "T+4h",
+     "trang_thai": "Processing",
+     "cot": [
+      "scheduled_date",
+      "scheduled_time",
+      "delivery_date",
+      "weight_kg",
+      "volume_cbm",
+      "package_quantity",
+      "rate_unit",
+      "xe"
+     ],
+     "chung_tu": [
+      "ảnh lấy/giao hàng (nếu có)"
+     ]
+    },
+    {
+     "buoc": 3,
+     "ten": "Đã giao",
+     "khi": "ngay khi giao xong",
+     "kpi": "T+4h",
+     "trang_thai": "Delivered",
+     "cot": [
+      "special_requirements"
+     ],
+     "chung_tu": [
+      "BBGH (bắt buộc)"
+     ]
+    },
+    {
+     "buoc": 4,
+     "ten": "Giá mua/bán",
+     "khi": "muộn nhất 1 ngày sau khi xong",
+     "kpi": "D+1",
+     "trang_thai": "Finish",
+     "cot": [
+      "gia_mua",
+      "gia_ban"
+     ],
+     "chung_tu": [
+      "báo giá (nếu có)"
+     ],
+     "ghi_chu": "cước, xăng dầu, bốc xếp, chờ giờ, thêm điểm, phát sinh (đường cấm/cao tốc)"
+    },
+    {
+     "buoc": 5,
+     "ten": "Đối chiếu, thanh toán",
+     "khi": "theo kỳ khách",
+     "kpi": "không muộn hơn ngày 30/31 hàng tháng",
+     "trang_thai": "Ok",
+     "cot": [
+      "vat_invoice_no"
+     ],
+     "chung_tu": [
+      "INVOICE",
+      "DEBIT / bảng kê"
+     ]
+    }
+   ]
   },
   "BORDER_IMP": {
    "tao_job": [
@@ -52,7 +141,13 @@
     "weight_kg",
     "invoice_numbers",
     "cargo_type",
-    "scheduled_date"
+    "scheduled_date",
+    "nguoi_book",
+    "vehicle_type",
+    "truck_capacity",
+    "buyer_name",
+    "route",
+    "customs_port"
    ],
    "hoan_thien": [
     "atd",
@@ -63,9 +158,118 @@
    ],
    "hoan_thien_nen_co": [
     "container_no",
-    "delivery_date"
+    "delivery_date",
+    "china_truck_plate",
+    "chargeable_weight_kg",
+    "rate_unit",
+    "cd_no",
+    "xe",
+    "special_requirements"
    ],
-   "kem_van_chuyen": null
+   "kem_van_chuyen": null,
+   "buoc": [
+    {
+     "buoc": 1,
+     "ten": "Nhận lô",
+     "khi": "ngay khi khách confirm làm hàng",
+     "kpi": "T+4h",
+     "trang_thai": "Start",
+     "cot": [
+      "nguoi_book",
+      "vehicle_type",
+      "truck_capacity",
+      "invoice_numbers",
+      "seller_name",
+      "buyer_name",
+      "incoterm",
+      "cargo_type",
+      "route",
+      "customs_port"
+     ],
+     "chung_tu": [
+      "file đặt xe (nếu có)"
+     ]
+    },
+    {
+     "buoc": 2,
+     "ten": "Lấy hàng",
+     "khi": "ngay sau khi lấy hàng",
+     "kpi": "T+12h",
+     "trang_thai": "Processing",
+     "cot": [
+      "scheduled_date",
+      "origin_address",
+      "china_truck_plate",
+      "weight_kg",
+      "volume_cbm",
+      "package_quantity",
+      "chargeable_weight_kg",
+      "rate_unit"
+     ],
+     "chung_tu": [
+      "ảnh lấy hàng (nếu có)"
+     ]
+    },
+    {
+     "buoc": 3,
+     "ten": "Thông quan, giao hàng",
+     "khi": "ngay sau khi giao hàng",
+     "kpi": "T+4h",
+     "trang_thai": "Processing",
+     "cot": [
+      "cd_no",
+      "delivery_date",
+      "dest_address",
+      "xe"
+     ],
+     "chung_tu": [
+      "CD (bắt buộc)",
+      "ảnh nhận hàng (nếu có)"
+     ]
+    },
+    {
+     "buoc": 4,
+     "ten": "Đã giao",
+     "khi": "ngay khi giao xong",
+     "kpi": "T+4h",
+     "trang_thai": "Delivered",
+     "cot": [
+      "special_requirements"
+     ],
+     "chung_tu": [
+      "BBGH (bắt buộc)"
+     ]
+    },
+    {
+     "buoc": 5,
+     "ten": "Giá mua/bán",
+     "khi": "sau khi giao",
+     "kpi": "D+1",
+     "trang_thai": "Finish",
+     "cot": [
+      "gia_mua",
+      "gia_ban"
+     ],
+     "chung_tu": [
+      "báo giá (nếu có)"
+     ],
+     "ghi_chu": "từng khoản phí gắn mã vendor: HQ quốc tế, cước QT, xăng dầu, sang tải, mở TK VN, OT HQ, nội địa, bốc xếp, chờ giờ, thêm điểm, phát sinh"
+    },
+    {
+     "buoc": 6,
+     "ten": "Đối chiếu, thanh toán",
+     "khi": "theo kỳ khách",
+     "kpi": "theo kỳ khách",
+     "trang_thai": "Ok",
+     "cot": [
+      "vat_invoice_no"
+     ],
+     "chung_tu": [
+      "INVOICE",
+      "DEBIT / bảng kê"
+     ]
+    }
+   ]
   },
   "BORDER_EXP": {
    "tao_job": [
@@ -86,7 +290,14 @@
     "incoterm",
     "weight_kg",
     "invoice_numbers",
-    "scheduled_date"
+    "scheduled_date",
+    "nguoi_book",
+    "vehicle_type",
+    "truck_capacity",
+    "seller_name",
+    "cargo_type",
+    "route",
+    "customs_port"
    ],
    "hoan_thien": [
     "eta",
@@ -96,9 +307,119 @@
     "buyer_name"
    ],
    "hoan_thien_nen_co": [
-    "container_no"
+    "container_no",
+    "china_truck_plate",
+    "chargeable_weight_kg",
+    "rate_unit",
+    "cd_no",
+    "delivery_date",
+    "xe",
+    "special_requirements"
    ],
-   "kem_van_chuyen": null
+   "kem_van_chuyen": null,
+   "buoc": [
+    {
+     "buoc": 1,
+     "ten": "Nhận lô",
+     "khi": "ngay khi khách confirm làm hàng",
+     "kpi": "T+4h",
+     "trang_thai": "Start",
+     "cot": [
+      "nguoi_book",
+      "vehicle_type",
+      "truck_capacity",
+      "invoice_numbers",
+      "seller_name",
+      "buyer_name",
+      "incoterm",
+      "cargo_type",
+      "route",
+      "customs_port"
+     ],
+     "chung_tu": [
+      "file đặt xe (nếu có)"
+     ]
+    },
+    {
+     "buoc": 2,
+     "ten": "Lấy hàng",
+     "khi": "ngay sau khi lấy hàng",
+     "kpi": "T+12h",
+     "trang_thai": "Processing",
+     "cot": [
+      "scheduled_date",
+      "origin_address",
+      "china_truck_plate",
+      "weight_kg",
+      "volume_cbm",
+      "package_quantity",
+      "chargeable_weight_kg",
+      "rate_unit"
+     ],
+     "chung_tu": [
+      "ảnh lấy hàng (nếu có)"
+     ]
+    },
+    {
+     "buoc": 3,
+     "ten": "Thông quan, giao hàng",
+     "khi": "ngay sau khi giao hàng",
+     "kpi": "T+4h",
+     "trang_thai": "Processing",
+     "cot": [
+      "cd_no",
+      "delivery_date",
+      "dest_address",
+      "xe"
+     ],
+     "chung_tu": [
+      "CD (bắt buộc)",
+      "ảnh nhận hàng (nếu có)"
+     ]
+    },
+    {
+     "buoc": 4,
+     "ten": "Đã giao",
+     "khi": "ngay khi giao xong",
+     "kpi": "T+4h",
+     "trang_thai": "Delivered",
+     "cot": [
+      "special_requirements"
+     ],
+     "chung_tu": [
+      "BBGH (bắt buộc)"
+     ]
+    },
+    {
+     "buoc": 5,
+     "ten": "Giá mua/bán",
+     "khi": "sau khi giao",
+     "kpi": "D+1",
+     "trang_thai": "Finish",
+     "cot": [
+      "gia_mua",
+      "gia_ban"
+     ],
+     "chung_tu": [
+      "báo giá (nếu có)"
+     ],
+     "ghi_chu": "từng khoản phí gắn mã vendor: HQ quốc tế, cước QT, xăng dầu, sang tải, mở TK VN, OT HQ, nội địa, bốc xếp, chờ giờ, thêm điểm, phát sinh"
+    },
+    {
+     "buoc": 6,
+     "ten": "Đối chiếu, thanh toán",
+     "khi": "theo kỳ khách",
+     "kpi": "theo kỳ khách",
+     "trang_thai": "Ok",
+     "cot": [
+      "vat_invoice_no"
+     ],
+     "chung_tu": [
+      "INVOICE",
+      "DEBIT / bảng kê"
+     ]
+    }
+   ]
   },
   "CUS_IMPORT": {
    "tao_job": [
@@ -118,10 +439,16 @@
     "invoice_numbers",
     "buyer_name",
     "seller_name",
-    "hs_code"
+    "hs_code",
+    "nguoi_book"
    ],
    "hoan_thien": [],
-   "hoan_thien_nen_co": [],
+   "hoan_thien_nen_co": [
+    "so_tk_chinh",
+    "so_tk_nhanh",
+    "ngay_thong_quan",
+    "special_requirements"
+   ],
    "kem_van_chuyen": {
     "required": [],
     "hoan_thien": [
@@ -129,7 +456,53 @@
      "cd_no",
      "declaration_datetime"
     ]
-   }
+   },
+   "buoc": [
+    {
+     "buoc": 1,
+     "ten": "Mở tờ khai",
+     "khi": "khi khách confirm & chốt mở CD",
+     "kpi": "T+4h",
+     "trang_thai": "Start",
+     "cot": [
+      "nguoi_book",
+      "cd_no",
+      "phan_luong",
+      "declaration_datetime"
+     ],
+     "chung_tu": [
+      "CD thông quan"
+     ]
+    },
+    {
+     "buoc": 2,
+     "ten": "Thông quan",
+     "khi": "ngay sau khi thông quan",
+     "kpi": "T+4h",
+     "trang_thai": "Processing",
+     "cot": [
+      "so_tk_chinh",
+      "so_tk_nhanh",
+      "ngay_thong_quan",
+      "special_requirements"
+     ]
+    },
+    {
+     "buoc": 3,
+     "ten": "Giá mua/bán",
+     "khi": "không muộn hơn 2 ngày làm việc",
+     "kpi": "T+2 ngày",
+     "trang_thai": "Finish",
+     "cot": [
+      "gia_mua",
+      "gia_ban"
+     ],
+     "chung_tu": [
+      "DEBIT vendor"
+     ],
+     "ghi_chu": "mở thủ tục, phụ phí luồng đỏ, phát sinh"
+    }
+   ]
   },
   "CUS_EXPORT": {
    "tao_job": [
@@ -148,10 +521,16 @@
     "customs_port",
     "invoice_numbers",
     "buyer_name",
-    "seller_name"
+    "seller_name",
+    "nguoi_book"
    ],
    "hoan_thien": [],
-   "hoan_thien_nen_co": [],
+   "hoan_thien_nen_co": [
+    "so_tk_chinh",
+    "so_tk_nhanh",
+    "ngay_thong_quan",
+    "special_requirements"
+   ],
    "kem_van_chuyen": {
     "required": [],
     "hoan_thien": [
@@ -159,7 +538,53 @@
      "cd_no",
      "declaration_datetime"
     ]
-   }
+   },
+   "buoc": [
+    {
+     "buoc": 1,
+     "ten": "Mở tờ khai",
+     "khi": "khi khách confirm & chốt mở CD",
+     "kpi": "T+4h",
+     "trang_thai": "Start",
+     "cot": [
+      "nguoi_book",
+      "cd_no",
+      "phan_luong",
+      "declaration_datetime"
+     ],
+     "chung_tu": [
+      "CD thông quan"
+     ]
+    },
+    {
+     "buoc": 2,
+     "ten": "Thông quan",
+     "khi": "ngay sau khi thông quan",
+     "kpi": "T+4h",
+     "trang_thai": "Processing",
+     "cot": [
+      "so_tk_chinh",
+      "so_tk_nhanh",
+      "ngay_thong_quan",
+      "special_requirements"
+     ]
+    },
+    {
+     "buoc": 3,
+     "ten": "Giá mua/bán",
+     "khi": "không muộn hơn 2 ngày làm việc",
+     "kpi": "T+2 ngày",
+     "trang_thai": "Finish",
+     "cot": [
+      "gia_mua",
+      "gia_ban"
+     ],
+     "chung_tu": [
+      "DEBIT vendor"
+     ],
+     "ghi_chu": "mở thủ tục, phụ phí luồng đỏ, phát sinh"
+    }
+   ]
   },
   "CUS_TRANSIT": {
    "tao_job": [
@@ -184,7 +609,8 @@
      "loai_hinh",
      "cd_no"
     ]
-   }
+   },
+   "buoc": []
   },
   "CUS_CO": {
    "tao_job": [
@@ -202,7 +628,8 @@
    ],
    "hoan_thien": [],
    "hoan_thien_nen_co": [],
-   "kem_van_chuyen": null
+   "kem_van_chuyen": null,
+   "buoc": []
   },
   "SEA_IMP": {
    "tao_job": [
@@ -224,7 +651,8 @@
     "incoterm",
     "seller_name",
     "weight_kg",
-    "volume_cbm"
+    "volume_cbm",
+    "nguoi_book"
    ],
    "hoan_thien": [
     "carrier",
@@ -238,9 +666,112 @@
     "container_no"
    ],
    "hoan_thien_nen_co": [
-    "delivery_date"
+    "delivery_date",
+    "buyer_name",
+    "agent",
+    "invoice_numbers",
+    "cont_type",
+    "cargo_type",
+    "loai_cuoc",
+    "nguoi_lien_he_giao",
+    "special_requirements"
    ],
-   "kem_van_chuyen": null
+   "kem_van_chuyen": null,
+   "buoc": [
+    {
+     "buoc": 1,
+     "ten": "Nhận lô",
+     "khi": "khi khách confirm & chốt booking với vendor",
+     "kpi": "T+4h",
+     "trang_thai": "Start",
+     "cot": [
+      "nguoi_book",
+      "origin_address",
+      "dest_address",
+      "incoterm",
+      "etd"
+     ]
+    },
+    {
+     "buoc": 2,
+     "ten": "Booking, vận đơn",
+     "khi": "ngay khi có MBL và HBL",
+     "kpi": "T+4h",
+     "trang_thai": "Processing",
+     "cot": [
+      "seller_name",
+      "buyer_name",
+      "booking_no",
+      "atd",
+      "vessel_flight",
+      "vendor_id",
+      "agent",
+      "invoice_numbers",
+      "container_no",
+      "cont_type",
+      "package_quantity",
+      "weight_kg",
+      "volume_cbm",
+      "cargo_type",
+      "mbl_no",
+      "bl_awb_no",
+      "loai_cuoc"
+     ],
+     "chung_tu": [
+      "booking",
+      "INVOICE",
+      "phiếu cân",
+      "BL (MBL, HBL final)"
+     ],
+     "o_dich_vu_khac": "ngày lấy hàng, biển số xe lấy hàng → dịch vụ TRUCKING kèm"
+    },
+    {
+     "buoc": 3,
+     "ten": "Hàng đến, giao hàng",
+     "khi": "khi có ETA / giao hàng",
+     "kpi": "T+4h",
+     "trang_thai": "Processing",
+     "cot": [
+      "eta",
+      "dest_address",
+      "nguoi_lien_he_giao",
+      "delivery_date"
+     ],
+     "chung_tu": [
+      "CD thông quan"
+     ],
+     "o_dich_vu_khac": "biển số, lái xe giao → TRUCKING; số tờ khai → CUS_*"
+    },
+    {
+     "buoc": 4,
+     "ten": "Đã giao",
+     "khi": "ngay sau khi giao xong",
+     "kpi": "T+4h",
+     "trang_thai": "Delivered",
+     "cot": [
+      "special_requirements"
+     ],
+     "chung_tu": [
+      "BBGH (bắt buộc với hàng nhập và nội địa)"
+     ]
+    },
+    {
+     "buoc": 5,
+     "ten": "Giá mua/bán",
+     "khi": "sau khi giao, LCL không muộn hơn 5 ngày làm việc",
+     "kpi": "LCL T+5 ngày; FCL file chưa ghi",
+     "trang_thai": "Finish",
+     "cot": [
+      "gia_mua",
+      "gia_ban"
+     ],
+     "chung_tu": [
+      "DEBIT đại lý/hãng tàu",
+      "INVOICE thu chi hộ"
+     ],
+     "ghi_chu": "cước QT kèm phụ phí, nội địa 2 đầu, xăng dầu, local handling 2 đầu, mở HQ, phát sinh, thu chi hộ"
+    }
+   ]
   },
   "SEA_EXP": {
    "tao_job": [
@@ -264,7 +795,8 @@
     "carrier",
     "scheduled_date",
     "volume_cbm",
-    "invoice_numbers"
+    "invoice_numbers",
+    "nguoi_book"
    ],
    "hoan_thien": [
     "eta",
@@ -275,8 +807,113 @@
     "container_no",
     "buyer_name"
    ],
-   "hoan_thien_nen_co": [],
-   "kem_van_chuyen": null
+   "hoan_thien_nen_co": [
+    "seller_name",
+    "atd",
+    "agent",
+    "cont_type",
+    "cargo_type",
+    "loai_cuoc",
+    "nguoi_lien_he_giao",
+    "delivery_date",
+    "special_requirements"
+   ],
+   "kem_van_chuyen": null,
+   "buoc": [
+    {
+     "buoc": 1,
+     "ten": "Nhận lô",
+     "khi": "khi khách confirm & chốt booking với vendor",
+     "kpi": "T+4h",
+     "trang_thai": "Start",
+     "cot": [
+      "nguoi_book",
+      "origin_address",
+      "dest_address",
+      "incoterm",
+      "etd"
+     ]
+    },
+    {
+     "buoc": 2,
+     "ten": "Booking, vận đơn",
+     "khi": "ngay khi có MBL và HBL",
+     "kpi": "T+4h",
+     "trang_thai": "Processing",
+     "cot": [
+      "seller_name",
+      "buyer_name",
+      "booking_no",
+      "atd",
+      "vessel_flight",
+      "vendor_id",
+      "agent",
+      "invoice_numbers",
+      "container_no",
+      "cont_type",
+      "package_quantity",
+      "weight_kg",
+      "volume_cbm",
+      "cargo_type",
+      "mbl_no",
+      "bl_awb_no",
+      "loai_cuoc"
+     ],
+     "chung_tu": [
+      "booking",
+      "INVOICE",
+      "phiếu cân",
+      "BL (MBL, HBL final)"
+     ],
+     "o_dich_vu_khac": "ngày lấy hàng, biển số xe lấy hàng → dịch vụ TRUCKING kèm"
+    },
+    {
+     "buoc": 3,
+     "ten": "Hàng đến, giao hàng",
+     "khi": "khi có ETA / giao hàng",
+     "kpi": "T+4h",
+     "trang_thai": "Processing",
+     "cot": [
+      "eta",
+      "dest_address",
+      "nguoi_lien_he_giao",
+      "delivery_date"
+     ],
+     "chung_tu": [
+      "CD thông quan"
+     ],
+     "o_dich_vu_khac": "biển số, lái xe giao → TRUCKING; số tờ khai → CUS_*"
+    },
+    {
+     "buoc": 4,
+     "ten": "Đã giao",
+     "khi": "ngay sau khi giao xong",
+     "kpi": "T+4h",
+     "trang_thai": "Delivered",
+     "cot": [
+      "special_requirements"
+     ],
+     "chung_tu": [
+      "BBGH (bắt buộc với hàng nhập và nội địa)"
+     ]
+    },
+    {
+     "buoc": 5,
+     "ten": "Giá mua/bán",
+     "khi": "sau khi giao, LCL không muộn hơn 5 ngày làm việc",
+     "kpi": "LCL T+5 ngày; FCL file chưa ghi",
+     "trang_thai": "Finish",
+     "cot": [
+      "gia_mua",
+      "gia_ban"
+     ],
+     "chung_tu": [
+      "DEBIT đại lý/hãng tàu",
+      "INVOICE thu chi hộ"
+     ],
+     "ghi_chu": "cước QT kèm phụ phí, nội địa 2 đầu, xăng dầu, local handling 2 đầu, mở HQ, phát sinh, thu chi hộ"
+    }
+   ]
   },
   "SEA_DOM": {
    "tao_job": [
@@ -290,11 +927,126 @@
    "tao_job_nen_co": [
     "package_quantity",
     "weight_kg",
-    "volume_cbm"
+    "volume_cbm",
+    "nguoi_book",
+    "incoterm",
+    "etd"
    ],
    "hoan_thien": [],
-   "hoan_thien_nen_co": [],
-   "kem_van_chuyen": null
+   "hoan_thien_nen_co": [
+    "seller_name",
+    "buyer_name",
+    "booking_no",
+    "atd",
+    "vessel_flight",
+    "agent",
+    "invoice_numbers",
+    "container_no",
+    "cont_type",
+    "cargo_type",
+    "mbl_no",
+    "loai_cuoc",
+    "eta",
+    "nguoi_lien_he_giao",
+    "delivery_date",
+    "special_requirements"
+   ],
+   "kem_van_chuyen": null,
+   "buoc": [
+    {
+     "buoc": 1,
+     "ten": "Nhận lô",
+     "khi": "khi khách confirm & chốt booking với vendor",
+     "kpi": "T+4h",
+     "trang_thai": "Start",
+     "cot": [
+      "nguoi_book",
+      "origin_address",
+      "dest_address",
+      "incoterm",
+      "etd"
+     ]
+    },
+    {
+     "buoc": 2,
+     "ten": "Booking, vận đơn",
+     "khi": "ngay khi có MBL và HBL",
+     "kpi": "T+4h",
+     "trang_thai": "Processing",
+     "cot": [
+      "seller_name",
+      "buyer_name",
+      "booking_no",
+      "atd",
+      "vessel_flight",
+      "vendor_id",
+      "agent",
+      "invoice_numbers",
+      "container_no",
+      "cont_type",
+      "package_quantity",
+      "weight_kg",
+      "volume_cbm",
+      "cargo_type",
+      "mbl_no",
+      "bl_awb_no",
+      "loai_cuoc"
+     ],
+     "chung_tu": [
+      "booking",
+      "INVOICE",
+      "phiếu cân",
+      "BL (MBL, HBL final)"
+     ],
+     "o_dich_vu_khac": "ngày lấy hàng, biển số xe lấy hàng → dịch vụ TRUCKING kèm"
+    },
+    {
+     "buoc": 3,
+     "ten": "Hàng đến, giao hàng",
+     "khi": "khi có ETA / giao hàng",
+     "kpi": "T+4h",
+     "trang_thai": "Processing",
+     "cot": [
+      "eta",
+      "dest_address",
+      "nguoi_lien_he_giao",
+      "delivery_date"
+     ],
+     "chung_tu": [
+      "CD thông quan"
+     ],
+     "o_dich_vu_khac": "biển số, lái xe giao → TRUCKING; số tờ khai → CUS_*"
+    },
+    {
+     "buoc": 4,
+     "ten": "Đã giao",
+     "khi": "ngay sau khi giao xong",
+     "kpi": "T+4h",
+     "trang_thai": "Delivered",
+     "cot": [
+      "special_requirements"
+     ],
+     "chung_tu": [
+      "BBGH (bắt buộc với hàng nhập và nội địa)"
+     ]
+    },
+    {
+     "buoc": 5,
+     "ten": "Giá mua/bán",
+     "khi": "sau khi giao, LCL không muộn hơn 5 ngày làm việc",
+     "kpi": "LCL T+5 ngày; FCL file chưa ghi",
+     "trang_thai": "Finish",
+     "cot": [
+      "gia_mua",
+      "gia_ban"
+     ],
+     "chung_tu": [
+      "DEBIT đại lý/hãng tàu",
+      "INVOICE thu chi hộ"
+     ],
+     "ghi_chu": "cước QT kèm phụ phí, nội địa 2 đầu, xăng dầu, local handling 2 đầu, mở HQ, phát sinh, thu chi hộ"
+    }
+   ]
   },
   "AIR_IMP": {
    "tao_job": [
@@ -316,7 +1068,8 @@
     "incoterm",
     "seller_name",
     "weight_kg",
-    "chargeable_weight_kg"
+    "chargeable_weight_kg",
+    "nguoi_book"
    ],
    "hoan_thien": [
     "booking_no",
@@ -328,9 +1081,107 @@
    ],
    "hoan_thien_nen_co": [
     "vessel_flight",
-    "delivery_date"
+    "delivery_date",
+    "buyer_name",
+    "agent",
+    "invoice_numbers",
+    "cargo_type",
+    "loai_cuoc",
+    "mbl_no",
+    "nguoi_lien_he_giao",
+    "special_requirements"
    ],
-   "kem_van_chuyen": null
+   "kem_van_chuyen": null,
+   "buoc": [
+    {
+     "buoc": 1,
+     "ten": "Nhận lô",
+     "khi": "khi khách confirm & chốt booking với vendor",
+     "kpi": "T+4h",
+     "trang_thai": "Start",
+     "cot": [
+      "nguoi_book",
+      "origin_address",
+      "dest_address",
+      "incoterm",
+      "etd"
+     ]
+    },
+    {
+     "buoc": 2,
+     "ten": "Booking, vận đơn",
+     "khi": "ngay khi có MAWB và HAWB",
+     "kpi": "T+4h",
+     "trang_thai": "Processing",
+     "cot": [
+      "seller_name",
+      "buyer_name",
+      "booking_no",
+      "vessel_flight",
+      "vendor_id",
+      "agent",
+      "invoice_numbers",
+      "weight_kg",
+      "chargeable_weight_kg",
+      "cargo_type",
+      "loai_cuoc",
+      "package_quantity",
+      "mbl_no",
+      "bl_awb_no"
+     ],
+     "chung_tu": [
+      "booking",
+      "INVOICE",
+      "phiếu cân",
+      "AWB (MAWB, HAWB final)"
+     ],
+     "o_dich_vu_khac": "ngày lấy hàng, biển số xe lấy hàng → dịch vụ TRUCKING kèm"
+    },
+    {
+     "buoc": 3,
+     "ten": "Hàng đến, giao hàng",
+     "khi": "khi giao hàng",
+     "kpi": "T+4h",
+     "trang_thai": "Processing",
+     "cot": [
+      "dest_address",
+      "nguoi_lien_he_giao",
+      "delivery_date"
+     ],
+     "chung_tu": [
+      "CD thông quan"
+     ],
+     "o_dich_vu_khac": "biển số, trọng tải, lái xe giao → TRUCKING; số tờ khai → CUS_*"
+    },
+    {
+     "buoc": 4,
+     "ten": "Đã giao",
+     "khi": "ngay sau khi giao xong",
+     "kpi": "T+4h",
+     "trang_thai": "Delivered",
+     "cot": [
+      "special_requirements"
+     ],
+     "chung_tu": [
+      "BBGH (bắt buộc với hàng nhập và nội địa)"
+     ]
+    },
+    {
+     "buoc": 5,
+     "ten": "Giá mua/bán",
+     "khi": "sau khi giao, không muộn hơn 5 ngày làm việc",
+     "kpi": "T+5 ngày",
+     "trang_thai": "Finish",
+     "cot": [
+      "gia_mua",
+      "gia_ban"
+     ],
+     "chung_tu": [
+      "DEBIT đại lý/hãng bay",
+      "INVOICE thu chi hộ"
+     ]
+    }
+   ]
   },
   "AIR_EXP": {
    "tao_job": [
@@ -354,7 +1205,8 @@
     "carrier",
     "scheduled_date",
     "weight_kg",
-    "chargeable_weight_kg"
+    "chargeable_weight_kg",
+    "nguoi_book"
    ],
    "hoan_thien": [
     "eta",
@@ -363,9 +1215,108 @@
     "buyer_name"
    ],
    "hoan_thien_nen_co": [
-    "vessel_flight"
+    "vessel_flight",
+    "seller_name",
+    "agent",
+    "invoice_numbers",
+    "cargo_type",
+    "loai_cuoc",
+    "mbl_no",
+    "nguoi_lien_he_giao",
+    "delivery_date",
+    "special_requirements"
    ],
-   "kem_van_chuyen": null
+   "kem_van_chuyen": null,
+   "buoc": [
+    {
+     "buoc": 1,
+     "ten": "Nhận lô",
+     "khi": "khi khách confirm & chốt booking với vendor",
+     "kpi": "T+4h",
+     "trang_thai": "Start",
+     "cot": [
+      "nguoi_book",
+      "origin_address",
+      "dest_address",
+      "incoterm",
+      "etd"
+     ]
+    },
+    {
+     "buoc": 2,
+     "ten": "Booking, vận đơn",
+     "khi": "ngay khi có MAWB và HAWB",
+     "kpi": "T+4h",
+     "trang_thai": "Processing",
+     "cot": [
+      "seller_name",
+      "buyer_name",
+      "booking_no",
+      "vessel_flight",
+      "vendor_id",
+      "agent",
+      "invoice_numbers",
+      "weight_kg",
+      "chargeable_weight_kg",
+      "cargo_type",
+      "loai_cuoc",
+      "package_quantity",
+      "mbl_no",
+      "bl_awb_no"
+     ],
+     "chung_tu": [
+      "booking",
+      "INVOICE",
+      "phiếu cân",
+      "AWB (MAWB, HAWB final)"
+     ],
+     "o_dich_vu_khac": "ngày lấy hàng, biển số xe lấy hàng → dịch vụ TRUCKING kèm"
+    },
+    {
+     "buoc": 3,
+     "ten": "Hàng đến, giao hàng",
+     "khi": "khi giao hàng",
+     "kpi": "T+4h",
+     "trang_thai": "Processing",
+     "cot": [
+      "dest_address",
+      "nguoi_lien_he_giao",
+      "delivery_date"
+     ],
+     "chung_tu": [
+      "CD thông quan"
+     ],
+     "o_dich_vu_khac": "biển số, trọng tải, lái xe giao → TRUCKING; số tờ khai → CUS_*"
+    },
+    {
+     "buoc": 4,
+     "ten": "Đã giao",
+     "khi": "ngay sau khi giao xong",
+     "kpi": "T+4h",
+     "trang_thai": "Delivered",
+     "cot": [
+      "special_requirements"
+     ],
+     "chung_tu": [
+      "BBGH (bắt buộc với hàng nhập và nội địa)"
+     ]
+    },
+    {
+     "buoc": 5,
+     "ten": "Giá mua/bán",
+     "khi": "sau khi giao, không muộn hơn 5 ngày làm việc",
+     "kpi": "T+5 ngày",
+     "trang_thai": "Finish",
+     "cot": [
+      "gia_mua",
+      "gia_ban"
+     ],
+     "chung_tu": [
+      "DEBIT đại lý/hãng bay",
+      "INVOICE thu chi hộ"
+     ]
+    }
+   ]
   },
   "AIR_DOM": {
    "tao_job": [
@@ -378,11 +1329,118 @@
     "bl_awb_no",
     "scheduled_date",
     "weight_kg",
-    "package_quantity"
+    "package_quantity",
+    "nguoi_book",
+    "incoterm",
+    "etd"
    ],
    "hoan_thien": [],
-   "hoan_thien_nen_co": [],
-   "kem_van_chuyen": null
+   "hoan_thien_nen_co": [
+    "seller_name",
+    "buyer_name",
+    "booking_no",
+    "vessel_flight",
+    "agent",
+    "invoice_numbers",
+    "chargeable_weight_kg",
+    "cargo_type",
+    "loai_cuoc",
+    "mbl_no",
+    "nguoi_lien_he_giao",
+    "delivery_date",
+    "special_requirements"
+   ],
+   "kem_van_chuyen": null,
+   "buoc": [
+    {
+     "buoc": 1,
+     "ten": "Nhận lô",
+     "khi": "khi khách confirm & chốt booking với vendor",
+     "kpi": "T+4h",
+     "trang_thai": "Start",
+     "cot": [
+      "nguoi_book",
+      "origin_address",
+      "dest_address",
+      "incoterm",
+      "etd"
+     ]
+    },
+    {
+     "buoc": 2,
+     "ten": "Booking, vận đơn",
+     "khi": "ngay khi có MAWB và HAWB",
+     "kpi": "T+4h",
+     "trang_thai": "Processing",
+     "cot": [
+      "seller_name",
+      "buyer_name",
+      "booking_no",
+      "vessel_flight",
+      "vendor_id",
+      "agent",
+      "invoice_numbers",
+      "weight_kg",
+      "chargeable_weight_kg",
+      "cargo_type",
+      "loai_cuoc",
+      "package_quantity",
+      "mbl_no",
+      "bl_awb_no"
+     ],
+     "chung_tu": [
+      "booking",
+      "INVOICE",
+      "phiếu cân",
+      "AWB (MAWB, HAWB final)"
+     ],
+     "o_dich_vu_khac": "ngày lấy hàng, biển số xe lấy hàng → dịch vụ TRUCKING kèm"
+    },
+    {
+     "buoc": 3,
+     "ten": "Hàng đến, giao hàng",
+     "khi": "khi giao hàng",
+     "kpi": "T+4h",
+     "trang_thai": "Processing",
+     "cot": [
+      "dest_address",
+      "nguoi_lien_he_giao",
+      "delivery_date"
+     ],
+     "chung_tu": [
+      "CD thông quan"
+     ],
+     "o_dich_vu_khac": "biển số, trọng tải, lái xe giao → TRUCKING; số tờ khai → CUS_*"
+    },
+    {
+     "buoc": 4,
+     "ten": "Đã giao",
+     "khi": "ngay sau khi giao xong",
+     "kpi": "T+4h",
+     "trang_thai": "Delivered",
+     "cot": [
+      "special_requirements"
+     ],
+     "chung_tu": [
+      "BBGH (bắt buộc với hàng nhập và nội địa)"
+     ]
+    },
+    {
+     "buoc": 5,
+     "ten": "Giá mua/bán",
+     "khi": "sau khi giao, không muộn hơn 5 ngày làm việc",
+     "kpi": "T+5 ngày",
+     "trang_thai": "Finish",
+     "cot": [
+      "gia_mua",
+      "gia_ban"
+     ],
+     "chung_tu": [
+      "DEBIT đại lý/hãng bay",
+      "INVOICE thu chi hộ"
+     ]
+    }
+   ]
   },
   "WHS_HANDLE": {
    "tao_job": [
@@ -400,11 +1458,59 @@
    ],
    "tao_job_nen_co": [
     "cargo_type",
-    "package_unit"
+    "package_unit",
+    "nguoi_book"
    ],
    "hoan_thien": [],
-   "hoan_thien_nen_co": [],
-   "kem_van_chuyen": null
+   "hoan_thien_nen_co": [
+    "thoi_gian_hoan_thanh"
+   ],
+   "kem_van_chuyen": null,
+   "buoc": [
+    {
+     "buoc": 1,
+     "ten": "Nhận việc",
+     "khi": "khi khách confirm & chốt với vendor",
+     "kpi": "T+4h",
+     "trang_thai": "Start",
+     "cot": [
+      "nguoi_book",
+      "origin_address",
+      "scheduled_date"
+     ]
+    },
+    {
+     "buoc": 2,
+     "ten": "Thực hiện",
+     "khi": "ngay sau khi hoàn thành dịch vụ",
+     "kpi": "T+4h",
+     "trang_thai": "Processing",
+     "cot": [
+      "package_quantity",
+      "package_unit",
+      "thoi_gian_hoan_thanh",
+      "vendor_id"
+     ],
+     "chung_tu": [
+      "biên bản xác nhận thực hiện dịch vụ (nếu có)"
+     ]
+    },
+    {
+     "buoc": 3,
+     "ten": "Giá mua/bán",
+     "khi": "sau khi hoàn thành dịch vụ",
+     "kpi": "T+2 ngày",
+     "trang_thai": "Finish",
+     "cot": [
+      "gia_mua",
+      "gia_ban"
+     ],
+     "chung_tu": [
+      "DEBIT vendor",
+      "INVOICE thu chi hộ (nếu có)"
+     ]
+    }
+   ]
   },
   "WHS_STORAGE": {
    "tao_job": [
@@ -419,7 +1525,8 @@
    ],
    "hoan_thien": [],
    "hoan_thien_nen_co": [],
-   "kem_van_chuyen": null
+   "kem_van_chuyen": null,
+   "buoc": []
   },
   "WHS_VAS": {
    "tao_job": [
@@ -432,7 +1539,8 @@
    ],
    "hoan_thien": [],
    "hoan_thien_nen_co": [],
-   "kem_van_chuyen": null
+   "kem_van_chuyen": null,
+   "buoc": []
   },
   "WHS_CSHT": {
    "tao_job": [
@@ -444,7 +1552,8 @@
    ],
    "hoan_thien": [],
    "hoan_thien_nen_co": [],
-   "kem_van_chuyen": null
+   "kem_van_chuyen": null,
+   "buoc": []
   },
   "WHS_THC": {
    "tao_job": [
@@ -456,7 +1565,8 @@
    ],
    "hoan_thien": [],
    "hoan_thien_nen_co": [],
-   "kem_van_chuyen": null
+   "kem_van_chuyen": null,
+   "buoc": []
   },
   "CUS_INSPECT": {
    "tao_job": [
@@ -474,7 +1584,8 @@
    ],
    "hoan_thien": [],
    "hoan_thien_nen_co": [],
-   "kem_van_chuyen": null
+   "kem_van_chuyen": null,
+   "buoc": []
   },
   "CUS_SUPERVISE": {
    "tao_job": [
@@ -491,7 +1602,8 @@
    ],
    "hoan_thien": [],
    "hoan_thien_nen_co": [],
-   "kem_van_chuyen": null
+   "kem_van_chuyen": null,
+   "buoc": []
   },
   "CUS_TRANSFER": {
    "tao_job": [
@@ -516,7 +1628,8 @@
      "loai_hinh",
      "cd_no"
     ]
-   }
+   },
+   "buoc": []
   },
   "SVC_LASHING": {
    "tao_job": [
@@ -529,7 +1642,8 @@
    ],
    "hoan_thien": [],
    "hoan_thien_nen_co": [],
-   "kem_van_chuyen": null
+   "kem_van_chuyen": null,
+   "buoc": []
   },
   "SVC_LASHING_TRUCK": {
    "tao_job": [
@@ -542,7 +1656,8 @@
    ],
    "hoan_thien": [],
    "hoan_thien_nen_co": [],
-   "kem_van_chuyen": null
+   "kem_van_chuyen": null,
+   "buoc": []
   },
   "SVC_LASHING_CONT": {
    "tao_job": [
@@ -556,7 +1671,8 @@
    ],
    "hoan_thien": [],
    "hoan_thien_nen_co": [],
-   "kem_van_chuyen": null
+   "kem_van_chuyen": null,
+   "buoc": []
   },
   "SVC_LASHING_FR": {
    "tao_job": [
@@ -570,7 +1686,8 @@
    ],
    "hoan_thien": [],
    "hoan_thien_nen_co": [],
-   "kem_van_chuyen": null
+   "kem_van_chuyen": null,
+   "buoc": []
   },
   "SVC_OTHER": {
    "tao_job": [
@@ -583,7 +1700,8 @@
    ],
    "hoan_thien": [],
    "hoan_thien_nen_co": [],
-   "kem_van_chuyen": null
+   "kem_van_chuyen": null,
+   "buoc": []
   },
   "LIFT_ON": {
    "tao_job": [
@@ -592,11 +1710,60 @@
    ],
    "tao_job_any_of": [],
    "tao_job_nen_co": [
-    "package_quantity"
+    "package_quantity",
+    "nguoi_book"
    ],
    "hoan_thien": [],
-   "hoan_thien_nen_co": [],
-   "kem_van_chuyen": null
+   "hoan_thien_nen_co": [
+    "package_unit",
+    "thoi_gian_hoan_thanh"
+   ],
+   "kem_van_chuyen": null,
+   "buoc": [
+    {
+     "buoc": 1,
+     "ten": "Nhận việc",
+     "khi": "khi khách confirm & chốt với vendor",
+     "kpi": "T+4h",
+     "trang_thai": "Start",
+     "cot": [
+      "nguoi_book",
+      "origin_address",
+      "scheduled_date"
+     ]
+    },
+    {
+     "buoc": 2,
+     "ten": "Thực hiện",
+     "khi": "ngay sau khi hoàn thành dịch vụ",
+     "kpi": "T+4h",
+     "trang_thai": "Processing",
+     "cot": [
+      "package_quantity",
+      "package_unit",
+      "thoi_gian_hoan_thanh",
+      "vendor_id"
+     ],
+     "chung_tu": [
+      "biên bản xác nhận thực hiện dịch vụ (nếu có)"
+     ]
+    },
+    {
+     "buoc": 3,
+     "ten": "Giá mua/bán",
+     "khi": "sau khi hoàn thành dịch vụ",
+     "kpi": "T+2 ngày",
+     "trang_thai": "Finish",
+     "cot": [
+      "gia_mua",
+      "gia_ban"
+     ],
+     "chung_tu": [
+      "DEBIT vendor",
+      "INVOICE thu chi hộ (nếu có)"
+     ]
+    }
+   ]
   },
   "LIFT_OFF": {
    "tao_job": [
@@ -605,11 +1772,60 @@
    ],
    "tao_job_any_of": [],
    "tao_job_nen_co": [
-    "package_quantity"
+    "package_quantity",
+    "nguoi_book"
    ],
    "hoan_thien": [],
-   "hoan_thien_nen_co": [],
-   "kem_van_chuyen": null
+   "hoan_thien_nen_co": [
+    "package_unit",
+    "thoi_gian_hoan_thanh"
+   ],
+   "kem_van_chuyen": null,
+   "buoc": [
+    {
+     "buoc": 1,
+     "ten": "Nhận việc",
+     "khi": "khi khách confirm & chốt với vendor",
+     "kpi": "T+4h",
+     "trang_thai": "Start",
+     "cot": [
+      "nguoi_book",
+      "origin_address",
+      "scheduled_date"
+     ]
+    },
+    {
+     "buoc": 2,
+     "ten": "Thực hiện",
+     "khi": "ngay sau khi hoàn thành dịch vụ",
+     "kpi": "T+4h",
+     "trang_thai": "Processing",
+     "cot": [
+      "package_quantity",
+      "package_unit",
+      "thoi_gian_hoan_thanh",
+      "vendor_id"
+     ],
+     "chung_tu": [
+      "biên bản xác nhận thực hiện dịch vụ (nếu có)"
+     ]
+    },
+    {
+     "buoc": 3,
+     "ten": "Giá mua/bán",
+     "khi": "sau khi hoàn thành dịch vụ",
+     "kpi": "T+2 ngày",
+     "trang_thai": "Finish",
+     "cot": [
+      "gia_mua",
+      "gia_ban"
+     ],
+     "chung_tu": [
+      "DEBIT vendor",
+      "INVOICE thu chi hộ (nếu có)"
+     ]
+    }
+   ]
   },
   "SVC_PACK": {
    "tao_job": [
@@ -619,11 +1835,60 @@
    "tao_job_any_of": [],
    "tao_job_nen_co": [
     "package_quantity",
-    "cargo_type"
+    "cargo_type",
+    "nguoi_book"
    ],
    "hoan_thien": [],
-   "hoan_thien_nen_co": [],
-   "kem_van_chuyen": null
+   "hoan_thien_nen_co": [
+    "package_unit",
+    "thoi_gian_hoan_thanh"
+   ],
+   "kem_van_chuyen": null,
+   "buoc": [
+    {
+     "buoc": 1,
+     "ten": "Nhận việc",
+     "khi": "khi khách confirm & chốt với vendor",
+     "kpi": "T+4h",
+     "trang_thai": "Start",
+     "cot": [
+      "nguoi_book",
+      "origin_address",
+      "scheduled_date"
+     ]
+    },
+    {
+     "buoc": 2,
+     "ten": "Thực hiện",
+     "khi": "ngay sau khi hoàn thành dịch vụ",
+     "kpi": "T+4h",
+     "trang_thai": "Processing",
+     "cot": [
+      "package_quantity",
+      "package_unit",
+      "thoi_gian_hoan_thanh",
+      "vendor_id"
+     ],
+     "chung_tu": [
+      "biên bản xác nhận thực hiện dịch vụ (nếu có)"
+     ]
+    },
+    {
+     "buoc": 3,
+     "ten": "Giá mua/bán",
+     "khi": "sau khi hoàn thành dịch vụ",
+     "kpi": "T+2 ngày",
+     "trang_thai": "Finish",
+     "cot": [
+      "gia_mua",
+      "gia_ban"
+     ],
+     "chung_tu": [
+      "DEBIT vendor",
+      "INVOICE thu chi hộ (nếu có)"
+     ]
+    }
+   ]
   },
   "SVC_FUMI": {
    "tao_job": [
@@ -636,7 +1901,8 @@
    ],
    "hoan_thien": [],
    "hoan_thien_nen_co": [],
-   "kem_van_chuyen": null
+   "kem_van_chuyen": null,
+   "buoc": []
   },
   "SVC_VACUUM": {
    "tao_job": [
@@ -649,7 +1915,8 @@
    ],
    "hoan_thien": [],
    "hoan_thien_nen_co": [],
-   "kem_van_chuyen": null
+   "kem_van_chuyen": null,
+   "buoc": []
   },
   "SVC_SHRINK": {
    "tao_job": [
@@ -662,8 +1929,29 @@
    ],
    "hoan_thien": [],
    "hoan_thien_nen_co": [],
-   "kem_van_chuyen": null
+   "kem_van_chuyen": null,
+   "buoc": []
   }
+ },
+ "trang_thai_v1": {
+  "Start": "PENDING",
+  "Processing": "IN_PROGRESS",
+  "Delivered": "DELIVERED",
+  "Finish": "COMPLETED",
+  "Ok": "CHƯA CÓ trạng thái riêng — tạm hiểu COMPLETED + đã có vat_invoice_no"
+ },
+ "chua_co_cot": {
+  "nguoi_book": "Người đặt dịch vụ (nhân viên khách)",
+  "china_truck_plate": "Biển số xe quốc tế",
+  "vehicle_type": "Loại xe: lạnh / thường / treo",
+  "agent": "Agent đầu đi / đầu đến",
+  "cont_type": "Loại cont 20DC/40HC/…",
+  "loai_cuoc": "Loại cước Collect / Prepaid",
+  "nguoi_lien_he_giao": "Người liên hệ giao hàng",
+  "thoi_gian_hoan_thanh": "Thời gian hoàn thành dịch vụ (handling)",
+  "so_tk_chinh": "Số lượng tờ khai chính",
+  "so_tk_nhanh": "Số lượng tờ khai nhánh",
+  "ngay_thong_quan": "Ngày thông quan"
  },
  "nhom_van_chuyen_quoc_te": [
   "AIR_",

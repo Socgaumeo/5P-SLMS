@@ -205,7 +205,36 @@ TRUONG_THEM_DUOC = {
     "sub_category":        {"nhan": "Phân loại phụ",           "kieu": "text"},
     "msg_vendor":          {"nhan": "Ghi chú cho nhà thầu",    "kieu": "text"},
     "msg_customer":        {"nhan": "Ghi chú cho khách",       "kieu": "text"},
+    # ── 10/10/2026: mốc thời gian THỰC TẾ cho KPI nhập job (file V1 chị Hà) ──
+    "confirmed_at":        {"nhan": "Giờ khách confirm (cả job)", "kieu": "datetime"},
+    "pickup_at":           {"nhan": "Giờ lấy hàng thực tế",    "kieu": "datetime"},
+    "delivered_at":        {"nhan": "Giờ giao hàng thực tế",   "kieu": "datetime"},
+    "cleared_at":          {"nhan": "Giờ thông quan",          "kieu": "datetime"},
+    "service_done_at":     {"nhan": "Giờ xong dịch vụ",        "kieu": "datetime"},
+    # ── ô file V1 trước nằm lẫn trong service_details ──
+    "nguoi_book":          {"nhan": "Người đặt dịch vụ",       "kieu": "text"},
+    "intl_truck_plate":    {"nhan": "Biển số xe quốc tế",      "kieu": "text"},
+    "vehicle_kind":        {"nhan": "Loại xe (lạnh/thường/treo)", "kieu": "text"},
+    "agent_name":          {"nhan": "Agent",                   "kieu": "text"},
+    "cont_type":           {"nhan": "Loại cont",               "kieu": "text"},
+    "freight_term":        {"nhan": "Loại cước (Collect/Prepaid)", "kieu": "text"},
+    "delivery_contact":    {"nhan": "Người liên hệ giao hàng", "kieu": "text"},
+    "cd_main_count":       {"nhan": "SL tờ khai chính",        "kieu": "number"},
+    "cd_branch_count":     {"nhan": "SL tờ khai nhánh",        "kieu": "number"},
 }
+_GIO_KPI = ("confirmed_at", "pickup_at", "delivered_at", "cleared_at", "service_done_at")
+
+
+def _gio_vn(v):
+    """Ô datetime-local của web không có múi giờ → gắn +07:00 (không thì DB hiểu là UTC, lệch 7 tiếng)."""
+    if not isinstance(v, str) or not v.strip():
+        return v
+    s = v.strip().replace(" ", "T")
+    if len(s) == 16:
+        s += ":00"
+    if not (s.endswith("Z") or "+" in s[10:] or s[10:].count("-") > 0):
+        s += "+07:00"
+    return s
 
 
 # Ô cơ bản mỗi dịch vụ được mang riêng khi tạo job (xem 'chi_tiet_dich_vu').
@@ -392,7 +421,7 @@ async def create_job(request: JobCreateFromChatRequest, req: Request):
             # Trường người dùng tự thêm — CHỈ nhận cột nằm trong danh sách cho phép.
             # Lọc ở đây chứ không tin phía web: web có thể bị sửa, còn đây là cửa cuối.
             'truong_them': {
-                k: v for k, v in (entities.get('truong_them') or {}).items()
+                k: (_gio_vn(v) if k in _GIO_KPI else v) for k, v in (entities.get('truong_them') or {}).items()
                 if k in TRUONG_THEM_DUOC and v not in (None, "")
             },
             'truck_capacity': entities.get('truck_capacity') or enriched.get('truck_capacity'),
@@ -3233,6 +3262,18 @@ async def update_service_details(svc_id: int, request: Request):
         if not current_user:
             raise HTTPException(status_code=401, detail="Yêu cầu đăng nhập để cập nhật dịch vụ.")
         user_id = current_user['user_id']
+
+        # 10/10: giờ thực tế gắn múi giờ VN; giờ khách confirm là của CẢ JOB
+        for _k in _GIO_KPI:
+            if _k in body:
+                body[_k] = _gio_vn(body[_k]) or None
+        if 'confirmed_at' in body:
+            _s = client.table('job_services').select('job_id').eq('svc_id', svc_id).limit(1).execute()
+            if _s.data:
+                client.table('jobs').update({'confirmed_at': body['confirmed_at']}).eq('job_id', _s.data[0]['job_id']).execute()
+            body.pop('confirmed_at')
+            if not any(k for k in body if k not in ('svc_id',)):
+                return {"success": True, "svc_id": svc_id, "updated": ["confirmed_at"]}
 
         # Whitelist of editable columns — loai_hinh now included (customs services).
         allowed = {
