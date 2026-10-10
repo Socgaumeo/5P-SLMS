@@ -1,9 +1,10 @@
 -- Test trên DB bản sao. Tất cả trong 1 transaction rồi ROLLBACK, không để lại dữ liệu.
 begin;
 select set_config('app.actor', 'test', true);
-with j as (insert into jobs(job_no, customer_id, description, status_code, created_by)
-           select 'TEST-KPI-0001', customer_id, 'test kpi', 'PENDING', created_by from jobs limit 1 returning job_id)
-select job_id as test_job from j \gset
+select customer_id as cust from customers order by customer_id limit 1 \gset
+select user_id as uid from users order by user_id limit 1 \gset
+insert into jobs(job_no, customer_id, description, status_code, created_by)
+values ('TEST-KPI-0001', :cust, 'test kpi', 'PENDING', :uid) returning job_id as test_job \gset
 insert into job_services(job_id, service_type_code, status_code) values (:test_job, 'TRUCKING', 'PENDING') returning svc_id \gset
 update jobs set confirmed_at = now() - interval '5 hours' where job_id = :test_job;
 update jobs set status_code = 'IN_PROGRESS' where job_id = :test_job;

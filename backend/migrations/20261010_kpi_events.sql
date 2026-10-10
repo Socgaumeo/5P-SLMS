@@ -143,7 +143,7 @@ on conflict (mau, buoc) do update set han_phut = excluded.han_phut, mo_ta = excl
 create or replace view v_kpi_job_buoc as
 with mau as (
   select j.job_id, j.job_no, j.created_by, j.status_code,
-         (j.created_at at time zone 'Asia/Ho_Chi_Minh') as tao_luc, j.confirmed_at,
+         (j.created_at at time zone 'UTC') as tao_luc, j.confirmed_at,
          case
            when bool_or(s.service_type_code like 'BORDER\_%') then 'cbt'
            when bool_or(s.service_type_code like 'SEA\_%' or s.service_type_code like 'AIR\_%') then 'sea_air'
