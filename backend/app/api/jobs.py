@@ -1618,6 +1618,48 @@ async def get_recent_jobs(limit: int = 10, status: Optional[str] = None, offset:
         return {"jobs": []}
 
 
+@router.get("/{job_id}/tien-do-buoc")
+async def tien_do_buoc(job_id: int):
+    """Tiến độ nhập liệu theo bước (file V1) cho trang chi tiết job: mỗi dịch vụ × bước → đủ/thiếu gì, mốc T, hạn, kết quả KPI."""
+    from app.services import kpi_buoc as K
+    import datetime as _dt
+    client = get_supabase()
+    try:
+        rows = K.danh_gia_job(client, job_id)
+    except Exception as e:
+        logger.warning(f"[tien-do-buoc] job {job_id}: {e}")
+        return {"success": False, "message": "Không tính được tiến độ"}
+    done = {(d["svc_id"], d["buoc"]): d for d in (client.table("job_step_done").select("svc_id,buoc,done_at,actor")
+                                                   .eq("job_id", job_id).execute().data or [])}
+    now = _dt.datetime.now(K.VN)
+    f = lambda x: x.astimezone(K.VN).strftime("%d/%m %H:%M") if x else None
+    out = {}
+    for r in rows:
+        d = done.get((r["svc_id"], r["buoc"]))
+        du_luc = K._ts(d["done_at"]).astimezone(K.VN) if d else None
+        h = r["han"]
+        if r.get("loi"):
+            kq = "LOI"
+        elif r["du"] and du_luc and h:
+            kq = "DAT" if du_luc <= h else "TRE"
+        elif r["du"]:
+            kq = "DU"
+        elif not h:
+            kq = "CHUA_DEN"
+        else:
+            kq = "QUA_HAN" if now > h else "TRONG_HAN"
+        out.setdefault(r["svc_id"], {"svc_id": r["svc_id"], "svc_type": r["svc_type"], "buoc": []})["buoc"].append({
+            "buoc": r["buoc"], "ten": r["ten_buoc"], "trang_thai": r.get("trang_thai"), "kpi": r.get("kpi"),
+            "du": r["du"], "ket_qua": kq, "loi": r.get("loi"),
+            "thieu_o": [K.NHAN.get(x, x) for x in r["thieu_o"]],
+            "thieu_o_cot": r["thieu_o"],
+            "thieu_ct": [K.DOC_NHAN.get(x, x) for x in r["thieu_ct"]],
+            "moc_t": f(r["T"]), "nguon_moc": r["ten_moc"], "han": f(h), "du_luc": f(du_luc),
+            "lich_du_kien": f(r.get("lich_du_kien")), "han_cap_nhat_lich": f(r.get("han_cap_nhat_lich")),
+        })
+    return {"success": True, "job_id": job_id, "dich_vu": list(out.values())}
+
+
 @router.get("/{job_id}")
 async def get_job(job_id: int):
     """
