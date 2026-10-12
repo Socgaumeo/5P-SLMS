@@ -205,7 +205,32 @@ TRUONG_THEM_DUOC = {
     "sub_category":        {"nhan": "Phân loại phụ",           "kieu": "text"},
     "msg_vendor":          {"nhan": "Ghi chú cho nhà thầu",    "kieu": "text"},
     "msg_customer":        {"nhan": "Ghi chú cho khách",       "kieu": "text"},
+    # (10/10: bỏ ô giờ nhập tay — mốc KPI lấy tự động từ thời điểm thao tác)
+    # ── ô file V1 trước nằm lẫn trong service_details ──
+    "nguoi_book":          {"nhan": "Người đặt dịch vụ",       "kieu": "text"},
+    "intl_truck_plate":    {"nhan": "Biển số xe quốc tế",      "kieu": "text"},
+    "vehicle_kind":        {"nhan": "Loại xe (lạnh/thường/treo)", "kieu": "text"},
+    "agent_name":          {"nhan": "Agent",                   "kieu": "text"},
+    "cont_type":           {"nhan": "Loại cont",               "kieu": "text"},
+    "freight_term":        {"nhan": "Loại cước (Collect/Prepaid)", "kieu": "text"},
+    "delivery_contact":    {"nhan": "Người liên hệ giao hàng", "kieu": "text"},
+    "cd_main_count":       {"nhan": "SL tờ khai chính",        "kieu": "number"},
+    "ky_thanh_toan":       {"nhan": "Kỳ thanh toán (VD: ngày 25 / cuối tháng)", "kieu": "text"},
+    "cd_branch_count":     {"nhan": "SL tờ khai nhánh",        "kieu": "number"},
 }
+_GIO_KPI = ("confirmed_at", "pickup_at", "delivered_at", "cleared_at", "service_done_at")
+
+
+def _gio_vn(v):
+    """Ô datetime-local của web không có múi giờ → gắn +07:00 (không thì DB hiểu là UTC, lệch 7 tiếng)."""
+    if not isinstance(v, str) or not v.strip():
+        return v
+    s = v.strip().replace(" ", "T")
+    if len(s) == 16:
+        s += ":00"
+    if not (s.endswith("Z") or "+" in s[10:] or s[10:].count("-") > 0):
+        s += "+07:00"
+    return s
 
 
 # Ô cơ bản mỗi dịch vụ được mang riêng khi tạo job (xem 'chi_tiet_dich_vu').
@@ -392,7 +417,7 @@ async def create_job(request: JobCreateFromChatRequest, req: Request):
             # Trường người dùng tự thêm — CHỈ nhận cột nằm trong danh sách cho phép.
             # Lọc ở đây chứ không tin phía web: web có thể bị sửa, còn đây là cửa cuối.
             'truong_them': {
-                k: v for k, v in (entities.get('truong_them') or {}).items()
+                k: (_gio_vn(v) if k in _GIO_KPI else v) for k, v in (entities.get('truong_them') or {}).items()
                 if k in TRUONG_THEM_DUOC and v not in (None, "")
             },
             'truck_capacity': entities.get('truck_capacity') or enriched.get('truck_capacity'),
@@ -1933,7 +1958,7 @@ async def update_job_info(request: Request):
         # Update status if provided - sync both job and services
         new_status = entities.get("new_status")
         if new_status:
-            valid_statuses = ["PENDING", "CONFIRMED", "DISPATCHED", "IN_TRANSIT", "ASSIGNED", "COMPLETED", "CANCELLED"]
+            valid_statuses = ["PENDING", "CONFIRMED", "DISPATCHED", "IN_TRANSIT", "ASSIGNED", "IN_PROGRESS", "DELIVERED", "COMPLETED", "CANCELLED"]
             if new_status.upper() in valid_statuses:
                 # Update job status
                 job_update = {
@@ -2569,21 +2594,24 @@ async def update_job_status(job_id: int, request: StatusUpdateRequest):
         new_status = request.status_code.upper()
 
         # Valid statuses
-        valid_statuses = ['PENDING', 'CONFIRMED', 'DISPATCHED', 'IN_TRANSIT', 'ASSIGNED', 'COMPLETED', 'CANCELLED']
+        valid_statuses = ['PENDING', 'CONFIRMED', 'DISPATCHED', 'IN_TRANSIT', 'ASSIGNED',
+                          'IN_PROGRESS', 'DELIVERED', 'COMPLETED', 'CANCELLED']
         if new_status not in valid_statuses:
-            return {"success": False, "message": f"Trạng thái '{new_status}' không hợp lệ"}
+            raise HTTPException(400, f"Trạng thái '{new_status}' không hợp lệ")
 
-        # Update job status
-        client.table('jobs').update({
+        # Update job status — kiểm kết quả
+        upd = client.table('jobs').update({
             'status_code': new_status,
             'updated_at': datetime.now().isoformat()
         }).eq('job_id', job_id).execute()
+        if not upd.data or (upd.data[0].get('status_code') or '').upper() != new_status:
+            raise HTTPException(500, f"Không lưu được trạng thái job {job_id}")
 
-        # Sync services status
+        # Đổi trạng thái cả job = áp cho các dịch vụ CHƯA HỦY (không hồi sinh dịch vụ đã hủy)
         client.table('job_services').update({
             'status_code': new_status,
             'updated_at': datetime.now().isoformat()
-        }).eq('job_id', job_id).execute()
+        }).eq('job_id', job_id).neq('status_code', 'CANCELLED').execute()
 
         logger.info(f"Job {job['job_no']} status updated: {job['status_code']} -> {new_status}")
 
@@ -3001,7 +3029,8 @@ def _sync_quotation_to_job_costs(client, job_id: int, svc_id: int, request):
                 'cost_name': c.get('name', 'Chi phí khác'),
                 'quantity': qty, 'unit': c.get('unit', 'lô'),
                 'buying_rate': unit_price, 'selling_rate': 0,
-                'vat_rate': 0,
+                'vat_rate': c.get('vat_rate') if c.get('vat_rate') is not None else 8,
+                'vendor_id': int(c['vendor_id']) if c.get('vendor_id') else None,
             })
 
         # Extra revenues
@@ -3016,7 +3045,8 @@ def _sync_quotation_to_job_costs(client, job_id: int, svc_id: int, request):
                 'cost_name': r.get('name', 'Doanh thu khác'),
                 'quantity': qty, 'unit': r.get('unit', 'lô'),
                 'buying_rate': 0, 'selling_rate': unit_price,
-                'vat_rate': 0,
+                'vat_rate': r.get('vat_rate') if r.get('vat_rate') is not None else 8,
+                'vendor_id': int(r['vendor_id']) if r.get('vendor_id') else None,
             })
 
         # Batch insert
@@ -3125,6 +3155,9 @@ class ServiceAssignRequest(BaseModel):
     employee_id: Optional[int] = None
     vehicle_id: Optional[int] = None
     driver_id: Optional[int] = None
+    license_plate: Optional[str] = None
+    driver_name: Optional[str] = None
+    driver_phone: Optional[str] = None
 
 
 @router.put("/services/{svc_id}/assign")
@@ -3141,6 +3174,22 @@ async def assign_service(svc_id: int, request: ServiceAssignRequest):
             update_data['vehicle_id'] = request.vehicle_id if request.vehicle_id else None
         if request.driver_id is not None:
             update_data['driver_id'] = request.driver_id if request.driver_id else None
+
+        # 10/10: web gửi biển số/tài xế nhưng trước đây bị bỏ qua -> ghi vào service_details
+        # (khoá chuẩn vehicle_plate / driver_name / driver_phone mà web và bảng kê đang đọc)
+        if any(v is not None for v in (request.license_plate, request.driver_name, request.driver_phone)):
+            cur = client.table('job_services').select('service_details').eq('svc_id', svc_id).limit(1).execute()
+            sd = (cur.data[0].get('service_details') if cur.data else None) or {}
+            if isinstance(sd, str):
+                sd = json.loads(sd)
+            for k, v in (('vehicle_plate', request.license_plate), ('driver_name', request.driver_name),
+                         ('driver_phone', request.driver_phone)):
+                if v is not None:
+                    if v.strip():
+                        sd[k] = v.strip()
+                    else:
+                        sd.pop(k, None)
+            update_data['service_details'] = sd
 
         if not update_data:
             return {"success": False, "message": "No fields to update"}
@@ -3209,6 +3258,18 @@ async def update_service_details(svc_id: int, request: Request):
         if not current_user:
             raise HTTPException(status_code=401, detail="Yêu cầu đăng nhập để cập nhật dịch vụ.")
         user_id = current_user['user_id']
+
+        # 10/10: giờ thực tế gắn múi giờ VN; giờ khách confirm là của CẢ JOB
+        for _k in _GIO_KPI:
+            if _k in body:
+                body[_k] = _gio_vn(body[_k]) or None
+        if 'confirmed_at' in body:
+            _s = client.table('job_services').select('job_id').eq('svc_id', svc_id).limit(1).execute()
+            if _s.data:
+                client.table('jobs').update({'confirmed_at': body['confirmed_at']}).eq('job_id', _s.data[0]['job_id']).execute()
+            body.pop('confirmed_at')
+            if not any(k for k in body if k not in ('svc_id',)):
+                return {"success": True, "svc_id": svc_id, "updated": ["confirmed_at"]}
 
         # Whitelist of editable columns — loai_hinh now included (customs services).
         allowed = {

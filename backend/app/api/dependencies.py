@@ -52,6 +52,13 @@ async def get_current_user(request: Request) -> Dict[str, Any]:
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+    # 10/10: báo người làm cho lịch sử KPI (trigger đọc header x-actor qua PostgREST)
+    try:
+        from app.db.supabase_client import get_supabase as _gs
+        _gs().postgrest.session.headers['x-actor'] = f"{user_id}|web"
+    except Exception:
+        pass
+
     # Fetch fresh user data from database
     client = get_supabase_client()
     result = client.table('users').select(

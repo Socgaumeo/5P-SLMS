@@ -136,6 +136,7 @@ const StatusBadge = ({ status }) => {
     // Common
     DRAFT: { bg: '#E5E7EB', color: '#6B7280', label: 'Nháp' },
     PENDING: { bg: '#FEF3C7', color: '#D97706', label: 'Chờ xử lý' },
+    DELIVERED: { bg: '#CCFBF1', color: '#0F766E', label: 'Đã giao' },
     CONFIRMED: { bg: '#DBEAFE', color: '#2563EB', label: 'Đã xác nhận' },
     CANCELLED: { bg: '#FEE2E2', color: '#DC2626', label: 'Đã hủy' },
     // Transport-specific
@@ -904,6 +905,21 @@ function JobDetailModal({ job, onClose, onUpdate }) {
   }
 
   const handleUpdateStatus = async (newStatus) => {
+    // 10/10: kiểm trước khi chốt Đã giao / Hoàn thành
+    if (newStatus === 'COMPLETED' || newStatus === 'DELIVERED') {
+      const thieu = []
+      try {
+        const dr = await authFetch(`${API_URL}/api/documents?job_id=${job.job_id}`)
+        const dj = await dr.json()
+        const docs = Array.isArray(dj) ? dj : (dj.documents || dj.data || [])
+        if (!docs.some(d => d.doc_type === 'BBGH')) thieu.push('Biên bản giao hàng (BBGH)')
+      } catch (e) { /* không chặn nếu không đọc được danh sách chứng từ */ }
+      // chỉ dịch vụ xe (trucking, xe biên mậu) mới cần biển số; air/sea không có biển số
+      const xe = services.filter(s => /^(TRUCKING|BORDER_)/.test(s.service_type_code || '') && s.status_code !== 'CANCELLED')
+      if (xe.some(s => !(s.license_plate || s.service_details?.vehicle_plate))) thieu.push('Biển số xe')
+      if (newStatus === 'COMPLETED' && !services.some(s => (s.service_details?.total_revenue || 0) > 0)) thieu.push('Giá bán')
+      if (thieu.length && !confirm(`Job còn thiếu:\n- ${thieu.join('\n- ')}\n\nVẫn chuyển sang ${newStatus === 'COMPLETED' ? 'Hoàn thành' : 'Đã giao'}?`)) return
+    }
     setSaving(true)
     try {
       const res = await authFetch(`${API_URL}/api/jobs/${job.job_id}/status`, {
@@ -912,12 +928,12 @@ function JobDetailModal({ job, onClose, onUpdate }) {
         body: JSON.stringify({ status_code: newStatus })
       })
       const result = await res.json()
-      if (result.success) {
+      if (res.ok && result.success) {
         setJobStatus(newStatus)
-        setServices(prev => prev.map(s => ({ ...s, status_code: newStatus })))
+        setServices(prev => prev.map(s => (s.status_code === 'CANCELLED' ? s : { ...s, status_code: newStatus })))
         onUpdate && onUpdate()
       } else {
-        alert(result.message || 'Không thể cập nhật trạng thái')
+        alert(result.detail || result.message || 'Không thể cập nhật trạng thái')
       }
     } catch (e) {
       console.error('Update status error:', e)
@@ -986,12 +1002,14 @@ function JobDetailModal({ job, onClose, onUpdate }) {
         body: JSON.stringify({ status_code: newStatus })
       })
       const result = await res.json()
-      if (result.success) {
+      if (res.ok && result.success) {
         setServices(prev => prev.map(s =>
           s.svc_id === svc_id ? { ...s, status_code: newStatus } : s
         ))
+        if (result.job_status) setJobStatus(result.job_status)
+        onUpdate && onUpdate()
       } else {
-        alert(result.message || 'Không thể cập nhật trạng thái')
+        alert(result.detail || result.message || 'Không thể cập nhật trạng thái')
       }
     } catch (e) {
       console.error('Update service status error:', e)
@@ -1206,7 +1224,8 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                     disabled={saving}
                     style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--border)' }}
                   >
-                    {getStatusOptions(services[0]?.service_type_code || job?.service_type || 'TRUCKING_DOM').map(opt => (
+                    {[{ value: 'PENDING', label: 'Chờ xử lý' }, { value: 'IN_PROGRESS', label: 'Đang xử lý' },
+                      { value: 'DELIVERED', label: 'Đã giao' }, { value: 'COMPLETED', label: 'Hoàn thành' }].map(opt => (
                       <option key={opt.value} value={opt.value}>{opt.label}</option>
                     ))}
                   </select>
@@ -1824,7 +1843,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                 <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{tt?.nhan || cot}</label>
                                 <div style={{ display: 'flex', gap: '6px' }}>
                                   <input
-                                    type={tt?.kieu === 'number' ? 'number' : tt?.kieu === 'date' ? 'date' : 'text'}
+                                    type={tt?.kieu === 'number' ? 'number' : tt?.kieu === 'date' ? 'date' : tt?.kieu === 'datetime' ? 'datetime-local' : 'text'}
                                     value={gt || ''}
                                     onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id
                                       ? { ...s, truong_them_sua: { ...(s.truong_them_sua || {}), [cot]: e.target.value } } : s))}
@@ -4351,6 +4370,7 @@ function MainDashboard() {
                     <option value="DRAFT">📝 Nháp</option>
                     <option value="PENDING">⏳ Chờ xử lý</option>
                     <option value="IN_PROGRESS">🔄 Đang xử lý</option>
+                    <option value="DELIVERED">📦 Đã giao</option>
                     <option value="COMPLETED">✅ Hoàn thành</option>
                     <option value="CANCELLED">❌ Đã hủy</option>
                   </select>

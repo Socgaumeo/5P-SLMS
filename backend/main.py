@@ -5,7 +5,7 @@ Main entry point with Chat UI API
 
 import re
 
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.gzip import GZipMiddleware
 from slowapi.middleware import SlowAPIMiddleware
@@ -41,6 +41,16 @@ async def lifespan(app: FastAPI):
     _db = settings.DATABASE_URL or ""
     logger.info(f"📊 Database host: {_db.split('@')[-1].split('/')[0] if '@' in _db else '(chưa cấu hình)'}")
     logger.info(f"🤖 AI Provider: {settings.AI_PROVIDER}")
+    # 12/10/2026: quét nền KPI nhập job (ghi lúc mỗi bước được nhập đủ). Tắt bằng KPI_QUET_NEN=0.
+    import os as _os
+    if _os.environ.get("KPI_QUET_NEN", "1") != "0":
+        try:
+            from app.services import kpi_buoc
+            from app.db.supabase_client import get_supabase
+            kpi_buoc.bat_dau_quet_nen(get_supabase, int(_os.environ.get("KPI_QUET_GIAY", "60")))
+            logger.info("📈 KPI quét nền: bật")
+        except Exception as e:
+            logger.warning(f"KPI quét nền không bật được: {e}")
     yield
     logger.info("👋 Shutting down SLMS Backend...")
 
@@ -297,11 +307,8 @@ async def assign_service(svc_id: int, request: AssignServiceRequest, current_use
         job_id = service.get("job_id")
 
         if job_id and update_data.get("status_code"):
-            # Update job status to match service status
-            client.table("jobs").update({
-                "status_code": update_data["status_code"],
-                "updated_at": now
-            }).eq("job_id", job_id).execute()
+            from app.db.supabase_client import sync_job_status_from_services
+            sync_job_status_from_services(client, job_id, now)
 
         return {"success": True, "message": "Service updated", "service": service}
 
@@ -325,42 +332,42 @@ async def update_service_status(svc_id: int, request: UpdateServiceStatusRequest
         # Valid statuses for all service types
         valid_statuses = [
             'PENDING', 'CONFIRMED', 'DISPATCHED', 'IN_TRANSIT',
-            'ASSIGNED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED',
+            'ASSIGNED', 'IN_PROGRESS', 'DELIVERED', 'COMPLETED', 'CANCELLED',
             'WHS_RECEIVED', 'WHS_PROCESSING', 'WHS_RELEASED',
             'CUS_SUBMITTED', 'CUS_PROCESSING', 'CUS_APPROVED'
         ]
 
         new_status = request.status_code.upper()
         if new_status not in valid_statuses:
-            return {"success": False, "message": f"Trạng thái '{new_status}' không hợp lệ"}
+            raise HTTPException(400, f"Trạng thái '{new_status}' không hợp lệ")
 
         # Verify service exists
         svc_result = client.table('job_services').select('svc_id, job_id').eq('svc_id', svc_id).limit(1).execute()
         if not svc_result.data:
-            return {"success": False, "message": f"Service {svc_id} not found"}
+            raise HTTPException(404, f"Không tìm thấy dịch vụ {svc_id}")
 
-        # Update service status
+        # Update service status — kiểm kết quả, không im lặng báo thành công
         now = datetime.now().isoformat()
-        client.table('job_services').update({
+        upd = client.table('job_services').update({
             'status_code': new_status,
             'updated_at': now
         }).eq('svc_id', svc_id).execute()
+        if not upd.data or (upd.data[0].get('status_code') or '').upper() != new_status:
+            raise HTTPException(500, f"Không lưu được trạng thái dịch vụ {svc_id}")
 
-        # Sync job status with service status
+        # 10/10: trạng thái job SUY RA từ tất cả dịch vụ, không chép 1 dịch vụ lên job
+        from app.db.supabase_client import sync_job_status_from_services
         job_id = svc_result.data[0].get('job_id')
-        if job_id:
-            client.table('jobs').update({
-                'status_code': new_status,
-                'updated_at': now
-            }).eq('job_id', job_id).execute()
-            logger.info(f"Synced job {job_id} status to {new_status}")
+        job_status = sync_job_status_from_services(client, job_id, now, current_user.get('user_id')) if job_id else None
 
-        logger.info(f"Updated service {svc_id} status to {new_status}")
-        return {"success": True, "status_code": new_status}
+        logger.info(f"Updated service {svc_id} status to {new_status}; job {job_id} -> {job_status}")
+        return {"success": True, "status_code": new_status, "job_status": job_status}
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error updating service status: {e}")
-        return {"success": False, "message": str(e)}
+        raise HTTPException(500, f"Lỗi cập nhật trạng thái: {e}")
 
 
 @app.delete("/api/services/{svc_id}")
