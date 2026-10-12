@@ -24,7 +24,9 @@ for j in jobs:
         kenh = {"sen": "Sen nhập hộ", "web": "Tự nhập web"}.get(nguoi.split("|")[1] if "|" in nguoi else "", "")
         nguoi_ten = users.get(int(uid)) if uid.isdigit() else (nguoi or "")
         h = r["han"]
-        if du_luc:
+        if r.get("loi"):
+            kq = "Lỗi: " + r["loi"].lower()
+        elif du_luc:
             kq = "Chưa có mốc" if not h else ("Đạt" if du_luc <= h else "Trễ")
         else:
             kq = "Chưa có mốc" if not h else ("Quá hạn, chưa đủ" if now > h else "Trong hạn, chưa đủ")
@@ -36,13 +38,13 @@ for j in jobs:
             "Mốc T (thao tác)": r["ten_moc"], "Giờ T": r["T"].astimezone(K.VN).strftime("%d/%m %H:%M") if r["T"] else "",
             "Hạn": h.strftime("%d/%m %H:%M") if h else "", "Nhập đủ lúc": du_luc.strftime("%d/%m %H:%M") if du_luc else "",
             "Người nhập": nguoi_ten, "Kênh": kenh, "Người chịu KPI": nguoi_ten or users.get(r["created_by"], "") or "(không rõ)", "Kết quả": kq, "Trễ (giờ)": tre,
-            "Còn thiếu ô": ", ".join(K.NHAN.get(x, x) for x in r["thieu_o"]),
+            "Lỗi": r.get("loi") or "", "Còn thiếu ô": ", ".join(K.NHAN.get(x, x) for x in r["thieu_o"]),
             "Còn thiếu chứng từ": ", ".join(K.DOC_NHAN.get(x, x) for x in r["thieu_ct"]),
         })
 
 wb = Workbook()
 H = Font(bold=True, color="FFFFFF"); F = PatternFill("solid", fgColor="1F3864")
-MAU = {"Đạt": "C6EFCE", "Trễ": "FFC7CE", "Quá hạn, chưa đủ": "FFC7CE", "Trong hạn, chưa đủ": "FFEB9C", "Chưa có mốc": "EDEDED"}
+MAU = {"Lỗi: thiếu kỳ thanh toán": "F4B084", "Đạt": "C6EFCE", "Trễ": "FFC7CE", "Quá hạn, chưa đủ": "FFC7CE", "Trong hạn, chưa đủ": "FFEB9C", "Chưa có mốc": "EDEDED"}
 
 
 def sheet(ws, header, data, color_col=None):
@@ -82,7 +84,7 @@ ws.append(["Cách tính: mọi mốc giờ = thời điểm nhân viên/Sen thao
            "Bước đạt khi nhập ĐỦ ô + chứng từ bắt buộc trong hạn file V1. Tỷ lệ đúng hạn = Đạt / (Đạt + Trễ + Quá hạn chưa đủ)."])
 ws.append([])
 cnt = collections.Counter(r["Kết quả"] for r in rows)
-for k in ["Đạt", "Trễ", "Quá hạn, chưa đủ", "Trong hạn, chưa đủ", "Chưa có mốc"]:
+for k in ["Đạt", "Trễ", "Quá hạn, chưa đủ", "Trong hạn, chưa đủ", "Chưa có mốc", "Lỗi: thiếu kỳ thanh toán"]:
     ws.append([k, cnt[k]])
     if k in MAU:
         ws.cell(ws.max_row, 1).fill = PatternFill("solid", fgColor=MAU[k])

@@ -37,7 +37,7 @@ ALIAS = {
 }
 JOB_COLS = {"etd", "eta", "vat_invoice_no"}
 TUY_CHON = {"special_requirements"}          # "Ghi chú" — chỉ ghi khi có, không tính thiếu
-NHAN = {
+NHAN = {"ky_thanh_toan": "Kỳ thanh toán", 
     "nguoi_book": "Người đặt dịch vụ", "vehicle_type": "Loại xe", "truck_capacity": "Trọng tải xe",
     "invoice_numbers": "Số invoice", "origin_address": "Điểm lấy", "dest_address": "Điểm giao",
     "scheduled_date": "Ngày lấy", "scheduled_time": "Giờ lấy", "delivery_date": "Ngày giao",
@@ -146,7 +146,13 @@ def moc(buoc, svc, job, svcs, evs):
     cua_dv = [e for e in evs if e.get("svc_id") in (sid, None)]
 
     def nhan_lo():
-        return _dau_tien(evs, lambda e: True, "tạo job")
+        # Khánh chốt 12/10: job có mail (mail đến TRƯỚC khi tạo job) → T = lúc mail có đủ thông tin tạo job;
+        # không có mail / mail đến sau khi tạo job → T = lúc nhân viên tạo job.
+        t_tao, n_tao = _dau_tien(evs, lambda e: True, "tạo job")
+        m = job.get("_mail_dau")
+        if m and t_tao and m["t"] < t_tao:
+            return m["t"], f"mail {m['loai'].lower()} {m['t'].astimezone(VN):%d/%m %H:%M} ({m['nguoi']})"
+        return t_tao, n_tao
 
     def lay_hang():
         return _dau_tien(cua_dv, lambda e: (e["event_type"] == "MOC" and e["field"] in ("vehicle_plate", "driver_id"))
@@ -187,12 +193,54 @@ def moc(buoc, svc, job, svcs, evs):
     if ten.startswith("lấy"):
         return lay_hang()
     if "giá" in ten:
+        if st.startswith("SEA") and la_fcl(svc):          # Khánh chốt 12/10: Sea FCL = 1 ngày sau tạo job
+            return _dau_tien(evs, lambda e: True, "tạo job (Sea FCL)")
         if st.startswith("CUS"):
             return thong_quan()
         if st.startswith(("WHS", "SVC", "LIFT")):
             return xong_dv()
         return giao()
     return giao()
+
+
+def la_fcl(svc):
+    sd = _sd(svc)
+    t = " ".join(str(x or "") for x in (svc.get("cont_type"), sd.get("cont_type"), svc.get("container_no"),
+                                         sd.get("loai_hang"), svc.get("cargo_type"))).upper()
+    if "LCL" in t or "CFS" in t:
+        return False
+    return bool(svc.get("container_no") or svc.get("cont_type") or sd.get("cont_type") or "FCL" in t)
+
+
+def kpi_thuc(b, svc):
+    """KPI áp dụng thật cho dịch vụ (đè chỗ file V1 để mở)."""
+    k = b.get("kpi") or ""
+    if "giá" in b["ten"].lower() and svc["service_type_code"].startswith("SEA") and la_fcl(svc):
+        return "D+1"
+    return k
+
+
+def ky_tt(job, svcs):
+    for x in [job] + list(svcs):
+        v = x.get("ky_thanh_toan") or _sd(x).get("ky_thanh_toan") if isinstance(x, dict) else None
+        if not _rong(v):
+            return str(v).strip()
+    return None
+
+
+def han_ky(ky, T):
+    """Hạn đối chiếu theo kỳ thanh toán khách nhập: 'ngày 25' → ngày 25 tháng sau T; còn lại → cuối tháng T."""
+    if not T:
+        return None
+    T = T.astimezone(VN)
+    m = re.search(r"(\d{1,2})", ky or "")
+    if m and 1 <= int(m.group(1)) <= 31:
+        d = int(m.group(1))
+        nam, thang = (T.year + (T.month == 12), T.month % 12 + 1) if T.day > d else (T.year, T.month)
+        import calendar
+        d = min(d, calendar.monthrange(nam, thang)[1])
+        return T.replace(year=nam, month=thang, day=d, hour=23, minute=59, second=59)
+    return han("30/31", T)
 
 
 def han(kpi, T):
@@ -232,11 +280,30 @@ def danh_gia_job(client, job_id):
     evs = client.table("job_events").select("event_type,field,to_value,svc_id,event_at,actor") \
         .eq("job_id", job_id).order("event_at").execute().data or []
     last = evs[-1] if evs else None
+    try:   # mail đầu tiên có thông tin lô (bỏ mail loại OTHER) gắn với job
+        ml = client.table("job_mail_log").select("mail_date,event_type,sender").eq("job_id", job_id) \
+            .neq("event_type", "OTHER").order("mail_date").limit(1).execute().data or []
+        if ml:
+            job["_mail_dau"] = {"t": _ts(ml[0]["mail_date"]), "loai": ml[0]["event_type"],
+                                "nguoi": (ml[0].get("sender") or "")[:40]}
+    except Exception:
+        pass
+    ky = ky_tt(job, svcs)
     out = []
     for svc in svcs:
         tc = TC["dich_vu"].get(svc["service_type_code"]) or {}
         for b in tc.get("buoc", []):
-            thieu_o = [c for c in b.get("cot", []) if not _co(c, job, svc, costs)]
+            loi = None
+            if b["buoc"] == 1:   # Khánh chốt 12/10: bước 1 = đủ ô BẮT BUỘC của ma trận (tạo job được)
+                thieu_o = [c for c in (tc.get("tao_job") or []) if not _co(c, job, svc, costs)]
+                for nhom in (tc.get("tao_job_any_of") or []):
+                    if not any(_co(c, job, svc, costs) for c in nhom):
+                        thieu_o.append(" / ".join(nhom))
+            else:
+                thieu_o = [c for c in b.get("cot", []) if not _co(c, job, svc, costs)]
+            if "kỳ khách" in (b.get("kpi") or "") and not ky:
+                thieu_o.append("ky_thanh_toan")
+                loi = "Thiếu kỳ thanh toán"
             can_doc = [t for t in (doc_bat_buoc(x, svc["service_type_code"]) for x in b.get("chung_tu", [])) if t]
             thieu_ct = [t for t in dict.fromkeys(can_doc) if t not in docs]
             T, ten_moc = moc(b, svc, job, svcs, evs)
@@ -244,7 +311,8 @@ def danh_gia_job(client, job_id):
                         "svc_id": svc["svc_id"], "svc_type": svc["service_type_code"],
                         "buoc": b["buoc"], "ten_buoc": b["ten"], "trang_thai": b.get("trang_thai"), "kpi": b.get("kpi"),
                         "thieu_o": thieu_o, "thieu_ct": thieu_ct, "du": not thieu_o and not thieu_ct,
-                        "T": T, "ten_moc": ten_moc, "han": han(b.get("kpi"), T),
+                        "T": T, "ten_moc": ten_moc, "kpi": kpi_thuc(b, svc), "loi": loi,
+                        "han": (han_ky(ky, T) if "kỳ khách" in (b.get("kpi") or "") else han(kpi_thuc(b, svc), T)),
                         "thao_tac_cuoi": last})
     return out
 

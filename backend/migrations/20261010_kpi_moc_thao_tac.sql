@@ -66,3 +66,7 @@ alter table job_step_done add column if not exists moc_t timestamptz, add column
 alter table job_events drop constraint if exists job_events_event_type_check;
 alter table job_events add constraint job_events_event_type_check
   check (event_type = any (array['STATUS','DOC','COST','MOC','SVC_STATUS','SUA']));
+
+-- 12/10 (Khánh): kỳ thanh toán của khách — người tạo job phải nhập, thiếu = 1 lỗi KPI bước Đối chiếu
+alter table job_services add column if not exists ky_thanh_toan text;
+-- rollback: alter table job_services drop column if exists ky_thanh_toan;

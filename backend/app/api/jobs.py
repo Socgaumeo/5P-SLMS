@@ -215,6 +215,7 @@ TRUONG_THEM_DUOC = {
     "freight_term":        {"nhan": "Loại cước (Collect/Prepaid)", "kieu": "text"},
     "delivery_contact":    {"nhan": "Người liên hệ giao hàng", "kieu": "text"},
     "cd_main_count":       {"nhan": "SL tờ khai chính",        "kieu": "number"},
+    "ky_thanh_toan":       {"nhan": "Kỳ thanh toán (VD: ngày 25 / cuối tháng)", "kieu": "text"},
     "cd_branch_count":     {"nhan": "SL tờ khai nhánh",        "kieu": "number"},
 }
 _GIO_KPI = ("confirmed_at", "pickup_at", "delivered_at", "cleared_at", "service_done_at")
