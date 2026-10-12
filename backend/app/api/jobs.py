@@ -1619,8 +1619,10 @@ async def get_recent_jobs(limit: int = 10, status: Optional[str] = None, offset:
 
 
 @router.get("/{job_id}/tien-do-buoc")
-async def tien_do_buoc(job_id: int):
+async def tien_do_buoc(job_id: int, request: Request):
     """Tiến độ nhập liệu theo bước (file V1) cho trang chi tiết job: mỗi dịch vụ × bước → đủ/thiếu gì, mốc T, hạn, kết quả KPI."""
+    if not await get_current_user_optional(request):
+        raise HTTPException(401, "Chưa đăng nhập")
     from app.services import kpi_buoc as K
     import datetime as _dt
     client = get_supabase()
