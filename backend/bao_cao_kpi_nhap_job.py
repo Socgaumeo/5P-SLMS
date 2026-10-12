@@ -25,11 +25,14 @@ for j in jobs:
         nguoi_ten = users.get(int(uid)) if uid.isdigit() else (nguoi or "")
         h = r["han"]
         if r.get("loi"):
-            kq = "Lỗi: " + r["loi"].lower()
+            l = r["loi"].lower()
+            kq = ("Lỗi: thiếu kỳ thanh toán" if "kỳ thanh toán" in l else
+                  "Lỗi: không cập nhật lịch" if "lịch dự kiến" in l else
+                  "Lỗi: bỏ qua bước" if "bỏ qua bước" in l else "Lỗi: " + l)
         elif du_luc:
-            kq = "Chưa có mốc" if not h else ("Đạt" if du_luc <= h else "Trễ")
+            kq = "Chưa đến bước" if not h else ("Đạt" if du_luc <= h else "Trễ")
         else:
-            kq = "Chưa có mốc" if not h else ("Quá hạn, chưa đủ" if now > h else "Trong hạn, chưa đủ")
+            kq = "Chưa đến bước" if not h else ("Quá hạn, chưa đủ" if now > h else "Trong hạn, chưa đủ")
         tre = round((du_luc - h).total_seconds() / 3600, 1) if (du_luc and h and du_luc > h) else (
             round((now - h).total_seconds() / 3600, 1) if (not du_luc and h and now > h) else None)
         rows.append({
@@ -38,13 +41,13 @@ for j in jobs:
             "Mốc T (thao tác)": r["ten_moc"], "Giờ T": r["T"].astimezone(K.VN).strftime("%d/%m %H:%M") if r["T"] else "",
             "Hạn": h.strftime("%d/%m %H:%M") if h else "", "Nhập đủ lúc": du_luc.strftime("%d/%m %H:%M") if du_luc else "",
             "Người nhập": nguoi_ten, "Kênh": kenh, "Người chịu KPI": nguoi_ten or users.get(r["created_by"], "") or "(không rõ)", "Kết quả": kq, "Trễ (giờ)": tre,
-            "Lỗi": r.get("loi") or "", "Còn thiếu ô": ", ".join(K.NHAN.get(x, x) for x in r["thieu_o"]),
+            "Lịch dự kiến": r["lich_du_kien"].strftime("%d/%m %H:%M") if r.get("lich_du_kien") else "", "Hạn cập nhật lịch (+6h)": r["han_cap_nhat_lich"].strftime("%d/%m %H:%M") if r.get("han_cap_nhat_lich") else "", "Lỗi": r.get("loi") or "", "Còn thiếu ô": ", ".join(K.NHAN.get(x, x) for x in r["thieu_o"]),
             "Còn thiếu chứng từ": ", ".join(K.DOC_NHAN.get(x, x) for x in r["thieu_ct"]),
         })
 
 wb = Workbook()
 H = Font(bold=True, color="FFFFFF"); F = PatternFill("solid", fgColor="1F3864")
-MAU = {"Lỗi: thiếu kỳ thanh toán": "F4B084", "Đạt": "C6EFCE", "Trễ": "FFC7CE", "Quá hạn, chưa đủ": "FFC7CE", "Trong hạn, chưa đủ": "FFEB9C", "Chưa có mốc": "EDEDED"}
+MAU = {"Lỗi: thiếu kỳ thanh toán": "F4B084", "Lỗi: không cập nhật lịch": "F4B084", "Lỗi: bỏ qua bước": "F4B084", "Đạt": "C6EFCE", "Trễ": "FFC7CE", "Quá hạn, chưa đủ": "FFC7CE", "Trong hạn, chưa đủ": "FFEB9C", "Chưa đến bước": "EDEDED"}
 
 
 def sheet(ws, header, data, color_col=None):
@@ -70,10 +73,11 @@ def tong(key):
         x[r["Kết quả"]] += 1
     out = []
     for k, x in g.items():
-        cham = x["Đạt"] + x["Trễ"]
-        out.append({key: k, "Đạt": x["Đạt"], "Trễ": x["Trễ"], "Quá hạn, chưa đủ": x["Quá hạn, chưa đủ"],
-                    "Trong hạn, chưa đủ": x["Trong hạn, chưa đủ"], "Chưa có mốc": x["Chưa có mốc"],
-                    "Tỷ lệ đúng hạn": f"{x['Đạt'] / (cham + x['Quá hạn, chưa đủ']) * 100:.0f}%" if (cham + x['Quá hạn, chưa đủ']) else "—"})
+        loi = sum(v for kk, v in x.items() if kk.startswith("Lỗi"))
+        mau = x["Đạt"] + x["Trễ"] + x["Quá hạn, chưa đủ"] + loi     # "Chưa đến bước" không tính
+        out.append({key: k, "Đạt": x["Đạt"], "Trễ": x["Trễ"], "Quá hạn, chưa đủ": x["Quá hạn, chưa đủ"], "Lỗi": loi,
+                    "Trong hạn, chưa đủ": x["Trong hạn, chưa đủ"], "Chưa đến bước": x["Chưa đến bước"],
+                    "Tỷ lệ đúng hạn": f"{x['Đạt'] / mau * 100:.0f}%" if mau else "—"})
     return out
 
 
@@ -81,17 +85,21 @@ ws = wb.active; ws.title = "Tổng hợp"
 ws.append([f"BÁO CÁO KPI NHẬP JOB — bản test, lập {now:%d/%m/%Y %H:%M}"]); ws["A1"].font = Font(bold=True, size=13)
 ws.append(["Cách tính: mọi mốc giờ = thời điểm nhân viên/Sen thao tác trên hệ thống (không nhập tay giờ). Mốc T = thao tác đầu tiên báo việc xảy ra "
            "(tạo job, gán xe, báo đã giao/tải BBGH, nhập số TK, nhập vận đơn). Sen nhập hộ: tính cho nhân viên gửi, giờ = lúc nhân viên gửi tin/file. "
-           "Bước đạt khi nhập ĐỦ ô + chứng từ bắt buộc trong hạn file V1. Tỷ lệ đúng hạn = Đạt / (Đạt + Trễ + Quá hạn chưa đủ)."])
+           "Bước đạt khi nhập ĐỦ ô + chứng từ bắt buộc trong hạn file V1. Tỷ lệ đúng hạn = Đạt / (Đạt + Trễ + Quá hạn chưa đủ + Lỗi); \"Chưa đến bước\" (việc chưa xảy ra) không tính. Bước có lịch dự kiến: quá lịch + 6h mà chưa có thao tác thực tế và chưa đổi lịch = lỗi."])
 ws.append([])
 cnt = collections.Counter(r["Kết quả"] for r in rows)
-for k in ["Đạt", "Trễ", "Quá hạn, chưa đủ", "Trong hạn, chưa đủ", "Chưa có mốc", "Lỗi: thiếu kỳ thanh toán"]:
+for k in ["Đạt", "Trễ", "Quá hạn, chưa đủ", "Trong hạn, chưa đủ", "Chưa đến bước", "Lỗi: thiếu kỳ thanh toán", "Lỗi: không cập nhật lịch", "Lỗi: bỏ qua bước"]:
     ws.append([k, cnt[k]])
     if k in MAU:
         ws.cell(ws.max_row, 1).fill = PatternFill("solid", fgColor=MAU[k])
 ws.append(["Tổng bước", len(rows)]); ws.append(["Số job", len({r['Job'] for r in rows})])
 ws.column_dimensions["A"].width = 24
-sheet(wb.create_sheet("Theo nhân viên"), ["Người chịu KPI", "Đạt", "Trễ", "Quá hạn, chưa đủ", "Trong hạn, chưa đủ", "Chưa có mốc", "Tỷ lệ đúng hạn"], tong("Người chịu KPI"))
-sheet(wb.create_sheet("Theo bước"), ["Bước", "Đạt", "Trễ", "Quá hạn, chưa đủ", "Trong hạn, chưa đủ", "Chưa có mốc", "Tỷ lệ đúng hạn"], tong("Bước"))
+sheet(wb.create_sheet("Theo nhân viên"), ["Người chịu KPI", "Đạt", "Trễ", "Quá hạn, chưa đủ", "Lỗi", "Trong hạn, chưa đủ", "Chưa đến bước", "Tỷ lệ đúng hạn"], tong("Người chịu KPI"))
+sheet(wb.create_sheet("Theo bước"), ["Bước", "Đạt", "Trễ", "Quá hạn, chưa đủ", "Lỗi", "Trong hạn, chưa đủ", "Chưa đến bước", "Tỷ lệ đúng hạn"], tong("Bước"))
 sheet(wb.create_sheet("Chi tiết"), list(rows[0].keys()) if rows else ["Job"], rows, "Kết quả")
+# Lô cần Sen kiểm lại lịch với nhân viên / tracking hãng bay-tàu / BBGH
+kiem = [{k: r[k] for k in ("Job", "Người chịu KPI", "Dịch vụ", "Bước", "Lịch dự kiến", "Hạn cập nhật lịch (+6h)", "Lỗi")}
+        for r in rows if r["Kết quả"] == "Lỗi: không cập nhật lịch"]
+sheet(wb.create_sheet("Cần kiểm lại lịch"), ["Job", "Người chịu KPI", "Dịch vụ", "Bước", "Lịch dự kiến", "Hạn cập nhật lịch (+6h)", "Lỗi"], kiem)
 wb.save(out)
 print("saved", out, len(rows), dict(cnt))

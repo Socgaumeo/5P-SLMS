@@ -243,6 +243,68 @@ def han_ky(ky, T):
     return han("30/31", T)
 
 
+# ── Lịch dự kiến + quy tắc 6h (Khánh chốt 12/10) ──
+CAP_NHAT_LICH = dt.timedelta(hours=6)
+
+
+def _gio(d, t=None):
+    """ngày (+giờ) dự kiến → datetime VN. Chỉ có ngày → 23:59 ngày đó (không phạt oan)."""
+    if _rong(d):
+        return None
+    if _rong(t) and len(str(d)) > 10:          # chuỗi gộp "YYYY-MM-DD HH:MM:SS"
+        t = str(d)[11:19]
+    try:
+        dd = dt.date.fromisoformat(str(d)[:10])
+    except ValueError:
+        return None
+    if not _rong(t):
+        try:
+            hh = dt.time.fromisoformat(str(t)[:8])
+            return dt.datetime.combine(dd, hh, VN)
+        except ValueError:
+            pass
+    return dt.datetime.combine(dd, dt.time(23, 59), VN)
+
+
+def lich_buoc(b, svc, job):
+    """(cột lịch, ngày giờ dự kiến hiện tại) của bước — bước nào có lịch dự kiến thì xét quy tắc 6h."""
+    ten = b["ten"].lower()
+    st = svc["service_type_code"]
+    if b["buoc"] == 1 or "giá" in ten or "đối chiếu" in ten or ten.startswith(("thông quan", "thực hiện")):
+        return None, None
+    if ten.startswith("lấy"):
+        return "scheduled", _gio(svc.get("scheduled_date"), svc.get("scheduled_time"))
+    if ten.startswith("booking"):
+        return "etd", _gio(job.get("etd"))
+    if st.startswith(("SEA", "AIR")) and ("đến" in ten or "giao" in ten):
+        return "eta", _gio(job.get("eta"))
+    if "giao" in ten:
+        return "scheduled", _gio(svc.get("scheduled_date"), svc.get("scheduled_time"))
+    return None, None
+
+
+def xet_lich(cot, P_now, T, evs, svc_id, now):
+    """Áp quy tắc: lịch dự kiến P mà tới P+6h chưa có thao tác thực tế và chưa đổi lịch → lỗi.
+    Trả (lỗi | None, hạn cập nhật lịch hiện tại)."""
+    if not cot or not P_now:
+        return None, None
+    doi = sorted((e for e in evs if e["event_type"] == "LICH" and e.get("field") == cot
+                  and (e.get("svc_id") in (svc_id, None))), key=lambda e: e["event_at"])
+    # chuỗi lịch theo thời gian: (giờ đặt lịch, ngày giờ dự kiến)
+    chuoi = [(_ts(e["event_at"]), _gio(e["to_value"])) for e in doi if _gio(e["to_value"])]
+    if not chuoi:
+        chuoi = [(None, P_now)]
+    for i, (_, P) in enumerate(chuoi):
+        han_cn = P + CAP_NHAT_LICH
+        doi_tiep = chuoi[i + 1][0] if i + 1 < len(chuoi) else None
+        if T and T <= han_cn and (doi_tiep is None or T <= doi_tiep):
+            return None, han_cn                      # thao tác thực tế đúng lịch đang có
+        moc_xet = min(x for x in (doi_tiep, T, now) if x)
+        if moc_xet > han_cn:
+            return (f"Quá lịch dự kiến {P.astimezone(VN):%d/%m %H:%M} hơn 6h chưa cập nhật"), han_cn
+    return None, chuoi[-1][1] + CAP_NHAT_LICH
+
+
 def han(kpi, T):
     if not T:
         return None
@@ -314,6 +376,22 @@ def danh_gia_job(client, job_id):
                         "T": T, "ten_moc": ten_moc, "kpi": kpi_thuc(b, svc), "loi": loi,
                         "han": (han_ky(ky, T) if "kỳ khách" in (b.get("kpi") or "") else han(kpi_thuc(b, svc), T)),
                         "thao_tac_cuoi": last})
+    # Lịch dự kiến + bỏ qua bước (Khánh chốt 12/10)
+    now = dt.datetime.now(VN)
+    for r in out:
+        b = {"buoc": r["buoc"], "ten": r["ten_buoc"]}
+        svc = next(x for x in svcs if x["svc_id"] == r["svc_id"])
+        cot, P = lich_buoc(b, svc, job)
+        r["lich_du_kien"] = P
+        loi_lich, r["han_cap_nhat_lich"] = xet_lich(cot, P, r["T"], evs, r["svc_id"], now)
+        if loi_lich and not r.get("loi"):
+            r["loi"] = loi_lich
+    for sid in {r["svc_id"] for r in out}:
+        ds = sorted((r for r in out if r["svc_id"] == sid), key=lambda r: r["buoc"])
+        for i, r in enumerate(ds):
+            if r["T"] is None and not r.get("loi") and any(
+                    x["T"] is not None and not (x["ten_moc"] or "").startswith("tạo job") for x in ds[i + 1:]):
+                r["loi"] = "Bỏ qua bước (bước sau đã có, bước này chưa ghi)"
     return out
 
 

@@ -70,3 +70,37 @@ alter table job_events add constraint job_events_event_type_check
 -- 12/10 (Khánh): kỳ thanh toán của khách — người tạo job phải nhập, thiếu = 1 lỗi KPI bước Đối chiếu
 alter table job_services add column if not exists ky_thanh_toan text;
 -- rollback: alter table job_services drop column if exists ky_thanh_toan;
+
+alter table job_events drop constraint if exists job_events_event_type_check;
+alter table job_events add constraint job_events_event_type_check
+  check (event_type = any (array['STATUS','DOC','COST','MOC','SVC_STATUS','SUA','LICH']));
+-- 12/10 (Khánh): ghi MỌI lần đổi lịch dự kiến (để xét quy tắc "lịch thực tế khác dự kiến phải cập nhật trong 6h")
+create or replace function trg_kpi_lich() returns trigger language plpgsql as $$
+declare c text; ov text; nv text;
+begin
+  if tg_table_name = 'jobs' then
+    foreach c in array array['etd','eta'] loop
+      execute format('select ($1).%1$I::text', c) into nv using new;
+      if tg_op = 'INSERT' then ov := null; else execute format('select ($1).%1$I::text', c) into ov using old; end if;
+      if nv is distinct from ov and nv is not null then
+        perform kpi_log_event(new.job_id, null, 'LICH', c, ov, nv);
+      end if;
+    end loop;
+  else
+    nv := case when new.scheduled_date is null then null
+               else new.scheduled_date::text || ' ' || coalesce(new.scheduled_time::text, '23:59:00') end;
+    if tg_op = 'INSERT' then ov := null;
+    else ov := case when old.scheduled_date is null then null
+                    else old.scheduled_date::text || ' ' || coalesce(old.scheduled_time::text, '23:59:00') end;
+    end if;
+    if nv is distinct from ov and nv is not null then
+      perform kpi_log_event(new.job_id, new.svc_id, 'LICH', 'scheduled', ov, nv);
+    end if;
+  end if;
+  return new;
+end $$;
+drop trigger if exists kpi_lich_jobs on jobs;
+create trigger kpi_lich_jobs after insert or update of etd, eta on jobs for each row execute function trg_kpi_lich();
+drop trigger if exists kpi_lich_services on job_services;
+create trigger kpi_lich_services after insert or update of scheduled_date, scheduled_time on job_services for each row execute function trg_kpi_lich();
+-- rollback: drop trigger kpi_lich_jobs on jobs; drop trigger kpi_lich_services on job_services; drop function trg_kpi_lich();
