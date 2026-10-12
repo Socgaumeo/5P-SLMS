@@ -424,7 +424,7 @@ def quet(client, phut=1440):
     ids |= {s["job_id"] for s in (client.table("job_services").select("job_id").gte("updated_at", since_local).execute().data or [])}
     # Khánh chốt 12/10: KPI chỉ tính job TẠO TỪ lúc đưa lên thật (không tính ngược job cũ)
     import os as _os
-    tu = _os.environ.get("KPI_AP_DUNG_TU")
+    tu = _os.environ.get("KPI_AP_DUNG_TU", "2026-10-12T21:00:00+07:00")   # ngày lên thật
     if tu and ids:
         moi = client.table("jobs").select("job_id").in_("job_id", sorted(ids)).gte("created_at", tu).execute().data or []
         ids = {x["job_id"] for x in moi}
@@ -444,7 +444,7 @@ def bat_dau_quet_nen(get_client, giay=30):
     def chay():
         while True:
             try:
-                n = quet(get_client())
+                n = quet(get_client(), 15)       # chỉ job có thay đổi 15 phút gần nhất
                 if n:
                     logger.info(f"[kpi] ghi {n} bước vừa đủ")
             except Exception as e:

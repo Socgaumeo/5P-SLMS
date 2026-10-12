@@ -41,6 +41,16 @@ async def lifespan(app: FastAPI):
     _db = settings.DATABASE_URL or ""
     logger.info(f"📊 Database host: {_db.split('@')[-1].split('/')[0] if '@' in _db else '(chưa cấu hình)'}")
     logger.info(f"🤖 AI Provider: {settings.AI_PROVIDER}")
+    # 12/10/2026: quét nền KPI nhập job (ghi lúc mỗi bước được nhập đủ). Tắt bằng KPI_QUET_NEN=0.
+    import os as _os
+    if _os.environ.get("KPI_QUET_NEN", "1") != "0":
+        try:
+            from app.services import kpi_buoc
+            from app.db.supabase_client import get_supabase
+            kpi_buoc.bat_dau_quet_nen(get_supabase, int(_os.environ.get("KPI_QUET_GIAY", "60")))
+            logger.info("📈 KPI quét nền: bật")
+        except Exception as e:
+            logger.warning(f"KPI quét nền không bật được: {e}")
     yield
     logger.info("👋 Shutting down SLMS Backend...")
 

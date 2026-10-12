@@ -13,8 +13,7 @@ now = dt.datetime.now(K.VN)
 users = {u["user_id"]: u["full_name"] for u in c.table("users").select("user_id,full_name").execute().data}
 import os as _os
 _q = c.table("jobs").select("job_id").gte("job_id", tu).neq("status_code", "CANCELLED")
-if _os.environ.get("KPI_AP_DUNG_TU"):
-    _q = _q.gte("created_at", _os.environ["KPI_AP_DUNG_TU"])
+_q = _q.gte("created_at", _os.environ.get("KPI_AP_DUNG_TU", "2026-10-12T21:00:00+07:00"))
 jobs = _q.order("job_id").execute().data
 done = {(d["svc_id"], d["buoc"]): d for d in c.table("job_step_done").select("*").gte("job_id", tu).execute().data}
 
