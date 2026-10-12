@@ -106,6 +106,23 @@ const useTieuChi = () => {
   return t
 }
 
+// 12/10/2026: ô theo file V1 nằm trong bước của loại dịch vụ → hiện SẴN trên form sửa (không phải bấm "Thêm trường")
+const V1_COT = {
+  nguoi_book: 'nguoi_book', china_truck_plate: 'intl_truck_plate', vehicle_type: 'vehicle_kind',
+  agent: 'agent_name', cont_type: 'cont_type', loai_cuoc: 'freight_term', nguoi_lien_he_giao: 'delivery_contact',
+  so_tk_chinh: 'cd_main_count', so_tk_nhanh: 'cd_branch_count',
+}
+const v1CotCuaDV = (tieuChi, code) => {
+  const tc = tieuChi?.[code]
+  if (!tc) return []
+  const out = new Set()
+  ;(tc.buoc || []).forEach(b => {
+    ;(b.cot || []).forEach(c => { if (V1_COT[c]) out.add(V1_COT[c]) })
+    if (String(b.kpi || '').includes('kỳ khách')) out.add('ky_thanh_toan')
+  })
+  return [...out]
+}
+
 const nhomDichVu = (code) => {
   const c = String(code || '')
   if (c.startsWith('CUS_')) return 'HAI_QUAN'
@@ -451,6 +468,61 @@ function QuotationSelector({ type, rates, standardRates = [], selectedRateId, se
 // ========================================
 // JOB DETAIL MODAL (with Edit Mode)
 // ========================================
+
+// ── 12/10/2026: Tiến độ nhập liệu theo bước (file V1 chị Hà) — dùng API /api/jobs/{id}/tien-do-buoc ──
+const TD_MAU = {
+  DAT: ['#DCFCE7', '#166534', 'Đạt'], DU: ['#DCFCE7', '#166534', 'Đủ'], TRE: ['#FEE2E2', '#991B1B', 'Trễ'],
+  QUA_HAN: ['#FEE2E2', '#991B1B', 'Quá hạn'], LOI: ['#FED7AA', '#9A3412', 'Lỗi'],
+  TRONG_HAN: ['#FEF3C7', '#92400E', 'Đang làm'], CHUA_DEN: ['#F3F4F6', '#6B7280', 'Chưa đến'],
+}
+function useTienDo(jobId, khoa) {
+  const [td, setTd] = useState({})
+  useEffect(() => {
+    if (!jobId) return
+    authFetch(`${API_URL}/api/jobs/${jobId}/tien-do-buoc`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (!d?.success) return
+        const m = {}; (d.dich_vu || []).forEach(x => { m[x.svc_id] = x.buoc }); setTd(m)
+      }).catch(() => {})
+  }, [jobId, khoa])
+  return td
+}
+function TienDoBuoc({ buoc }) {
+  const [mo, setMo] = useState(null)
+  if (!buoc || !buoc.length) return null
+  const chon = mo != null ? buoc.find(b => b.buoc === mo) : null
+  return (
+    <div style={{ margin: '6px 0 8px' }}>
+      <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+        {buoc.map(b => {
+          const [bg, fg, nhan] = TD_MAU[b.ket_qua] || TD_MAU.CHUA_DEN
+          return (
+            <button key={b.buoc} type="button" onClick={() => setMo(mo === b.buoc ? null : b.buoc)}
+              title={b.loi || (b.thieu_o.concat(b.thieu_ct).length ? 'Thiếu: ' + b.thieu_o.concat(b.thieu_ct).join(', ') : 'Đủ thông tin')}
+              style={{ flex: '1 1 110px', minWidth: 0, padding: '5px 6px', borderRadius: '6px', cursor: 'pointer', textAlign: 'left',
+                       border: mo === b.buoc ? `2px solid ${fg}` : '1px solid transparent', background: bg, color: fg, fontSize: '11px', lineHeight: 1.3 }}>
+              <div style={{ fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{b.buoc}. {b.ten}</div>
+              <div>{nhan}{b.han && b.ket_qua !== 'CHUA_DEN' ? ` · hạn ${b.han}` : ''}</div>
+            </button>
+          )
+        })}
+      </div>
+      {chon && (
+        <div style={{ marginTop: '6px', padding: '8px 10px', borderRadius: '6px', background: 'var(--bg-card)', border: '1px solid var(--border)', fontSize: '12px', lineHeight: 1.5 }}>
+          <div><b>{chon.buoc}. {chon.ten}</b>{chon.kpi ? ` — KPI ${chon.kpi}` : ''}</div>
+          {chon.moc_t ? <div>Bắt đầu tính: {chon.moc_t} ({chon.nguon_moc}) · Hạn: {chon.han || '—'}{chon.du_luc ? ` · Nhập đủ lúc: ${chon.du_luc}` : ''}</div>
+                      : <div>Chưa đến bước: việc này chưa được ghi nhận trên hệ thống.</div>}
+          {chon.lich_du_kien && <div>Lịch dự kiến: {chon.lich_du_kien} · phải cập nhật trước {chon.han_cap_nhat_lich} nếu thực tế khác</div>}
+          {chon.thieu_o.length > 0 && <div style={{ color: '#991B1B' }}>Còn thiếu ô: {chon.thieu_o.join(', ')}</div>}
+          {chon.thieu_ct.length > 0 && <div style={{ color: '#991B1B' }}>Còn thiếu chứng từ: {chon.thieu_ct.join(', ')}</div>}
+          {chon.loi && <div style={{ color: '#9A3412', fontWeight: 600 }}>⚠ {chon.loi}</div>}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function JobDetailModal({ job, onClose, onUpdate }) {
   const tieuChiSua = useTieuChi()
   // Danh sách trường được phép thêm — lấy TỪ MÁY CHỦ, dùng chung với form tạo job
@@ -469,6 +541,8 @@ function JobDetailModal({ job, onClose, onUpdate }) {
   }, [])
   const [services, setServices] = useState([])
   const [jobCosts, setJobCosts] = useState([])
+  const [tdKhoa, setTdKhoa] = useState(0)
+  const tienDo = useTienDo(job?.job_id, tdKhoa)
   const [loading, setLoading] = useState(true)
   const [editMode, setEditMode] = useState(false)
   // Mở/thu gọn RIÊNG từng dịch vụ (Khánh 23/09/2026: "muốn có nút sửa ở từng dịch vụ con,
@@ -808,6 +882,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
       const result = await res.json()
       if (result.success) {
         alert('Đã lưu báo giá thành công!')
+        setTimeout(() => setTdKhoa(k => k + 1), 1500)
         // Re-fetch to ensure UI reflects saved data
         await fetchJobDetails()
       } else {
@@ -1007,6 +1082,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
           s.svc_id === svc_id ? { ...s, status_code: newStatus } : s
         ))
         if (result.job_status) setJobStatus(result.job_status)
+        setTimeout(() => setTdKhoa(k => k + 1), 1500)
         onUpdate && onUpdate()
       } else {
         alert(result.detail || result.message || 'Không thể cập nhật trạng thái')
@@ -1372,6 +1448,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
               <div className="services-list">
                 {services.map((svc, idx) => (
                   <div key={idx} className="service-card">
+                    <TienDoBuoc buoc={tienDo[svc.svc_id]} />
                     <div className="service-card-header">
                       <span className="service-type-badge">{SERVICE_TYPE_LABELS[svc.service_type_code] || svc.service_type_code}</span>
                       {editMode && (
@@ -1836,23 +1913,28 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                           ))}
                           {/* Thêm trường từ DANH SÁCH CỘT CÓ SẴN — giống hệt form tạo job.
                               Khác với "Thêm thông tin" bên dưới (ghi chú tự do, không vào cột riêng). */}
-                          {Object.entries(svc.truong_them_sua || {}).map(([cot, gt]) => {
+                          {(() => {
+                            // ô V1 của các bước dịch vụ này: hiện sẵn, giá trị lấy từ dịch vụ; sửa thì ghi vào truong_them_sua
+                            const v1 = v1CotCuaDV(tieuChiSua, svc.service_type_code)
+                            const keys = [...new Set([...v1, ...Object.keys(svc.truong_them_sua || {})])]
+                            return keys.map(cot => [cot, (svc.truong_them_sua || {})[cot] ?? svc[cot] ?? '', v1.includes(cot)])
+                          })().map(([cot, gt, laV1]) => {
                             const tt = truongCoSanSua.find(x => x.cot === cot)
                             return (
                               <div key={cot}>
-                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{tt?.nhan || cot}</label>
+                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{tt?.nhan || cot}{laV1 && <span title="Ô bắt buộc theo file yêu cầu nhập job V1" style={{ marginLeft: 4, fontSize: 10, color: '#B45309', fontWeight: 600 }}>· V1</span>}</label>
                                 <div style={{ display: 'flex', gap: '6px' }}>
                                   <input
                                     type={tt?.kieu === 'number' ? 'number' : tt?.kieu === 'date' ? 'date' : tt?.kieu === 'datetime' ? 'datetime-local' : 'text'}
                                     value={gt || ''}
                                     onChange={e => setServices(prev => prev.map(s => s.svc_id === svc.svc_id
                                       ? { ...s, truong_them_sua: { ...(s.truong_them_sua || {}), [cot]: e.target.value } } : s))}
-                                    style={{ flex: 1, padding: '5px 8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '12px' }} />
-                                  <button type="button" onClick={() => setServices(prev => prev.map(s => {
+                                    style={{ flex: 1, padding: '5px 8px', borderRadius: '4px', border: laV1 && !gt ? '1px solid #F59E0B' : '1px solid var(--border)', fontSize: '12px' }} />
+                                  {!laV1 && <button type="button" onClick={() => setServices(prev => prev.map(s => {
                                     if (s.svc_id !== svc.svc_id) return s
                                     const con = { ...(s.truong_them_sua || {}) }; delete con[cot]
                                     return { ...s, truong_them_sua: con }
-                                  }))} style={{ padding: '4px 8px', background: '#FEE2E2', color: '#DC2626', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '11px' }}>✕</button>
+                                  }))} style={{ padding: '4px 8px', background: '#FEE2E2', color: '#DC2626', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '11px' }}>✕</button>}
                                 </div>
                               </div>
                             )
@@ -1865,7 +1947,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                             }} style={{ padding: '5px 8px', borderRadius: '4px', border: '1px dashed var(--primary)', fontSize: '11px', background: 'rgba(59,130,246,0.06)', color: 'var(--primary)' }}>
                               <option value="">+ Thêm trường ({truongCoSanSua.length} trường có sẵn)</option>
                               {truongCoSanSua
-                                .filter(x => !(svc.truong_them_sua || {})[x.cot] && (svc[x.cot] === null || svc[x.cot] === undefined || svc[x.cot] === ''))
+                                .filter(x => !(svc.truong_them_sua || {})[x.cot] && !v1CotCuaDV(tieuChiSua, svc.service_type_code).includes(x.cot) && (svc[x.cot] === null || svc[x.cot] === undefined || svc[x.cot] === ''))
                                 .map(x => <option key={x.cot} value={x.cot}>{x.nhan}</option>)}
                             </select>
                           </div>
@@ -1945,6 +2027,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
 
                                 setSavedField(`details-${svc.svc_id}`)
                                 setTimeout(() => setSavedField(null), 2000)
+                                setTimeout(() => setTdKhoa(k => k + 1), 1500)
                               } catch (e) { alert('Lỗi khi lưu chi tiết') }
                               finally { setSaving(false) }
                             }} disabled={saving} style={{ padding: '6px 12px', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '12px' }}>
