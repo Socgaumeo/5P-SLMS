@@ -364,6 +364,8 @@ def danh_gia_job(client, job_id):
             if b["buoc"] == 1:   # Khánh chốt 12/10: bước 1 = đủ ô BẮT BUỘC của ma trận (tạo job được)
                 thieu_o = [c for c in (tc.get("tao_job") or []) if not _co(c, job, svc, costs)]
                 for nhom in (tc.get("tao_job_any_of") or []):
+                    if svc["service_type_code"] == "WHS_HANDLE" and "package_quantity" in nhom:
+                        continue   # Khánh 13/10: bốc xếp tính theo ca, không có số kiện/khối lượng
                     if not any(_co(c, job, svc, costs) for c in nhom):
                         thieu_o.append(" / ".join(nhom))
             else:
@@ -398,6 +400,19 @@ def danh_gia_job(client, job_id):
            "CUS_APPROVED": {"Start"},
            "DELIVERED": {"Start", "Processing", "Delivered", "Finish"},
            "COMPLETED": {"Start", "Processing", "Delivered", "Finish"}}
+    # Khánh 13/10: thông tin được CẬP NHẬT SỚM ở mọi bước (giá tạm tính, ngày giao, biển số, số TK…) ⇒
+    # bước sau chỉ coi là "đã xảy ra" khi có thao tác THỰC TẾ: đổi trạng thái dịch vụ/job hoặc tải chứng từ.
+    # Bước Giá / Đối chiếu không bao giờ là bằng chứng bước trước đã xảy ra.
+    evs_that = [e for e in evs if e["event_type"] in ("STATUS", "SVC_STATUS", "DOC")]
+
+    def _xay_ra(x):
+        ten = (x["ten_buoc"] or "").lower()
+        if "giá" in ten or "đối chiếu" in ten:
+            return False
+        svc_x = next(v for v in svcs if v["svc_id"] == x["svc_id"])
+        T, nguon = moc({"buoc": x["buoc"], "ten": x["ten_buoc"]}, svc_x, job, svcs, evs_that)
+        return T is not None and not (nguon or "").startswith("tạo job")
+
     for sid in {r["svc_id"] for r in out}:
         svc = next(x for x in svcs if x["svc_id"] == sid)
         qua = QUA.get(job.get("status_code") or "", set()) | QUA.get(svc.get("status_code") or "", set())
@@ -407,8 +422,7 @@ def danh_gia_job(client, job_id):
                 continue
             # Khánh chốt 13/10: bước SAU đã xảy ra (nhập đủ, hoặc có thao tác thực tế: up booking/AWB, gán xe,
             # BBGH...) mà bước NÀY còn thiếu → LỖI ngay, không chờ hết hạn.
-            sau_xay_ra = next((x for x in ds[i + 1:] if x["du"] or
-                               (x["T"] is not None and not (x["ten_moc"] or "").startswith("tạo job"))), None)
+            sau_xay_ra = next((x for x in ds[i + 1:] if _xay_ra(x)), None)
             qua_trang_thai = r.get("trang_thai") in qua and not (r["han"] and now <= r["han"])
             if sau_xay_ra or qua_trang_thai:
                 thieu = [NHAN.get(x, x) for x in r["thieu_o"]] + [DOC_NHAN.get(x, x) for x in r["thieu_ct"]]
@@ -418,8 +432,7 @@ def danh_gia_job(client, job_id):
     for sid in {r["svc_id"] for r in out}:
         ds = sorted((r for r in out if r["svc_id"] == sid), key=lambda r: r["buoc"])
         for i, r in enumerate(ds):
-            if r["T"] is None and not r.get("loi") and any(
-                    x["T"] is not None and not (x["ten_moc"] or "").startswith("tạo job") for x in ds[i + 1:]):
+            if r["T"] is None and not r.get("loi") and any(_xay_ra(x) for x in ds[i + 1:]):
                 r["loi"] = "Bỏ qua bước (bước sau đã có, bước này chưa ghi)"
     return out
 
