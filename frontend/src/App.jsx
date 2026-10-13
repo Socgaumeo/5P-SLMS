@@ -12,6 +12,7 @@ import DocumentListTable from './components/documents/document-list-table-with-d
 import DocumentManagementPage from './components/documents/document-management-page-with-filters'
 import DebitBatchExportWizardPage from './components/debit/debit-batch-export-wizard-page'
 import CongNoPage from './components/congno/CongNoPage'
+import DieuHanhPage from './components/dieuhanh/DieuHanhPage'
 
 // ─── MỘT NGUỒN DUY NHẤT cho đơn vị tính ───────────────────────────────
 // Sự cố 23/09/2026 (Khánh phát hiện): job SI-2309-0001 tạo là "1 cont40" nhưng
@@ -4222,6 +4223,7 @@ function MainDashboard() {
         <nav className="sidebar-nav">
           <NavItem icon="📊" label="Dashboard" active={activeNav === 'dashboard'} onClick={() => setActiveNav('dashboard')} />
           <NavItem icon="📋" label="All Jobs" active={activeNav === 'jobs'} onClick={() => setActiveNav('jobs')} badge={stats.jobs_today || null} />
+          <NavItem icon="🎯" label="Điều hành" active={activeNav === 'dieuhanh'} onClick={() => setActiveNav('dieuhanh')} />
 
           <div className="nav-divider" />
           <div className="nav-section-title">LOGISTICS</div>
@@ -4265,7 +4267,7 @@ function MainDashboard() {
           <div className="header-left">
             <button className="menu-toggle" onClick={() => setSidebarOpen(!sidebarOpen)}>☰</button>
             <div>
-              <h1 className="page-title">{activeNav.charAt(0).toUpperCase() + activeNav.slice(1)}</h1>
+              <h1 className="page-title">{activeNav === 'dieuhanh' ? 'Bảng điều hành' : activeNav.charAt(0).toUpperCase() + activeNav.slice(1)}</h1>
               <p className="page-subtitle">Welcome back! Here's your logistics overview.</p>
             </div>
           </div>
@@ -4550,6 +4552,8 @@ function MainDashboard() {
 
         {/* Financial / Công nợ AR/AP */}
         {activeNav === 'financial' && <CongNoPage />}
+
+        {activeNav === 'dieuhanh' && <DieuHanhPage onOpenJob={(job) => { setSelectedJob(job); setShowJobDetail(true) }} />}
       </main>
 
       {/* Floating AI Button */}

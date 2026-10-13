@@ -102,6 +102,8 @@ app.include_router(telegram_webhook.router, tags=["Telegram Webhook"])
 app.include_router(document_crud.router, tags=["Documents"])
 app.include_router(debit_endpoints.router, tags=["Debit Templates"])
 app.include_router(ar_ap.router, tags=["AR/AP Công nợ"])
+from app.api import dieu_hanh
+app.include_router(dieu_hanh.router, tags=["Điều hành"])
 
 
 @app.get("/")
