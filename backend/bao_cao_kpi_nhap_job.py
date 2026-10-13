@@ -24,8 +24,12 @@ for j in jobs:
         du_luc = K._ts(d["done_at"]).astimezone(K.VN) if d else None
         nguoi = d["actor"] if d else ""
         uid = nguoi.split("|")[0] if nguoi else ""
-        kenh = {"sen": "Sen nhập hộ", "web": "Tự nhập web"}.get(nguoi.split("|")[1] if "|" in nguoi else "", "")
-        nguoi_ten = users.get(int(uid)) if uid.isdigit() else (nguoi or "")
+        tu_dong = uid == "auto"
+        kenh = ("Tự động" if tu_dong else
+                {"sen": "Sen nhập hộ", "web": "Tự nhập web"}.get(nguoi.split("|")[1] if "|" in nguoi else "",
+                                                                "Không rõ" if d else ""))
+        nguoi_ten = (f"Tự động ({nguoi.split('|')[1]})" if tu_dong else
+                     users.get(int(uid)) if uid.isdigit() else ("(không rõ)" if d else ""))
         h = r["han"]
         if r.get("loi"):
             l = r["loi"].lower()
@@ -43,7 +47,7 @@ for j in jobs:
             "Bước": f'{r["buoc"]}. {r["ten_buoc"]}', "Trạng thái V1": r["trang_thai"], "KPI": r["kpi"],
             "Mốc T (thao tác)": r["ten_moc"], "Giờ T": r["T"].astimezone(K.VN).strftime("%d/%m %H:%M") if r["T"] else "",
             "Hạn": h.strftime("%d/%m %H:%M") if h else "", "Nhập đủ lúc": du_luc.strftime("%d/%m %H:%M") if du_luc else "",
-            "Người nhập": nguoi_ten, "Kênh": kenh, "Người chịu KPI": nguoi_ten or users.get(r["created_by"], "") or "(không rõ)", "Kết quả": kq, "Trễ (giờ)": tre,
+            "Người nhập": nguoi_ten, "Kênh": kenh, "Người chịu KPI": "(tự động — không tính KPI)" if tu_dong else (nguoi_ten if uid.isdigit() else users.get(r["created_by"], "") or "(không rõ)"), "Kết quả": kq, "Trễ (giờ)": tre,
             "Lịch dự kiến": r["lich_du_kien"].strftime("%d/%m %H:%M") if r.get("lich_du_kien") else "", "Hạn cập nhật lịch (+6h)": r["han_cap_nhat_lich"].strftime("%d/%m %H:%M") if r.get("han_cap_nhat_lich") else "", "Lỗi": r.get("loi") or "", "Còn thiếu ô": ", ".join(K.NHAN.get(x, x) for x in r["thieu_o"]),
             "Còn thiếu chứng từ": ", ".join(K.DOC_NHAN.get(x, x) for x in r["thieu_ct"]),
         })
@@ -71,6 +75,8 @@ def sheet(ws, header, data, color_col=None):
 def tong(key):
     g = collections.OrderedDict()
     for r in rows:
+        if key in ("Người nhập", "Người chịu KPI") and r.get("Kênh") == "Tự động":
+            continue          # Sen tự cập nhật từ mail/tracking: không tính KPI cho nhân viên
         k = r[key] or "(chưa nhập)"
         x = g.setdefault(k, collections.Counter())
         x[r["Kết quả"]] += 1
