@@ -384,8 +384,26 @@ def danh_gia_job(client, job_id):
         cot, P = lich_buoc(b, svc, job)
         r["lich_du_kien"] = P
         loi_lich, r["han_cap_nhat_lich"] = xet_lich(cot, P, r["T"], evs, r["svc_id"], now)
-        if loi_lich and not r.get("loi"):
+        if loi_lich and not r.get("loi") and not r["du"]:   # đã nhập đủ thì không bắt lỗi lịch
             r["loi"] = loi_lich
+    # 13/10 (Khánh): job/dịch vụ đã qua bước (theo trạng thái hoặc bước sau đã đủ) mà bước này còn thiếu
+    # → LỖI, không được để "Chưa đến". VD: Đã giao mà thiếu ô giao hàng / thiếu giá.
+    QUA = {"PENDING": set(), "DRAFT": set(),
+           "ASSIGNED": {"Start"}, "DISPATCHED": {"Start"}, "IN_TRANSIT": {"Start"}, "IN_PROGRESS": {"Start"},
+           "CUS_APPROVED": {"Start"},
+           "DELIVERED": {"Start", "Processing", "Delivered", "Finish"},
+           "COMPLETED": {"Start", "Processing", "Delivered", "Finish"}}
+    for sid in {r["svc_id"] for r in out}:
+        svc = next(x for x in svcs if x["svc_id"] == sid)
+        qua = QUA.get(job.get("status_code") or "", set()) | QUA.get(svc.get("status_code") or "", set())
+        ds = sorted((r for r in out if r["svc_id"] == sid), key=lambda r: r["buoc"])
+        for i, r in enumerate(ds):
+            if r["du"] or r.get("loi"):
+                continue
+            sau_du = any(x["du"] and x["trang_thai"] != "Start" for x in ds[i + 1:])
+            if (r.get("trang_thai") in qua or sau_du) and not (r["han"] and now <= r["han"]):
+                thieu = [NHAN.get(x, x) for x in r["thieu_o"]] + [DOC_NHAN.get(x, x) for x in r["thieu_ct"]]
+                r["loi"] = "Thiếu thông tin: job đã qua bước này nhưng chưa nhập đủ" + (f" ({', '.join(thieu)})" if thieu else "")
     for sid in {r["svc_id"] for r in out}:
         ds = sorted((r for r in out if r["svc_id"] == sid), key=lambda r: r["buoc"])
         for i, r in enumerate(ds):

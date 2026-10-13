@@ -513,7 +513,9 @@ function TienDoBuoc({ buoc }) {
         <div style={{ marginTop: '6px', padding: '8px 10px', borderRadius: '6px', background: 'var(--bg-card)', border: '1px solid var(--border)', fontSize: '12px', lineHeight: 1.5 }}>
           <div><b>{chon.buoc}. {chon.ten}</b>{chon.kpi ? ` — KPI ${chon.kpi}` : ''}</div>
           {chon.moc_t ? <div>Bắt đầu tính: {chon.moc_t} ({chon.nguon_moc}) · Hạn: {chon.han || '—'}{chon.du_luc ? ` · Nhập đủ lúc: ${chon.du_luc}` : ''}</div>
-                      : <div>Chưa đến bước: việc này chưa được ghi nhận trên hệ thống.</div>}
+            : chon.ket_qua === 'LOI' ? null
+            : chon.du ? <div>Đã nhập đủ thông tin. Không có mốc thời gian để tính hạn (việc diễn ra trước khi hệ thống ghi mốc 12/10 21:00, hoặc chưa có thao tác ghi nhận).</div>
+            : <div>Chưa đến bước: việc này chưa diễn ra.</div>}
           {chon.lich_du_kien && <div>Lịch dự kiến: {chon.lich_du_kien} · phải cập nhật trước {chon.han_cap_nhat_lich} nếu thực tế khác</div>}
           {chon.thieu_o.length > 0 && <div style={{ color: '#991B1B' }}>Còn thiếu ô: {chon.thieu_o.join(', ')}</div>}
           {chon.thieu_ct.length > 0 && <div style={{ color: '#991B1B' }}>Còn thiếu chứng từ: {chon.thieu_ct.join(', ')}</div>}
