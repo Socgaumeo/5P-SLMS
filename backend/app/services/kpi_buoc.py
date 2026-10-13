@@ -91,9 +91,11 @@ def _co(col, job, svc, costs):
     if col in TUY_CHON:
         return True
     if col == "gia_mua":
-        return any((c.get("buying_amount") or 0) > 0 for c in costs if c.get("svc_id") == svc["svc_id"])
+        # 13/10: dòng phí ghi cấp job (svc_id trống) tính cho mọi dịch vụ của job
+        return any((c.get("buying_amount") or 0) > 0 for c in costs if c.get("svc_id") in (svc["svc_id"], None))
     if col == "gia_ban":
-        return any((c.get("selling_amount") or 0) > 0 for c in costs if c.get("svc_id") == svc["svc_id"])
+        # 13/10: dòng phí ghi cấp job (svc_id trống) tính cho mọi dịch vụ của job
+        return any((c.get("selling_amount") or 0) > 0 for c in costs if c.get("svc_id") in (svc["svc_id"], None))
     if col == "xe":
         return bool(_sd(svc).get("vehicle_plate") or svc.get("driver_id"))
     if col in JOB_COLS:
