@@ -4043,6 +4043,18 @@ function MainDashboard() {
 
   // Modal states
   const [selectedJob, setSelectedJob] = useState(null)
+  // 13/10: trang Điều hành / ô tìm kiếm chỉ truyền job_id → tải đủ thông tin job trước khi mở chi tiết
+  const moJobDayDu = async (job) => {
+    let full = job
+    if (job?.job_id && !job.created_at) {
+      try {
+        const r = await authFetch(`${API_URL}/api/jobs/${job.job_id}/details`)
+        if (r.ok) { const d = await r.json(); if (d.job) full = { ...job, ...d.job } }
+      } catch (e) { /* vẫn mở với dữ liệu đang có */ }
+    }
+    setSelectedJob(full)
+    setShowJobDetail(true)
+  }
   const [showJobDetail, setShowJobDetail] = useState(false)
   const [showJobCreate, setShowJobCreate] = useState(false)
 
@@ -4272,10 +4284,7 @@ function MainDashboard() {
             </div>
           </div>
           <div className="header-right">
-            <SearchBox onJobSelect={(job) => {
-              setSelectedJob(job)
-              setShowJobDetail(true)
-            }} />
+            <SearchBox onJobSelect={moJobDayDu} />
             <UserMenu />
           </div>
         </header>
@@ -4553,7 +4562,7 @@ function MainDashboard() {
         {/* Financial / Công nợ AR/AP */}
         {activeNav === 'financial' && <CongNoPage />}
 
-        {activeNav === 'dieuhanh' && <DieuHanhPage onOpenJob={(job) => { setSelectedJob(job); setShowJobDetail(true) }} />}
+        {activeNav === 'dieuhanh' && <DieuHanhPage onOpenJob={moJobDayDu} />}
       </main>
 
       {/* Floating AI Button */}
