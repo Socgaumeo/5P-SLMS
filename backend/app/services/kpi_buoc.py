@@ -87,8 +87,22 @@ def doc_bat_buoc(s, svc_type):
     return None
 
 
+# 13/10 (Khánh): ô số đo bắt buộc theo ĐƠN VỊ TÍNH PHÍ người dùng chọn (rate_unit, chọn từ DB cho đúng thực tế).
+# Tính theo chuyến / xe / container → không cần số khối. Đơn vị theo khối (CBM) → bắt buộc có khối.
+DON_VI_KHONG_CAN_KHOI = {"TRIP", "CHUYEN", "CHUYẾN", "XE", "CONT", "CONTAINER", "CA", "SHIFT", "LO", "LÔ", "TK", "TO KHAI"}
+
+
+def _mien_theo_don_vi(col, svc):
+    u = str(svc.get("rate_unit") or "").strip().upper()
+    if col == "volume_cbm" and u in DON_VI_KHONG_CAN_KHOI:
+        return True
+    return False
+
+
 def _co(col, job, svc, costs):
     if col in TUY_CHON:
+        return True
+    if _mien_theo_don_vi(col, svc):
         return True
     if col == "gia_mua" and _sd(svc).get("tu_lam") is True:
         return True   # Khánh 13/10: CHỈ khi người dùng XÁC NHẬN dịch vụ do 5P tự làm (service_details.tu_lam=true)
