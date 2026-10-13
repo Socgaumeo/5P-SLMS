@@ -58,21 +58,40 @@ export default function DocumentListTable({ jobId, refreshTrigger, currentUser }
   const [previewUrl, setPreviewUrl] = useState(null)
   const [previewName, setPreviewName] = useState('')
 
-  const fetchDocuments = async () => {
+  // 13/10/2026: trước đây API lỗi (401 hết phiên, 500...) vẫn hiện "Chưa có chứng từ nào"
+  // vì không kiểm res.ok. Giờ hiện lỗi thật + nút Thử lại, và bỏ kết quả của job cũ trả về muộn.
+  const fetchDocuments = async (isCurrent = () => true) => {
     try {
       setLoading(true)
+      setError('')
       const res = await authFetch(`${API_URL}/api/documents?job_id=${jobId}`)
+      if (!isCurrent()) return
+      if (!res.ok) {
+        let detail = ''
+        try { detail = (await res.json())?.detail || '' } catch { /* body không phải JSON */ }
+        if (res.status === 401) throw new Error('Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.')
+        throw new Error(`Không tải được chứng từ (lỗi ${res.status}${detail ? `: ${detail}` : ''})`)
+      }
       const data = await res.json()
-      setDocuments(data.data || [])
+      if (!isCurrent()) return
+      if (!Array.isArray(data?.data)) throw new Error('Máy chủ trả dữ liệu chứng từ không hợp lệ')
+      setDocuments(data.data)
     } catch (err) {
-      setError('Không thể tải danh sách chứng từ')
+      if (!isCurrent()) return
+      setDocuments([])
+      setError(err?.message && !/fetch|network/i.test(err.message)
+        ? err.message
+        : 'Không kết nối được máy chủ để tải chứng từ')
     } finally {
-      setLoading(false)
+      if (isCurrent()) setLoading(false)
     }
   }
 
   useEffect(() => {
-    if (jobId) fetchDocuments()
+    if (!jobId) return
+    let current = true
+    fetchDocuments(() => current)
+    return () => { current = false }
   }, [jobId, refreshTrigger])
 
   const handleDownload = async (doc) => {
@@ -133,7 +152,12 @@ export default function DocumentListTable({ jobId, refreshTrigger, currentUser }
   }
 
   if (loading) return <div className="loading-state">Đang tải...</div>
-  if (error) return <div className="error-state">{error}</div>
+  if (error) return (
+    <div className="error-state">
+      {error}{' '}
+      <button type="button" className="btn-secondary" onClick={() => fetchDocuments()}>Thử lại</button>
+    </div>
+  )
   if (documents.length === 0) return <div className="empty-state">Chưa có chứng từ nào</div>
 
   return (
