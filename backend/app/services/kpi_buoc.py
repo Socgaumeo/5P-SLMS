@@ -400,10 +400,16 @@ def danh_gia_job(client, job_id):
         for i, r in enumerate(ds):
             if r["du"] or r.get("loi"):
                 continue
-            sau_du = any(x["du"] and x["trang_thai"] != "Start" for x in ds[i + 1:])
-            if (r.get("trang_thai") in qua or sau_du) and not (r["han"] and now <= r["han"]):
+            # Khánh chốt 13/10: bước SAU đã xảy ra (nhập đủ, hoặc có thao tác thực tế: up booking/AWB, gán xe,
+            # BBGH...) mà bước NÀY còn thiếu → LỖI ngay, không chờ hết hạn.
+            sau_xay_ra = next((x for x in ds[i + 1:] if x["du"] or
+                               (x["T"] is not None and not (x["ten_moc"] or "").startswith("tạo job"))), None)
+            qua_trang_thai = r.get("trang_thai") in qua and not (r["han"] and now <= r["han"])
+            if sau_xay_ra or qua_trang_thai:
                 thieu = [NHAN.get(x, x) for x in r["thieu_o"]] + [DOC_NHAN.get(x, x) for x in r["thieu_ct"]]
-                r["loi"] = "Thiếu thông tin: job đã qua bước này nhưng chưa nhập đủ" + (f" ({', '.join(thieu)})" if thieu else "")
+                ly_do = (f"bước {sau_xay_ra['buoc']}. {sau_xay_ra['ten_buoc']} đã xảy ra" if sau_xay_ra
+                         else "job đã qua bước này")
+                r["loi"] = f"Thiếu thông tin: {ly_do} nhưng bước này chưa nhập đủ" + (f" ({', '.join(thieu)})" if thieu else "")
     for sid in {r["svc_id"] for r in out}:
         ds = sorted((r for r in out if r["svc_id"] == sid), key=lambda r: r["buoc"])
         for i, r in enumerate(ds):
