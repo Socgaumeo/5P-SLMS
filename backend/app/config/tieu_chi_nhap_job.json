@@ -1,5 +1,5 @@
 {
- "nguon": "workspace-main/config/job_required_fields.yaml v0.6",
+ "nguon": "workspace-main/config/job_required_fields.yaml v0.7",
  "dich_vu": {
   "TRUCKING": {
    "tao_job": [
@@ -633,28 +633,21 @@
   },
   "SEA_IMP": {
    "tao_job": [
-    "bl_awb_no",
-    "vendor_id",
     "origin_address",
     "dest_address",
     "etd"
    ],
-   "tao_job_any_of": [
-    [
-     "package_quantity",
-     "weight_kg",
-     "volume_cbm",
-     "items_count"
-    ]
-   ],
+   "tao_job_any_of": [],
    "tao_job_nen_co": [
+    "nguoi_book",
     "incoterm",
     "seller_name",
     "weight_kg",
-    "volume_cbm",
-    "nguoi_book"
+    "volume_cbm"
    ],
    "hoan_thien": [
+    "bl_awb_no",
+    "vendor_id",
     "carrier",
     "booking_no",
     "atd",
@@ -671,6 +664,7 @@
     "agent",
     "invoice_numbers",
     "cont_type",
+    "package_quantity",
     "cargo_type",
     "loai_cuoc",
     "nguoi_lien_he_giao",
@@ -775,30 +769,23 @@
   },
   "SEA_EXP": {
    "tao_job": [
-    "bl_awb_no",
-    "vendor_id",
     "origin_address",
     "dest_address",
     "etd"
    ],
-   "tao_job_any_of": [
-    [
-     "package_quantity",
-     "weight_kg",
-     "volume_cbm",
-     "items_count"
-    ]
-   ],
+   "tao_job_any_of": [],
    "tao_job_nen_co": [
+    "nguoi_book",
     "incoterm",
     "booking_no",
     "carrier",
     "scheduled_date",
     "volume_cbm",
-    "invoice_numbers",
-    "nguoi_book"
+    "invoice_numbers"
    ],
    "hoan_thien": [
+    "bl_awb_no",
+    "vendor_id",
     "eta",
     "gia_mua",
     "gia_ban",
@@ -812,6 +799,8 @@
     "atd",
     "agent",
     "cont_type",
+    "package_quantity",
+    "weight_kg",
     "cargo_type",
     "loai_cuoc",
     "nguoi_lien_he_giao",
@@ -917,22 +906,23 @@
   },
   "SEA_DOM": {
    "tao_job": [
-    "bl_awb_no",
-    "vendor_id",
     "origin_address",
     "dest_address",
     "scheduled_date"
    ],
    "tao_job_any_of": [],
    "tao_job_nen_co": [
+    "nguoi_book",
     "package_quantity",
     "weight_kg",
     "volume_cbm",
-    "nguoi_book",
     "incoterm",
     "etd"
    ],
-   "hoan_thien": [],
+   "hoan_thien": [
+    "bl_awb_no",
+    "vendor_id"
+   ],
    "hoan_thien_nen_co": [
     "seller_name",
     "buyer_name",
@@ -1050,28 +1040,21 @@
   },
   "AIR_IMP": {
    "tao_job": [
-    "bl_awb_no",
-    "vendor_id",
     "origin_address",
     "dest_address",
     "etd"
    ],
-   "tao_job_any_of": [
-    [
-     "package_quantity",
-     "weight_kg",
-     "volume_cbm",
-     "items_count"
-    ]
-   ],
+   "tao_job_any_of": [],
    "tao_job_nen_co": [
+    "nguoi_book",
     "incoterm",
     "seller_name",
     "weight_kg",
-    "chargeable_weight_kg",
-    "nguoi_book"
+    "chargeable_weight_kg"
    ],
    "hoan_thien": [
+    "bl_awb_no",
+    "vendor_id",
     "booking_no",
     "carrier",
     "atd",
@@ -1087,6 +1070,7 @@
     "invoice_numbers",
     "cargo_type",
     "loai_cuoc",
+    "package_quantity",
     "mbl_no",
     "nguoi_lien_he_giao",
     "special_requirements"
@@ -1185,30 +1169,23 @@
   },
   "AIR_EXP": {
    "tao_job": [
-    "bl_awb_no",
-    "vendor_id",
     "origin_address",
     "dest_address",
     "etd"
    ],
-   "tao_job_any_of": [
-    [
-     "package_quantity",
-     "weight_kg",
-     "volume_cbm",
-     "items_count"
-    ]
-   ],
+   "tao_job_any_of": [],
    "tao_job_nen_co": [
+    "nguoi_book",
     "incoterm",
     "booking_no",
     "carrier",
     "scheduled_date",
     "weight_kg",
-    "chargeable_weight_kg",
-    "nguoi_book"
+    "chargeable_weight_kg"
    ],
    "hoan_thien": [
+    "bl_awb_no",
+    "vendor_id",
     "eta",
     "gia_mua",
     "gia_ban",
@@ -1221,6 +1198,7 @@
     "invoice_numbers",
     "cargo_type",
     "loai_cuoc",
+    "package_quantity",
     "mbl_no",
     "nguoi_lien_he_giao",
     "delivery_date",
@@ -1320,21 +1298,22 @@
   },
   "AIR_DOM": {
    "tao_job": [
-    "vendor_id",
     "origin_address",
     "dest_address"
    ],
    "tao_job_any_of": [],
    "tao_job_nen_co": [
+    "nguoi_book",
     "bl_awb_no",
     "scheduled_date",
     "weight_kg",
     "package_quantity",
-    "nguoi_book",
     "incoterm",
     "etd"
    ],
-   "hoan_thien": [],
+   "hoan_thien": [
+    "vendor_id"
+   ],
    "hoan_thien_nen_co": [
     "seller_name",
     "buyer_name",
