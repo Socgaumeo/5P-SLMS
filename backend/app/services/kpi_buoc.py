@@ -90,6 +90,8 @@ def doc_bat_buoc(s, svc_type):
 def _co(col, job, svc, costs):
     if col in TUY_CHON:
         return True
+    if col == "gia_mua" and (svc.get("service_type_code") or "").startswith("CUS") and not svc.get("vendor_id"):
+        return True   # Khánh 13/10: dịch vụ hải quan 5P tự làm (không có vendor) → không có chi phí thuê ngoài, không phải lỗi
     if col == "gia_mua":
         # 13/10: dòng phí ghi cấp job (svc_id trống) tính cho mọi dịch vụ của job
         return any((c.get("buying_amount") or 0) > 0 for c in costs if c.get("svc_id") in (svc["svc_id"], None))
