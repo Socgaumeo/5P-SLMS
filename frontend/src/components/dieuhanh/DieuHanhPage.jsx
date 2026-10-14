@@ -93,7 +93,7 @@ export default function DieuHanhPage({ onOpenJob }) {
             <div key={a.job_id} className="dh-job" onClick={() => onOpenJob && onOpenJob({ job_id: a.job_id, job_no: a.job_no })}>
               <div className="jh"><b>{a.job_no}</b><span className="kh">{a.khach}</span><span className={`age ${a.tuoi > 14 ? 'bad' : ''}`}>{a.tuoi} ngày</span></div>
               <div className="jm">{a.nguoi} · {tt(a.trang_thai)[0]}{a.qua_lich ? <b className="bad"> · {a.qua_lich} dịch vụ quá lịch</b> : null}</div>
-              <div className="chips">{a.dich_vu.map((s, i) => <span key={i} className="chip" style={{ borderColor: tt(s.tt)[1] }}>{s.loai} · {tt(s.tt)[0]}{s.ngay ? ` · ${s.ngay.slice(8, 10)}/${s.ngay.slice(5, 7)}` : ''}</span>)}</div>
+              <div className="chips">{a.dich_vu.map((s, i) => <span key={i} className={`chip ${s.qua ? 'bad' : ''}`} style={{ borderColor: s.qua ? '#DC2626' : tt(s.tt)[1] }} title={s.qua ? `Bước "${s.buoc_qua}" quá lịch dự kiến ${s.lich_qua || ''} hơn 6h chưa cập nhật` : ''}>{s.loai} · {tt(s.tt)[0]}{s.qua ? ` · quá lịch ${s.buoc_qua}${s.lich_qua ? ` (${s.lich_qua})` : ''}` : (s.ngay ? ` · ${s.ngay.slice(8, 10)}/${s.ngay.slice(5, 7)}` : '')}</span>)}</div>
             </div>))}</div>)}
       </section>
 

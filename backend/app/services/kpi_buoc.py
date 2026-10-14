@@ -362,26 +362,71 @@ def han(kpi, T):
     return None
 
 
-def danh_gia_job(client, job_id):
-    """Kiểm từng dịch vụ × bước: thiếu ô nào, thiếu chứng từ nào, mốc T, hạn."""
-    job = (client.table("jobs").select("*").eq("job_id", job_id).limit(1).execute().data or [None])[0]
-    if not job:
-        return []
-    svcs = [s for s in (client.table("job_services").select("*").eq("job_id", job_id).execute().data or [])
-            if (s.get("status_code") or "") != "CANCELLED"]
-    docs = {d["doc_type"] for d in (client.table("documents").select("doc_type").eq("job_id", job_id).execute().data or [])}
-    costs = client.table("job_costs").select("svc_id,buying_amount,selling_amount").eq("job_id", job_id).execute().data or []
-    evs = client.table("job_events").select("event_type,field,to_value,svc_id,event_at,actor") \
-        .eq("job_id", job_id).order("event_at").execute().data or []
+def _phan_trang(q, size=1000):
+    out, off = [], 0
+    while True:
+        r = q.range(off, off + size - 1).execute().data or []
+        out += r
+        if len(r) < size:
+            return out
+        off += size
+
+
+def tai_nhieu_job(client, job_ids):
+    """14/10: tải dữ liệu KPI cho NHIỀU job một lượt (bảng điều hành) — cùng dữ liệu như danh_gia_job,
+    để bảng điều hành và trang chi tiết job dùng CHUNG một cách tính, không lệch nhau."""
+    ids = sorted({int(i) for i in job_ids})
+    pre = {i: {"job": None, "svcs": [], "docs": set(), "costs": [], "evs": [], "ml": []} for i in ids}
+    for k in range(0, len(ids), 150):
+        ch = ids[k:k + 150]
+        for j in client.table("jobs").select("*").in_("job_id", ch).execute().data or []:
+            pre[j["job_id"]]["job"] = j
+        for x in _phan_trang(client.table("job_services").select("*").in_("job_id", ch)):
+            pre[x["job_id"]]["svcs"].append(x)
+        for x in _phan_trang(client.table("documents").select("job_id,doc_type").in_("job_id", ch)):
+            pre[x["job_id"]]["docs"].add(x["doc_type"])
+        for x in _phan_trang(client.table("job_costs").select("job_id,svc_id,buying_amount,selling_amount").in_("job_id", ch)):
+            pre[x["job_id"]]["costs"].append(x)
+        for x in _phan_trang(client.table("job_events").select("job_id,event_type,field,to_value,svc_id,event_at,actor")
+                             .in_("job_id", ch).order("event_at").order("event_id")):
+            pre[x["job_id"]]["evs"].append(x)
+        try:
+            for x in _phan_trang(client.table("job_mail_log").select("job_id,mail_date,event_type,sender")
+                                 .in_("job_id", ch).neq("event_type", "OTHER").order("mail_date")):
+                pre[x["job_id"]]["ml"].append(x)
+        except Exception:
+            pass
+    return pre
+
+
+def danh_gia_job(client, job_id, pre=None):
+    """Kiểm từng dịch vụ × bước: thiếu ô nào, thiếu chứng từ nào, mốc T, hạn.
+    pre = dữ liệu đã tải sẵn của job này (từ tai_nhieu_job) — bảng điều hành dùng để khỏi gọi DB từng job."""
+    if pre is not None:
+        job = dict(pre["job"]) if pre.get("job") else None
+        if not job:
+            return []
+        svcs = [s for s in pre["svcs"] if (s.get("status_code") or "") != "CANCELLED"]
+        docs, costs, evs, ml = set(pre["docs"]), pre["costs"], pre["evs"], pre["ml"][:1]
+    else:
+        job = (client.table("jobs").select("*").eq("job_id", job_id).limit(1).execute().data or [None])[0]
+        if not job:
+            return []
+        svcs = [s for s in (client.table("job_services").select("*").eq("job_id", job_id).execute().data or [])
+                if (s.get("status_code") or "") != "CANCELLED"]
+        docs = {d["doc_type"] for d in (client.table("documents").select("doc_type").eq("job_id", job_id).execute().data or [])}
+        costs = client.table("job_costs").select("svc_id,buying_amount,selling_amount").eq("job_id", job_id).execute().data or []
+        evs = client.table("job_events").select("event_type,field,to_value,svc_id,event_at,actor") \
+            .eq("job_id", job_id).order("event_at").execute().data or []
+        try:   # mail đầu tiên có thông tin lô (bỏ mail loại OTHER) gắn với job
+            ml = client.table("job_mail_log").select("mail_date,event_type,sender").eq("job_id", job_id) \
+                .neq("event_type", "OTHER").order("mail_date").limit(1).execute().data or []
+        except Exception:
+            ml = []
     last = evs[-1] if evs else None
-    try:   # mail đầu tiên có thông tin lô (bỏ mail loại OTHER) gắn với job
-        ml = client.table("job_mail_log").select("mail_date,event_type,sender").eq("job_id", job_id) \
-            .neq("event_type", "OTHER").order("mail_date").limit(1).execute().data or []
-        if ml:
-            job["_mail_dau"] = {"t": _ts(ml[0]["mail_date"]), "loai": ml[0]["event_type"],
-                                "nguoi": (ml[0].get("sender") or "")[:40]}
-    except Exception:
-        pass
+    if ml:
+        job["_mail_dau"] = {"t": _ts(ml[0]["mail_date"]), "loai": ml[0]["event_type"],
+                            "nguoi": (ml[0].get("sender") or "")[:40]}
     ky = ky_tt(job, svcs)
     out = []
     for svc in svcs:

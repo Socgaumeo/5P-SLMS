@@ -12,6 +12,7 @@ from fastapi import APIRouter, HTTPException, Request
 
 from app.db.supabase_client import get_supabase
 from app.api.dependencies import get_current_user_optional
+from app.services import kpi_buoc as K
 
 router = APIRouter()
 VN = dt.timezone(dt.timedelta(hours=7))
@@ -70,6 +71,21 @@ def _tinh():
     ev24 = _all(c.table("job_events").select("actor,job_id").gte("event_at", since24))
     sd = _all(c.table("job_step_done").select("job_id,actor,done_at"))
 
+    # 14/10 (Khánh): "quá lịch" tính ĐÚNG như trang chi tiết job (kpi_buoc: lịch dự kiến của bước + 6h mà chưa
+    # có thao tác thực tế / chưa đổi lịch). Trước đây lấy "ngày bắt đầu < hôm nay mà chưa Đã giao" → dịch vụ đang
+    # chạy bình thường (đã lấy hàng, chưa giao) cũng bị đếm quá lịch, bấm vào chi tiết lại không thấy gì.
+    mo_ids = [j["job_id"] for j in jobs if j["status_code"] in MO]
+    qua_kpi = collections.defaultdict(dict)   # job_id -> {svc_id: (tên bước, lịch dự kiến)}
+    try:
+        pre = K.tai_nhieu_job(c, mo_ids)
+        for i in mo_ids:
+            for r in K.danh_gia_job(c, i, pre[i]):
+                if (r.get("loi") or "").startswith("Quá lịch") and r["svc_id"] not in qua_kpi[i]:
+                    qua_kpi[i][r["svc_id"]] = (r["ten_buoc"], r.get("lich_du_kien"))
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"[dieu-hanh] tinh qua lich theo KPI loi: {e}")
+
     nv = collections.defaultdict(collections.Counter)
     att = []
     J = {j["job_id"]: j for j in jobs}
@@ -82,8 +98,8 @@ def _tinh():
         nv[u]["mo"] += 1
         nv[u][j["status_code"]] += 1
         ss = S[j["job_id"]]
-        qua = [s for s in ss if s.get("scheduled_date") and s["scheduled_date"] < today
-               and (s["status_code"] or "") not in ("DELIVERED", "COMPLETED", "CANCELLED")]
+        qk = qua_kpi.get(j["job_id"], {})
+        qua = [s for s in ss if s["svc_id"] in qk]
         tuoi = (now - _ts(j["created_at"])).days
         if qua:
             nv[u]["qua_lich"] += 1
@@ -94,7 +110,12 @@ def _tinh():
                         "khach": cust.get(j["customer_id"], ""), "trang_thai": j["status_code"], "tuoi": tuoi,
                         "qua_lich": len(qua),
                         "dich_vu": [{"loai": s["service_type_code"], "tt": s["status_code"],
-                                     "ngay": s.get("scheduled_date")} for s in ss]})
+                                     "ngay": s.get("scheduled_date"),
+                                     "qua": s["svc_id"] in qk,
+                                     "buoc_qua": qk[s["svc_id"]][0] if s["svc_id"] in qk else None,
+                                     "lich_qua": (qk[s["svc_id"]][1].astimezone(VN).strftime("%d/%m %H:%M")
+                                                  if s["svc_id"] in qk and qk[s["svc_id"]][1] else None)}
+                                    for s in ss if (s["status_code"] or "") != "CANCELLED"]})
 
     def kenh(a):
         a = a or "unknown"
@@ -132,6 +153,6 @@ async def dieu_hanh(request: Request):
     user = await get_current_user_optional(request)
     if not user:
         raise HTTPException(status_code=401, detail="Chưa đăng nhập")
-    if time.time() - _cache["t"] > 30 or not _cache["data"]:
+    if time.time() - _cache["t"] > 120 or not _cache["data"]:
         _cache["data"], _cache["t"] = _tinh(), time.time()
     return {"success": True, **_cache["data"], "toi": user.get("user_id")}
