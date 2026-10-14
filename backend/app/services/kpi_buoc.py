@@ -52,7 +52,7 @@ NHAN = {"ky_thanh_toan": "Kỳ thanh toán",
     "ngay_thong_quan": "Ngày thông quan", "china_truck_plate": "Biển số xe QT", "route": "Tuyến",
     "customs_port": "Cửa khẩu", "package_unit": "Đơn vị", "thoi_gian_hoan_thanh": "Giờ xong dịch vụ",
 }
-DOC_NHAN = {"BBGH": "BBGH", "CD": "Tờ khai", "INVOICE": "Invoice", "DEBIT": "Debit/bảng kê", "AWB": "AWB",
+DOC_NHAN = {"INVOICE_VAT": "Hoá đơn VAT đầu ra", "BBGH": "BBGH", "CD": "Tờ khai", "INVOICE": "Invoice", "DEBIT": "Debit/bảng kê", "AWB": "AWB",
             "BL": "B/L", "BOOKING": "File booking", "WEIGHT_SLIP": "Phiếu cân", "SERVICE_CONFIRM": "BB xác nhận DV"}
 
 
@@ -399,6 +399,27 @@ def tai_nhieu_job(client, job_ids):
     return pre
 
 
+def _bk_cung_hd(client, job, pre=None):
+    """Có Debit/bảng kê trên job KHÁC cùng số HĐ VAT đầu ra không (bảng kê tháng tải 1 lần cho cả đợt hoá đơn)."""
+    if "_bk_cung_hd" in job:
+        return job["_bk_cung_hd"]
+    kq = False
+    try:
+        so = [x.strip() for x in re.split(r"[,;\n]", str(job.get("vat_invoice_no") or "")) if x.strip()]
+        ids = set()
+        for x in so[:5]:
+            for r in client.table("jobs").select("job_id").ilike("vat_invoice_no", f"*{x}*").limit(200).execute().data or []:
+                ids.add(r["job_id"])
+        ids.discard(job["job_id"])
+        if ids:
+            kq = bool(client.table("documents").select("id").eq("doc_type", "DEBIT")
+                      .in_("job_id", sorted(ids)[:200]).limit(1).execute().data)
+    except Exception as e:
+        logger.warning(f"[kpi] bang ke cung HD: {e}")
+    job["_bk_cung_hd"] = kq
+    return kq
+
+
 def danh_gia_job(client, job_id, pre=None):
     """Kiểm từng dịch vụ × bước: thiếu ô nào, thiếu chứng từ nào, mốc T, hạn.
     pre = dữ liệu đã tải sẵn của job này (từ tai_nhieu_job) — bảng điều hành dùng để khỏi gọi DB từng job."""
@@ -442,11 +463,23 @@ def danh_gia_job(client, job_id, pre=None):
                         thieu_o.append(" / ".join(nhom))
             else:
                 thieu_o = [c for c in b.get("cot", []) if not _co(c, job, svc, costs)]
-            if "kỳ khách" in (b.get("kpi") or "") and not ky:
-                thieu_o.append("ky_thanh_toan")
-                loi = "Thiếu kỳ thanh toán"
             can_doc = [t for t in (doc_bat_buoc(x, svc["service_type_code"]) for x in b.get("chung_tu", [])) if t]
             thieu_ct = [t for t in dict.fromkeys(can_doc) if t not in docs]
+            if "đối chiếu" in b["ten"].lower():
+                # 14/10 (Khánh): đã có hoá đơn đầu ra + bảng kê thì bước Đối chiếu ĐỦ, không được báo lỗi.
+                # - Hoá đơn = số HĐ VAT đầu ra của job (jobs.vat_invoice_no). Invoice thương mại tải ở bước 1
+                #   KHÔNG tính là hoá đơn đối chiếu.
+                # - Bảng kê = Debit/bảng kê trên job, HOẶC trên job khác cùng số HĐ VAT (bảng kê tải 1 lần cho cả đợt).
+                co_hd = not _rong(job.get("vat_invoice_no"))
+                co_bk = "DEBIT" in docs or (co_hd and _bk_cung_hd(client, job, pre))
+                thieu_ct = [t for t in thieu_ct if t not in ("INVOICE", "DEBIT")]
+                if not co_hd and "INVOICE" in can_doc:
+                    thieu_ct.append("INVOICE_VAT")
+                if not co_bk and "DEBIT" in can_doc:
+                    thieu_ct.append("DEBIT")
+                # Thiếu kỳ thanh toán: KHÔNG báo lỗi ngay — hạn mặc định cuối tháng (han_ky); chỉ nhắc khi bước chưa đủ.
+                if not ky and (thieu_o or thieu_ct):
+                    thieu_o.append("ky_thanh_toan")
             T, ten_moc = moc(b, svc, job, svcs, evs)
             kpi_r = kpi_thuc(b, svc)
             # 14/10 (Khánh): hạn riêng từng ô (kpi_cot). CBT bước 3: biển số xe T+12h từ lúc nhập tờ khai.
