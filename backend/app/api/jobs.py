@@ -891,6 +891,36 @@ async def assign_vehicle(job_id: int, request: VehicleAssignRequest, req: Reques
         )
 
 
+# ── Khánh chốt 14/10: trạng thái Đã giao CHỈ đổi khi đã có Biên bản giao hàng (BBGH). ──
+# Ngày giao dự kiến không đổi trạng thái; chưa có BBGH thì job vẫn Processing.
+# Áp cho DELIVERED và COMPLETED (không cho nhảy thẳng Hoàn thành để lách). Dịch vụ không bắt BBGH
+# (hàng xuất, kho, hải quan...) và khách K+K (id 65, hàng không có biên bản — anh Ethan 28/09) được miễn.
+_KHONG_CAN_BBGH_KHACH = {65}
+
+
+def _thieu_bbgh(client, job_id):
+    """Trả câu báo lỗi nếu job cần BBGH mà chưa có; None nếu được đổi trạng thái."""
+    try:
+        kb = importlib.import_module("app.services.kpi_buoc")
+        job = (client.table('jobs').select('customer_id').eq('job_id', job_id).limit(1).execute().data or [{}])[0]
+        if job.get('customer_id') in _KHONG_CAN_BBGH_KHACH:
+            return None
+        co = client.table('documents').select('id').eq('job_id', job_id).eq('doc_type', 'BBGH').limit(1).execute().data
+        if co:
+            return None
+        svcs = client.table('job_services').select('service_type_code,status_code').eq('job_id', job_id).execute().data or []
+        for sv in svcs:
+            if (sv.get('status_code') or '') == 'CANCELLED':
+                continue
+            st = sv.get('service_type_code') or ''
+            for b in ((kb.TC.get('dich_vu') or {}).get(st) or {}).get('buoc', []):
+                if any(kb.doc_bat_buoc(x, st) == 'BBGH' for x in b.get('chung_tu', [])):
+                    return "Chưa có Biên bản giao hàng (BBGH) — tải BBGH lên job thì trạng thái mới chuyển sang Đã giao"
+    except Exception as e:   # không đọc được tiêu chí thì không chặn nhầm
+        logger.warning(f"[bbgh-guard] job {job_id}: {e}")
+    return None
+
+
 @router.post("/{job_id}/complete", response_model=JobResponse)
 async def complete_job(job_id: int, delivery_time: Optional[datetime] = None):
     """
@@ -904,6 +934,9 @@ async def complete_job(job_id: int, delivery_time: Optional[datetime] = None):
         raise HTTPException(404, f"Job {job_id} not found")
     
     # Update job status to COMPLETED in DB
+    _loi = _thieu_bbgh(get_supabase(), job_id)
+    if _loi:
+        raise HTTPException(400, _loi)
     try:
         client = get_supabase()
         update_data = {"status_code": "COMPLETED"}
@@ -2003,6 +2036,8 @@ async def update_job_info(request: Request):
         new_status = entities.get("new_status")
         if new_status:
             valid_statuses = ["PENDING", "CONFIRMED", "DISPATCHED", "IN_TRANSIT", "ASSIGNED", "IN_PROGRESS", "DELIVERED", "COMPLETED", "CANCELLED"]
+            if new_status.upper() in ('DELIVERED', 'COMPLETED') and _thieu_bbgh(client, job_id):
+                return {"success": False, "message": _thieu_bbgh(client, job_id)}
             if new_status.upper() in valid_statuses:
                 # Update job status
                 job_update = {
@@ -2642,6 +2677,10 @@ async def update_job_status(job_id: int, request: StatusUpdateRequest):
                           'IN_PROGRESS', 'DELIVERED', 'COMPLETED', 'CANCELLED']
         if new_status not in valid_statuses:
             raise HTTPException(400, f"Trạng thái '{new_status}' không hợp lệ")
+        if new_status in ('DELIVERED', 'COMPLETED'):
+            _loi = _thieu_bbgh(client, job_id)
+            if _loi:
+                raise HTTPException(400, _loi)
 
         # Update job status — kiểm kết quả
         upd = client.table('jobs').update({

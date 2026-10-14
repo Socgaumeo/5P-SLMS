@@ -986,12 +986,8 @@ function JobDetailModal({ job, onClose, onUpdate }) {
     // 10/10: kiểm trước khi chốt Đã giao / Hoàn thành
     if (newStatus === 'COMPLETED' || newStatus === 'DELIVERED') {
       const thieu = []
-      try {
-        const dr = await authFetch(`${API_URL}/api/documents?job_id=${job.job_id}`)
-        const dj = await dr.json()
-        const docs = Array.isArray(dj) ? dj : (dj.documents || dj.data || [])
-        if (!docs.some(d => d.doc_type === 'BBGH')) thieu.push('Biên bản giao hàng (BBGH)')
-      } catch (e) { /* không chặn nếu không đọc được danh sách chứng từ */ }
+      // 14/10 (Khánh): thiếu BBGH thì KHÔNG cho chuyển Đã giao/Hoàn thành — máy chủ chặn và báo lý do
+      // (máy chủ biết dịch vụ nào/khách nào được miễn BBGH), nên không hỏi "vẫn chuyển?" ở đây nữa.
       // chỉ dịch vụ xe (trucking, xe biên mậu) mới cần biển số; air/sea không có biển số
       const xe = services.filter(s => /^(TRUCKING|BORDER_)/.test(s.service_type_code || '') && s.status_code !== 'CANCELLED')
       if (xe.some(s => !(s.license_plate || s.service_details?.vehicle_plate))) thieu.push('Biển số xe')

@@ -179,10 +179,16 @@ def moc(buoc, svc, job, svcs, evs):
                          "gán xe / chuyển đang chạy")
 
     def giao():
+        # Khánh chốt 14/10: delivery_date = ngày giao DỰ KIẾN (bắt buộc ở bước giao hàng) — KHÔNG phải mốc đã giao.
+        # Mốc đã giao = GIỜ GIAO THỰC TẾ (job_services.delivered_at). Job cũ chưa nhập giờ thực tế → lấy lần
+        # đầu tải BBGH / đổi trạng thái Đã giao (trạng thái này chỉ đổi khi đã có BBGH).
+        if "delivered_at" in svc and not _rong(svc.get("delivered_at")):
+            t = _ts(svc["delivered_at"])
+            if t:
+                return t, "giờ giao thực tế"
         return _dau_tien(cua_dv, lambda e: (e["event_type"] == "DOC" and e["to_value"] == "BBGH")
                          or (e["event_type"] == "SVC_STATUS" and e["to_value"] in _XONG and e.get("svc_id") == sid)
-                         or (e["event_type"] == "STATUS" and e["to_value"] == "DELIVERED")
-                         or (e["event_type"] == "MOC" and e["field"] == "delivery_date" and e.get("svc_id") == sid),
+                         or (e["event_type"] == "STATUS" and e["to_value"] == "DELIVERED"),
                          "tải BBGH / báo đã giao")
 
     def thong_quan():
@@ -295,6 +301,9 @@ def lich_buoc(b, svc, job):
         return "scheduled", _gio(svc.get("scheduled_date"), svc.get("scheduled_time"))
     if ten.startswith("booking"):
         return "etd", _gio(job.get("etd"))
+    if ten.startswith("đã giao") and not _rong(svc.get("delivery_date")):
+        # 14/10: bước Đã giao xét theo ngày giao DỰ KIẾN — quá dự kiến 6h chưa giao/chưa đổi lịch → lỗi
+        return "delivery_date", _gio(svc.get("delivery_date"))
     if st.startswith(("SEA", "AIR")) and ("đến" in ten or "giao" in ten):
         return "eta", _gio(job.get("eta"))
     if "giao" in ten:

@@ -1,5 +1,5 @@
 {
- "nguon": "workspace-main/config/job_required_fields.yaml v0.7",
+ "nguon": "workspace-main/config/job_required_fields.yaml v0.8",
  "dich_vu": {
   "TRUCKING": {
    "tao_job": [
@@ -79,8 +79,8 @@
     {
      "buoc": 3,
      "ten": "Đã giao",
-     "khi": "ngay khi giao xong",
-     "kpi": "T+4h",
+     "khi": "từ giờ giao thực tế",
+     "kpi": "T+6h",
      "trang_thai": "Delivered",
      "cot": [
       "special_requirements"
@@ -230,8 +230,8 @@
     {
      "buoc": 4,
      "ten": "Đã giao",
-     "khi": "ngay khi giao xong",
-     "kpi": "T+4h",
+     "khi": "từ giờ giao thực tế",
+     "kpi": "T+6h",
      "trang_thai": "Delivered",
      "cot": [
       "special_requirements"
@@ -380,8 +380,8 @@
     {
      "buoc": 4,
      "ten": "Đã giao",
-     "khi": "ngay khi giao xong",
-     "kpi": "T+4h",
+     "khi": "từ giờ giao thực tế",
+     "kpi": "T+6h",
      "trang_thai": "Delivered",
      "cot": [
       "special_requirements"
@@ -739,8 +739,8 @@
     {
      "buoc": 4,
      "ten": "Đã giao",
-     "khi": "ngay sau khi giao xong",
-     "kpi": "T+4h",
+     "khi": "từ giờ giao thực tế",
+     "kpi": "T+6h",
      "trang_thai": "Delivered",
      "cot": [
       "special_requirements"
@@ -876,8 +876,8 @@
     {
      "buoc": 4,
      "ten": "Đã giao",
-     "khi": "ngay sau khi giao xong",
-     "kpi": "T+4h",
+     "khi": "từ giờ giao thực tế",
+     "kpi": "T+6h",
      "trang_thai": "Delivered",
      "cot": [
       "special_requirements"
@@ -1010,8 +1010,8 @@
     {
      "buoc": 4,
      "ten": "Đã giao",
-     "khi": "ngay sau khi giao xong",
-     "kpi": "T+4h",
+     "khi": "từ giờ giao thực tế",
+     "kpi": "T+6h",
      "trang_thai": "Delivered",
      "cot": [
       "special_requirements"
@@ -1140,8 +1140,8 @@
     {
      "buoc": 4,
      "ten": "Đã giao",
-     "khi": "ngay sau khi giao xong",
-     "kpi": "T+4h",
+     "khi": "từ giờ giao thực tế",
+     "kpi": "T+6h",
      "trang_thai": "Delivered",
      "cot": [
       "special_requirements"
@@ -1269,8 +1269,8 @@
     {
      "buoc": 4,
      "ten": "Đã giao",
-     "khi": "ngay sau khi giao xong",
-     "kpi": "T+4h",
+     "khi": "từ giờ giao thực tế",
+     "kpi": "T+6h",
      "trang_thai": "Delivered",
      "cot": [
       "special_requirements"
@@ -1394,8 +1394,8 @@
     {
      "buoc": 4,
      "ten": "Đã giao",
-     "khi": "ngay sau khi giao xong",
-     "kpi": "T+4h",
+     "khi": "từ giờ giao thực tế",
+     "kpi": "T+6h",
      "trang_thai": "Delivered",
      "cot": [
       "special_requirements"
