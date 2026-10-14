@@ -1,5 +1,5 @@
 {
- "nguon": "workspace-main/config/job_required_fields.yaml v0.8",
+ "nguon": "workspace-main/config/job_required_fields.yaml v0.9",
  "dich_vu": {
   "TRUCKING": {
    "tao_job": [
@@ -225,7 +225,11 @@
      "chung_tu": [
       "CD (bắt buộc)",
       "ảnh nhận hàng (nếu có)"
-     ]
+     ],
+     "kpi_cot": {
+      "xe": "T+12h"
+     },
+     "ghi_chu_kpi": "Khánh 14/10: biển số xe được 12h tính từ lúc nhập tờ khai (lúc mở tờ khai có thể chưa có phương tiện)"
     },
     {
      "buoc": 4,
@@ -375,7 +379,11 @@
      "chung_tu": [
       "CD (bắt buộc)",
       "ảnh nhận hàng (nếu có)"
-     ]
+     ],
+     "kpi_cot": {
+      "xe": "T+12h"
+     },
+     "ghi_chu_kpi": "Khánh 14/10: biển số xe được 12h tính từ lúc nhập tờ khai (lúc mở tờ khai có thể chưa có phương tiện)"
     },
     {
      "buoc": 4,

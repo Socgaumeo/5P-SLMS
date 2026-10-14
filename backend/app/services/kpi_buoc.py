@@ -114,7 +114,11 @@ def _co(col, job, svc, costs):
         # 13/10: dòng phí ghi cấp job (svc_id trống) tính cho mọi dịch vụ của job
         return any((c.get("selling_amount") or 0) > 0 for c in costs if c.get("svc_id") in (svc["svc_id"], None))
     if col == "xe":
-        return bool(_sd(svc).get("vehicle_plate") or svc.get("driver_id"))
+        # 14/10 (Khánh): xe CBT là phương tiện trên tờ khai (biển xe QT, VD KA5798) — lưu ở
+        # service_details.truck_plate / china_truck_plate hoặc cột intl_truck_plate, không chỉ vehicle_plate.
+        sd = _sd(svc)
+        return bool(sd.get("vehicle_plate") or sd.get("truck_plate") or sd.get("china_truck_plate")
+                    or svc.get("intl_truck_plate") or svc.get("driver_id"))
     if col in JOB_COLS:
         return not _rong(job.get(col))
     sd = _sd(svc)
@@ -399,12 +403,20 @@ def danh_gia_job(client, job_id):
             can_doc = [t for t in (doc_bat_buoc(x, svc["service_type_code"]) for x in b.get("chung_tu", [])) if t]
             thieu_ct = [t for t in dict.fromkeys(can_doc) if t not in docs]
             T, ten_moc = moc(b, svc, job, svcs, evs)
+            kpi_r = kpi_thuc(b, svc)
+            # 14/10 (Khánh): hạn riêng từng ô (kpi_cot). CBT bước 3: biển số xe T+12h từ lúc nhập tờ khai.
+            # Còn thiếu (hoặc đã đủ) mà chỉ vướng các ô có hạn riêng → hạn bước = hạn dài nhất của các ô đó.
+            kc = b.get("kpi_cot") or {}
+            if kc and "kỳ khách" not in (b.get("kpi") or "") and all(c in kc for c in thieu_o) \
+                    and (thieu_o or any(c in kc for c in b.get("cot", []))):
+                ds_kc = thieu_o or [c for c in b.get("cot", []) if c in kc]
+                kpi_r = max((kc[c] for c in ds_kc), key=lambda k: han(k, T) or dt.datetime.min.replace(tzinfo=VN))
             out.append({"job_id": job_id, "job_no": job["job_no"], "created_by": job.get("created_by"),
                         "svc_id": svc["svc_id"], "svc_type": svc["service_type_code"],
                         "buoc": b["buoc"], "ten_buoc": b["ten"], "trang_thai": b.get("trang_thai"), "kpi": b.get("kpi"),
                         "thieu_o": thieu_o, "thieu_ct": thieu_ct, "du": not thieu_o and not thieu_ct,
-                        "T": T, "ten_moc": ten_moc, "kpi": kpi_thuc(b, svc), "loi": loi,
-                        "han": (han_ky(ky, T) if "kỳ khách" in (b.get("kpi") or "") else han(kpi_thuc(b, svc), T)),
+                        "T": T, "ten_moc": ten_moc, "kpi": kpi_r, "loi": loi,
+                        "han": (han_ky(ky, T) if "kỳ khách" in (b.get("kpi") or "") else han(kpi_r, T)),
                         "thao_tac_cuoi": last})
     # Lịch dự kiến + bỏ qua bước (Khánh chốt 12/10)
     now = dt.datetime.now(VN)
