@@ -257,14 +257,34 @@ def ky_tt(job, svcs):
     return None
 
 
+
+# 14/10 (Khánh): kỳ đối chiếu theo hợp đồng/thoả thuận của TỪNG KHÁCH (customers.ky_doi_chieu).
+# Job/dịch vụ không ghi kỳ thì lấy kỳ của khách. Cột chưa tạo (chưa chạy migration) → coi như trống.
+_KY_KHACH = {"t": 0, "d": {}}
+
+
+def ky_khach(client, customer_id):
+    import time
+    if not customer_id or client is None:
+        return None
+    if time.time() - _KY_KHACH["t"] > 300:
+        try:
+            rows = client.table("customers").select("customer_id,ky_doi_chieu").execute().data or []
+            _KY_KHACH["d"] = {r["customer_id"]: r.get("ky_doi_chieu") for r in rows}
+        except Exception:
+            _KY_KHACH["d"] = {}
+        _KY_KHACH["t"] = time.time()
+    v = _KY_KHACH["d"].get(customer_id)
+    return None if _rong(v) else str(v).strip()
+
 def han_ky(ky, T):
     """Hạn đối chiếu theo kỳ thanh toán khách nhập: 'ngày 25' → ngày 25 tháng sau T; còn lại → cuối tháng T."""
     if not T:
         return None
     T = T.astimezone(VN)
-    m = re.search(r"(\d{1,2})", ky or "")
-    if m and 1 <= int(m.group(1)) <= 31:
-        d = int(m.group(1))
+    so = re.findall(r"\d{1,2}", ky or "")
+    if so and 1 <= int(so[-1]) <= 31:
+        d = int(so[-1])   # 14/10: lấy SỐ CUỐI — "26 tháng trước -> 25 tháng này" = chốt ngày 25
         nam, thang = (T.year + (T.month == 12), T.month % 12 + 1) if T.day > d else (T.year, T.month)
         import calendar
         d = min(d, calendar.monthrange(nam, thang)[1])
@@ -448,7 +468,7 @@ def danh_gia_job(client, job_id, pre=None):
     if ml:
         job["_mail_dau"] = {"t": _ts(ml[0]["mail_date"]), "loai": ml[0]["event_type"],
                             "nguoi": (ml[0].get("sender") or "")[:40]}
-    ky = ky_tt(job, svcs)
+    ky = ky_tt(job, svcs) or ky_khach(client, job.get("customer_id"))
     out = []
     for svc in svcs:
         tc = TC["dich_vu"].get(svc["service_type_code"]) or {}
