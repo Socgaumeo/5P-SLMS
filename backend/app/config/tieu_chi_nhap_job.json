@@ -1,5 +1,5 @@
 {
- "nguon": "workspace-main/config/job_required_fields.yaml v0.9",
+ "nguon": "workspace-main/config/job_required_fields.yaml v0.10",
  "dich_vu": {
   "TRUCKING": {
    "tao_job": [
@@ -108,7 +108,7 @@
      "buoc": 5,
      "ten": "Đối chiếu, thanh toán",
      "khi": "theo kỳ khách",
-     "kpi": "không muộn hơn ngày 30/31 hàng tháng",
+     "kpi": "theo kỳ khách",
      "trang_thai": "Ok",
      "cot": [
       "vat_invoice_no"
@@ -509,6 +509,20 @@
       "DEBIT vendor"
      ],
      "ghi_chu": "mở thủ tục, phụ phí luồng đỏ, phát sinh"
+    },
+    {
+     "buoc": 4,
+     "ten": "Đối chiếu, thanh toán",
+     "khi": "theo kỳ khách sau thông quan",
+     "kpi": "theo kỳ khách",
+     "trang_thai": "Ok",
+     "cot": [
+      "vat_invoice_no"
+     ],
+     "chung_tu": [
+      "INVOICE",
+      "DEBIT / bảng kê"
+     ]
     }
    ]
   },
@@ -591,6 +605,20 @@
       "DEBIT vendor"
      ],
      "ghi_chu": "mở thủ tục, phụ phí luồng đỏ, phát sinh"
+    },
+    {
+     "buoc": 4,
+     "ten": "Đối chiếu, thanh toán",
+     "khi": "theo kỳ khách sau thông quan",
+     "kpi": "theo kỳ khách",
+     "trang_thai": "Ok",
+     "cot": [
+      "vat_invoice_no"
+     ],
+     "chung_tu": [
+      "INVOICE",
+      "DEBIT / bảng kê"
+     ]
     }
    ]
   },
@@ -618,7 +646,22 @@
      "cd_no"
     ]
    },
-   "buoc": []
+   "buoc": [
+    {
+     "buoc": 1,
+     "ten": "Đối chiếu, thanh toán",
+     "khi": "theo kỳ khách sau khi hoàn tất dịch vụ",
+     "kpi": "theo kỳ khách",
+     "trang_thai": "Ok",
+     "cot": [
+      "vat_invoice_no"
+     ],
+     "chung_tu": [
+      "INVOICE",
+      "DEBIT / bảng kê"
+     ]
+    }
+   ]
   },
   "CUS_CO": {
    "tao_job": [
@@ -637,7 +680,22 @@
    "hoan_thien": [],
    "hoan_thien_nen_co": [],
    "kem_van_chuyen": null,
-   "buoc": []
+   "buoc": [
+    {
+     "buoc": 1,
+     "ten": "Đối chiếu, thanh toán",
+     "khi": "theo kỳ khách sau khi hoàn tất dịch vụ",
+     "kpi": "theo kỳ khách",
+     "trang_thai": "Ok",
+     "cot": [
+      "vat_invoice_no"
+     ],
+     "chung_tu": [
+      "INVOICE",
+      "DEBIT / bảng kê"
+     ]
+    }
+   ]
   },
   "SEA_IMP": {
    "tao_job": [
@@ -772,6 +830,20 @@
       "INVOICE thu chi hộ"
      ],
      "ghi_chu": "cước QT kèm phụ phí, nội địa 2 đầu, xăng dầu, local handling 2 đầu, mở HQ, phát sinh, thu chi hộ"
+    },
+    {
+     "buoc": 6,
+     "ten": "Đối chiếu, thanh toán",
+     "khi": "theo kỳ khách sau khi giao hàng",
+     "kpi": "theo kỳ khách",
+     "trang_thai": "Ok",
+     "cot": [
+      "vat_invoice_no"
+     ],
+     "chung_tu": [
+      "INVOICE",
+      "DEBIT / bảng kê"
+     ]
     }
    ]
   },
@@ -909,6 +981,20 @@
       "INVOICE thu chi hộ"
      ],
      "ghi_chu": "cước QT kèm phụ phí, nội địa 2 đầu, xăng dầu, local handling 2 đầu, mở HQ, phát sinh, thu chi hộ"
+    },
+    {
+     "buoc": 6,
+     "ten": "Đối chiếu, thanh toán",
+     "khi": "theo kỳ khách sau khi giao hàng",
+     "kpi": "theo kỳ khách",
+     "trang_thai": "Ok",
+     "cot": [
+      "vat_invoice_no"
+     ],
+     "chung_tu": [
+      "INVOICE",
+      "DEBIT / bảng kê"
+     ]
     }
    ]
   },
@@ -1043,6 +1129,20 @@
       "INVOICE thu chi hộ"
      ],
      "ghi_chu": "cước QT kèm phụ phí, nội địa 2 đầu, xăng dầu, local handling 2 đầu, mở HQ, phát sinh, thu chi hộ"
+    },
+    {
+     "buoc": 6,
+     "ten": "Đối chiếu, thanh toán",
+     "khi": "theo kỳ khách sau khi giao hàng",
+     "kpi": "theo kỳ khách",
+     "trang_thai": "Ok",
+     "cot": [
+      "vat_invoice_no"
+     ],
+     "chung_tu": [
+      "INVOICE",
+      "DEBIT / bảng kê"
+     ]
     }
    ]
   },
@@ -1171,6 +1271,20 @@
      "chung_tu": [
       "DEBIT đại lý/hãng bay",
       "INVOICE thu chi hộ"
+     ]
+    },
+    {
+     "buoc": 6,
+     "ten": "Đối chiếu, thanh toán",
+     "khi": "theo kỳ khách sau khi giao hàng",
+     "kpi": "theo kỳ khách",
+     "trang_thai": "Ok",
+     "cot": [
+      "vat_invoice_no"
+     ],
+     "chung_tu": [
+      "INVOICE",
+      "DEBIT / bảng kê"
      ]
     }
    ]
@@ -1301,6 +1415,20 @@
       "DEBIT đại lý/hãng bay",
       "INVOICE thu chi hộ"
      ]
+    },
+    {
+     "buoc": 6,
+     "ten": "Đối chiếu, thanh toán",
+     "khi": "theo kỳ khách sau khi giao hàng",
+     "kpi": "theo kỳ khách",
+     "trang_thai": "Ok",
+     "cot": [
+      "vat_invoice_no"
+     ],
+     "chung_tu": [
+      "INVOICE",
+      "DEBIT / bảng kê"
+     ]
     }
    ]
   },
@@ -1426,6 +1554,20 @@
       "DEBIT đại lý/hãng bay",
       "INVOICE thu chi hộ"
      ]
+    },
+    {
+     "buoc": 6,
+     "ten": "Đối chiếu, thanh toán",
+     "khi": "theo kỳ khách sau khi giao hàng",
+     "kpi": "theo kỳ khách",
+     "trang_thai": "Ok",
+     "cot": [
+      "vat_invoice_no"
+     ],
+     "chung_tu": [
+      "INVOICE",
+      "DEBIT / bảng kê"
+     ]
     }
    ]
   },
@@ -1496,6 +1638,20 @@
       "DEBIT vendor",
       "INVOICE thu chi hộ (nếu có)"
      ]
+    },
+    {
+     "buoc": 4,
+     "ten": "Đối chiếu, thanh toán",
+     "khi": "theo kỳ khách sau khi xong dịch vụ",
+     "kpi": "theo kỳ khách",
+     "trang_thai": "Ok",
+     "cot": [
+      "vat_invoice_no"
+     ],
+     "chung_tu": [
+      "INVOICE",
+      "DEBIT / bảng kê"
+     ]
     }
    ]
   },
@@ -1513,7 +1669,22 @@
    "hoan_thien": [],
    "hoan_thien_nen_co": [],
    "kem_van_chuyen": null,
-   "buoc": []
+   "buoc": [
+    {
+     "buoc": 1,
+     "ten": "Đối chiếu, thanh toán",
+     "khi": "theo kỳ khách sau khi hoàn tất dịch vụ",
+     "kpi": "theo kỳ khách",
+     "trang_thai": "Ok",
+     "cot": [
+      "vat_invoice_no"
+     ],
+     "chung_tu": [
+      "INVOICE",
+      "DEBIT / bảng kê"
+     ]
+    }
+   ]
   },
   "WHS_VAS": {
    "tao_job": [
@@ -1527,7 +1698,22 @@
    "hoan_thien": [],
    "hoan_thien_nen_co": [],
    "kem_van_chuyen": null,
-   "buoc": []
+   "buoc": [
+    {
+     "buoc": 1,
+     "ten": "Đối chiếu, thanh toán",
+     "khi": "theo kỳ khách sau khi hoàn tất dịch vụ",
+     "kpi": "theo kỳ khách",
+     "trang_thai": "Ok",
+     "cot": [
+      "vat_invoice_no"
+     ],
+     "chung_tu": [
+      "INVOICE",
+      "DEBIT / bảng kê"
+     ]
+    }
+   ]
   },
   "WHS_CSHT": {
    "tao_job": [
@@ -1540,7 +1726,22 @@
    "hoan_thien": [],
    "hoan_thien_nen_co": [],
    "kem_van_chuyen": null,
-   "buoc": []
+   "buoc": [
+    {
+     "buoc": 1,
+     "ten": "Đối chiếu, thanh toán",
+     "khi": "theo kỳ khách sau khi hoàn tất dịch vụ",
+     "kpi": "theo kỳ khách",
+     "trang_thai": "Ok",
+     "cot": [
+      "vat_invoice_no"
+     ],
+     "chung_tu": [
+      "INVOICE",
+      "DEBIT / bảng kê"
+     ]
+    }
+   ]
   },
   "WHS_THC": {
    "tao_job": [
@@ -1553,7 +1754,22 @@
    "hoan_thien": [],
    "hoan_thien_nen_co": [],
    "kem_van_chuyen": null,
-   "buoc": []
+   "buoc": [
+    {
+     "buoc": 1,
+     "ten": "Đối chiếu, thanh toán",
+     "khi": "theo kỳ khách sau khi hoàn tất dịch vụ",
+     "kpi": "theo kỳ khách",
+     "trang_thai": "Ok",
+     "cot": [
+      "vat_invoice_no"
+     ],
+     "chung_tu": [
+      "INVOICE",
+      "DEBIT / bảng kê"
+     ]
+    }
+   ]
   },
   "CUS_INSPECT": {
    "tao_job": [
@@ -1572,7 +1788,22 @@
    "hoan_thien": [],
    "hoan_thien_nen_co": [],
    "kem_van_chuyen": null,
-   "buoc": []
+   "buoc": [
+    {
+     "buoc": 1,
+     "ten": "Đối chiếu, thanh toán",
+     "khi": "theo kỳ khách sau khi hoàn tất dịch vụ",
+     "kpi": "theo kỳ khách",
+     "trang_thai": "Ok",
+     "cot": [
+      "vat_invoice_no"
+     ],
+     "chung_tu": [
+      "INVOICE",
+      "DEBIT / bảng kê"
+     ]
+    }
+   ]
   },
   "CUS_SUPERVISE": {
    "tao_job": [
@@ -1590,7 +1821,22 @@
    "hoan_thien": [],
    "hoan_thien_nen_co": [],
    "kem_van_chuyen": null,
-   "buoc": []
+   "buoc": [
+    {
+     "buoc": 1,
+     "ten": "Đối chiếu, thanh toán",
+     "khi": "theo kỳ khách sau khi hoàn tất dịch vụ",
+     "kpi": "theo kỳ khách",
+     "trang_thai": "Ok",
+     "cot": [
+      "vat_invoice_no"
+     ],
+     "chung_tu": [
+      "INVOICE",
+      "DEBIT / bảng kê"
+     ]
+    }
+   ]
   },
   "CUS_TRANSFER": {
    "tao_job": [
@@ -1616,7 +1862,22 @@
      "cd_no"
     ]
    },
-   "buoc": []
+   "buoc": [
+    {
+     "buoc": 1,
+     "ten": "Đối chiếu, thanh toán",
+     "khi": "theo kỳ khách sau khi hoàn tất dịch vụ",
+     "kpi": "theo kỳ khách",
+     "trang_thai": "Ok",
+     "cot": [
+      "vat_invoice_no"
+     ],
+     "chung_tu": [
+      "INVOICE",
+      "DEBIT / bảng kê"
+     ]
+    }
+   ]
   },
   "SVC_LASHING": {
    "tao_job": [
@@ -1630,7 +1891,22 @@
    "hoan_thien": [],
    "hoan_thien_nen_co": [],
    "kem_van_chuyen": null,
-   "buoc": []
+   "buoc": [
+    {
+     "buoc": 1,
+     "ten": "Đối chiếu, thanh toán",
+     "khi": "theo kỳ khách sau khi hoàn tất dịch vụ",
+     "kpi": "theo kỳ khách",
+     "trang_thai": "Ok",
+     "cot": [
+      "vat_invoice_no"
+     ],
+     "chung_tu": [
+      "INVOICE",
+      "DEBIT / bảng kê"
+     ]
+    }
+   ]
   },
   "SVC_LASHING_TRUCK": {
    "tao_job": [
@@ -1644,7 +1920,22 @@
    "hoan_thien": [],
    "hoan_thien_nen_co": [],
    "kem_van_chuyen": null,
-   "buoc": []
+   "buoc": [
+    {
+     "buoc": 1,
+     "ten": "Đối chiếu, thanh toán",
+     "khi": "theo kỳ khách sau khi hoàn tất dịch vụ",
+     "kpi": "theo kỳ khách",
+     "trang_thai": "Ok",
+     "cot": [
+      "vat_invoice_no"
+     ],
+     "chung_tu": [
+      "INVOICE",
+      "DEBIT / bảng kê"
+     ]
+    }
+   ]
   },
   "SVC_LASHING_CONT": {
    "tao_job": [
@@ -1659,7 +1950,22 @@
    "hoan_thien": [],
    "hoan_thien_nen_co": [],
    "kem_van_chuyen": null,
-   "buoc": []
+   "buoc": [
+    {
+     "buoc": 1,
+     "ten": "Đối chiếu, thanh toán",
+     "khi": "theo kỳ khách sau khi hoàn tất dịch vụ",
+     "kpi": "theo kỳ khách",
+     "trang_thai": "Ok",
+     "cot": [
+      "vat_invoice_no"
+     ],
+     "chung_tu": [
+      "INVOICE",
+      "DEBIT / bảng kê"
+     ]
+    }
+   ]
   },
   "SVC_LASHING_FR": {
    "tao_job": [
@@ -1674,7 +1980,22 @@
    "hoan_thien": [],
    "hoan_thien_nen_co": [],
    "kem_van_chuyen": null,
-   "buoc": []
+   "buoc": [
+    {
+     "buoc": 1,
+     "ten": "Đối chiếu, thanh toán",
+     "khi": "theo kỳ khách sau khi hoàn tất dịch vụ",
+     "kpi": "theo kỳ khách",
+     "trang_thai": "Ok",
+     "cot": [
+      "vat_invoice_no"
+     ],
+     "chung_tu": [
+      "INVOICE",
+      "DEBIT / bảng kê"
+     ]
+    }
+   ]
   },
   "SVC_OTHER": {
    "tao_job": [
@@ -1688,7 +2009,22 @@
    "hoan_thien": [],
    "hoan_thien_nen_co": [],
    "kem_van_chuyen": null,
-   "buoc": []
+   "buoc": [
+    {
+     "buoc": 1,
+     "ten": "Đối chiếu, thanh toán",
+     "khi": "theo kỳ khách sau khi hoàn tất dịch vụ",
+     "kpi": "theo kỳ khách",
+     "trang_thai": "Ok",
+     "cot": [
+      "vat_invoice_no"
+     ],
+     "chung_tu": [
+      "INVOICE",
+      "DEBIT / bảng kê"
+     ]
+    }
+   ]
   },
   "LIFT_ON": {
    "tao_job": [
@@ -1748,6 +2084,20 @@
      "chung_tu": [
       "DEBIT vendor",
       "INVOICE thu chi hộ (nếu có)"
+     ]
+    },
+    {
+     "buoc": 4,
+     "ten": "Đối chiếu, thanh toán",
+     "khi": "theo kỳ khách sau khi xong dịch vụ",
+     "kpi": "theo kỳ khách",
+     "trang_thai": "Ok",
+     "cot": [
+      "vat_invoice_no"
+     ],
+     "chung_tu": [
+      "INVOICE",
+      "DEBIT / bảng kê"
      ]
     }
    ]
@@ -1810,6 +2160,20 @@
      "chung_tu": [
       "DEBIT vendor",
       "INVOICE thu chi hộ (nếu có)"
+     ]
+    },
+    {
+     "buoc": 4,
+     "ten": "Đối chiếu, thanh toán",
+     "khi": "theo kỳ khách sau khi xong dịch vụ",
+     "kpi": "theo kỳ khách",
+     "trang_thai": "Ok",
+     "cot": [
+      "vat_invoice_no"
+     ],
+     "chung_tu": [
+      "INVOICE",
+      "DEBIT / bảng kê"
      ]
     }
    ]
@@ -1874,6 +2238,20 @@
       "DEBIT vendor",
       "INVOICE thu chi hộ (nếu có)"
      ]
+    },
+    {
+     "buoc": 4,
+     "ten": "Đối chiếu, thanh toán",
+     "khi": "theo kỳ khách sau khi xong dịch vụ",
+     "kpi": "theo kỳ khách",
+     "trang_thai": "Ok",
+     "cot": [
+      "vat_invoice_no"
+     ],
+     "chung_tu": [
+      "INVOICE",
+      "DEBIT / bảng kê"
+     ]
     }
    ]
   },
@@ -1889,7 +2267,22 @@
    "hoan_thien": [],
    "hoan_thien_nen_co": [],
    "kem_van_chuyen": null,
-   "buoc": []
+   "buoc": [
+    {
+     "buoc": 1,
+     "ten": "Đối chiếu, thanh toán",
+     "khi": "theo kỳ khách sau khi hoàn tất dịch vụ",
+     "kpi": "theo kỳ khách",
+     "trang_thai": "Ok",
+     "cot": [
+      "vat_invoice_no"
+     ],
+     "chung_tu": [
+      "INVOICE",
+      "DEBIT / bảng kê"
+     ]
+    }
+   ]
   },
   "SVC_VACUUM": {
    "tao_job": [
@@ -1903,7 +2296,22 @@
    "hoan_thien": [],
    "hoan_thien_nen_co": [],
    "kem_van_chuyen": null,
-   "buoc": []
+   "buoc": [
+    {
+     "buoc": 1,
+     "ten": "Đối chiếu, thanh toán",
+     "khi": "theo kỳ khách sau khi hoàn tất dịch vụ",
+     "kpi": "theo kỳ khách",
+     "trang_thai": "Ok",
+     "cot": [
+      "vat_invoice_no"
+     ],
+     "chung_tu": [
+      "INVOICE",
+      "DEBIT / bảng kê"
+     ]
+    }
+   ]
   },
   "SVC_SHRINK": {
    "tao_job": [
@@ -1917,7 +2325,22 @@
    "hoan_thien": [],
    "hoan_thien_nen_co": [],
    "kem_van_chuyen": null,
-   "buoc": []
+   "buoc": [
+    {
+     "buoc": 1,
+     "ten": "Đối chiếu, thanh toán",
+     "khi": "theo kỳ khách sau khi hoàn tất dịch vụ",
+     "kpi": "theo kỳ khách",
+     "trang_thai": "Ok",
+     "cot": [
+      "vat_invoice_no"
+     ],
+     "chung_tu": [
+      "INVOICE",
+      "DEBIT / bảng kê"
+     ]
+    }
+   ]
   }
  },
  "trang_thai_v1": {

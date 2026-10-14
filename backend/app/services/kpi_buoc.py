@@ -211,6 +211,17 @@ def moc(buoc, svc, job, svcs, evs):
                          or (e["event_type"] == "DOC" and e["to_value"] == "SERVICE_CONFIRM"),
                          "báo xong dịch vụ")
 
+    if "đối chiếu" in ten:
+        # Khánh 14/10: kỳ đối chiếu của mọi dịch vụ chỉ bắt đầu khi dịch vụ THỰC TẾ
+        # hoàn tất. Ngày dự kiến, ngày tạo job và ngày nhập giá không phải mốc.
+        if st.startswith("CUS"):
+            if st == "CUS_CO":
+                return xong_dv()  # làm C/O không có tờ khai/thông quan
+            t, nguon = thong_quan()
+            return (t, nguon) if t else xong_dv()
+        if st.startswith(("WHS", "SVC", "LIFT")):
+            return xong_dv()
+        return giao()
     if buoc["buoc"] == 1:
         return nhan_lo()
     if ten.startswith("thông quan"):
@@ -474,7 +485,8 @@ def danh_gia_job(client, job_id, pre=None):
         tc = TC["dich_vu"].get(svc["service_type_code"]) or {}
         for b in tc.get("buoc", []):
             loi = None
-            if b["buoc"] == 1:   # Khánh chốt 12/10: bước 1 = đủ ô BẮT BUỘC của ma trận (tạo job được)
+            if b["buoc"] == 1 and "đối chiếu" not in b["ten"].lower():
+                # Bước 1 nghiệp vụ = ô tạo job; dịch vụ chưa có quy trình V1 riêng chỉ có bước đối chiếu.
                 thieu_o = [c for c in (tc.get("tao_job") or []) if not _co(c, job, svc, costs)]
                 for nhom in (tc.get("tao_job_any_of") or []):
                     if svc["service_type_code"] == "WHS_HANDLE" and "package_quantity" in nhom:
