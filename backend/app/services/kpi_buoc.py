@@ -94,7 +94,8 @@ DON_VI_KHONG_CAN_KHOI = {"TRIP", "CHUYEN", "CHUYẾN", "XE", "CONT", "CONTAINER"
 
 def _mien_theo_don_vi(col, svc):
     u = str(svc.get("rate_unit") or "").strip().upper()
-    if col == "volume_cbm" and u in DON_VI_KHONG_CAN_KHOI:
+    # 15/10 (Khánh): tính tiền theo chuyến/xe/cont → trọng lượng chỉ để tham khảo, KHÔNG bắt buộc (như số khối).
+    if col in ("volume_cbm", "weight_kg") and u in DON_VI_KHONG_CAN_KHOI:
         return True
     return False
 
