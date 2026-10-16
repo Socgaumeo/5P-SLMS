@@ -219,9 +219,16 @@ def moc(buoc, svc, job, svcs, evs):
                          "nhập số tờ khai / tải tờ khai")
 
     def van_don():
-        return _dau_tien(cua_dv, lambda e: (e["event_type"] == "MOC" and e["field"] in ("bl_awb_no", "mbl_no", "atd") and e.get("svc_id") == sid)
+        # 16/10 Khánh: không biết lúc nào AWB/BL có ⇒ tính từ lúc AWB/BL xuất hiện (mail gửi vận đơn,
+        # hoặc lúc tải/nhập số vận đơn — lấy cái SỚM nhất) + KPI. Thường Sen tự đọc mail và điền.
+        t, n = _dau_tien(cua_dv, lambda e: (e["event_type"] == "MOC" and e["field"] in ("bl_awb_no", "mbl_no", "atd") and e.get("svc_id") == sid)
                          or (e["event_type"] == "DOC" and e["to_value"] in ("AWB", "BL")),
                          "nhập vận đơn / tải AWB-BL")
+        mb = next((m for m in job.get("_mails") or [] if m.get("event_type") == "BILL"), None)
+        tm = _ts(mb["mail_date"]) if mb else None
+        if tm and (not t or tm < t):
+            return tm, f"mail vận đơn {tm.astimezone(VN):%d/%m %H:%M} ({(mb.get('sender') or '')[:30]})"
+        return t, n
 
     def xong_dv():
         return _dau_tien(cua_dv, lambda e: (e["event_type"] == "SVC_STATUS" and e["to_value"] == "COMPLETED" and e.get("svc_id") == sid)
@@ -481,7 +488,7 @@ def danh_gia_job(client, job_id, pre=None):
         if not job:
             return []
         svcs = [s for s in pre["svcs"] if (s.get("status_code") or "") != "CANCELLED"]
-        docs, costs, evs, ml = set(pre["docs"]), pre["costs"], pre["evs"], pre["ml"][:1]
+        docs, costs, evs, ml = set(pre["docs"]), pre["costs"], pre["evs"], pre["ml"]
     else:
         job = (client.table("jobs").select("*").eq("job_id", job_id).limit(1).execute().data or [None])[0]
         if not job:
@@ -494,10 +501,11 @@ def danh_gia_job(client, job_id, pre=None):
             .eq("job_id", job_id).order("event_at").execute().data or []
         try:   # mail đầu tiên có thông tin lô (bỏ mail loại OTHER) gắn với job
             ml = client.table("job_mail_log").select("mail_date,event_type,sender").eq("job_id", job_id) \
-                .neq("event_type", "OTHER").order("mail_date").limit(1).execute().data or []
+                .neq("event_type", "OTHER").order("mail_date").execute().data or []
         except Exception:
             ml = []
     last = evs[-1] if evs else None
+    job["_mails"] = ml or []
     if ml:
         job["_mail_dau"] = {"t": _ts(ml[0]["mail_date"]), "loai": ml[0]["event_type"],
                             "nguoi": (ml[0].get("sender") or "")[:40]}
@@ -519,6 +527,12 @@ def danh_gia_job(client, job_id, pre=None):
                 thieu_o = [c for c in b.get("cot", []) if not _co(c, job, svc, costs)]
             can_doc = [t for t in (doc_bat_buoc(x, svc["service_type_code"]) for x in b.get("chung_tu", [])) if t]
             thieu_ct = [t for t in dict.fromkeys(can_doc) if t not in docs]
+            if svc["service_type_code"] in ("AIR_IMP", "SEA_IMP") and b["ten"].lower().startswith("booking") \
+                    and ({"AWB", "BL"} & docs):
+                # 16/10 Khánh: hàng NHẬP đã có AWB/BL ⇒ AWB/BL chính là xác nhận booking + cân của chuyến (booking,
+                # phiếu cân do bên nước ngoài làm, 5P không nhận) ⇒ không đòi số/file booking, phiếu cân nữa.
+                thieu_o = [c for c in thieu_o if c != "booking_no"]
+                thieu_ct = [t for t in thieu_ct if t not in ("BOOKING", "WEIGHT_SLIP")]
             if "đối chiếu" in b["ten"].lower():
                 # 14/10 (Khánh): đã có hoá đơn đầu ra + bảng kê thì bước Đối chiếu ĐỦ, không được báo lỗi.
                 # - Hoá đơn = số HĐ VAT đầu ra của job (jobs.vat_invoice_no). Invoice thương mại tải ở bước 1
