@@ -572,6 +572,11 @@ def danh_gia_job(client, job_id, pre=None):
         cot, P = lich_buoc(b, svc, job)
         r["lich_du_kien"] = P
         loi_lich, r["han_cap_nhat_lich"] = xet_lich(cot, P, r["T"], evs, r["svc_id"], now)
+        # 16/10 Khánh: lịch đi (ETD) đã có ngày đi THỰC TẾ (ATD đọc từ B/L, AWB, tra giờ bay) khớp lịch (≤ P+6h)
+        # ⇒ đúng lịch, không phải lỗi "quá lịch chưa cập nhật".
+        if loi_lich and cot == "etd" and not _rong(svc.get("atd")) and P and _ts(svc["atd"]) \
+                and _ts(svc["atd"]) <= P + CAP_NHAT_LICH:
+            loi_lich = None
         if loi_lich and not r.get("loi") and not r["du"]:   # đã nhập đủ thì không bắt lỗi lịch
             r["loi"] = loi_lich
     # 13/10 (Khánh): job/dịch vụ đã qua bước (theo trạng thái hoặc bước sau đã đủ) mà bước này còn thiếu
