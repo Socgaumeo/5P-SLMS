@@ -1,5 +1,5 @@
 {
- "nguon": "workspace-main/config/job_required_fields.yaml v0.10",
+ "nguon": "workspace-main/config/job_required_fields.yaml v0.11",
  "dich_vu": {
   "TRUCKING": {
    "tao_job": [
@@ -80,7 +80,7 @@
      "buoc": 3,
      "ten": "Đã giao",
      "khi": "từ giờ giao thực tế",
-     "kpi": "T+6h",
+     "kpi": "T+12h",
      "trang_thai": "Delivered",
      "cot": [
       "special_requirements"
@@ -235,7 +235,7 @@
      "buoc": 4,
      "ten": "Đã giao",
      "khi": "từ giờ giao thực tế",
-     "kpi": "T+6h",
+     "kpi": "T+12h",
      "trang_thai": "Delivered",
      "cot": [
       "special_requirements"
@@ -389,7 +389,7 @@
      "buoc": 4,
      "ten": "Đã giao",
      "khi": "từ giờ giao thực tế",
-     "kpi": "T+6h",
+     "kpi": "T+12h",
      "trang_thai": "Delivered",
      "cot": [
       "special_requirements"
@@ -806,7 +806,7 @@
      "buoc": 4,
      "ten": "Đã giao",
      "khi": "từ giờ giao thực tế",
-     "kpi": "T+6h",
+     "kpi": "T+12h",
      "trang_thai": "Delivered",
      "cot": [
       "special_requirements"
@@ -957,7 +957,7 @@
      "buoc": 4,
      "ten": "Đã giao",
      "khi": "từ giờ giao thực tế",
-     "kpi": "T+6h",
+     "kpi": "T+12h",
      "trang_thai": "Delivered",
      "cot": [
       "special_requirements"
@@ -1105,7 +1105,7 @@
      "buoc": 4,
      "ten": "Đã giao",
      "khi": "từ giờ giao thực tế",
-     "kpi": "T+6h",
+     "kpi": "T+12h",
      "trang_thai": "Delivered",
      "cot": [
       "special_requirements"
@@ -1249,7 +1249,7 @@
      "buoc": 4,
      "ten": "Đã giao",
      "khi": "từ giờ giao thực tế",
-     "kpi": "T+6h",
+     "kpi": "T+12h",
      "trang_thai": "Delivered",
      "cot": [
       "special_requirements"
@@ -1392,7 +1392,7 @@
      "buoc": 4,
      "ten": "Đã giao",
      "khi": "từ giờ giao thực tế",
-     "kpi": "T+6h",
+     "kpi": "T+12h",
      "trang_thai": "Delivered",
      "cot": [
       "special_requirements"
@@ -1531,7 +1531,7 @@
      "buoc": 4,
      "ten": "Đã giao",
      "khi": "từ giờ giao thực tế",
-     "kpi": "T+6h",
+     "kpi": "T+12h",
      "trang_thai": "Delivered",
      "cot": [
       "special_requirements"

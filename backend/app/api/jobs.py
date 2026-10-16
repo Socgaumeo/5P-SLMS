@@ -1676,7 +1676,7 @@ async def tien_do_buoc(job_id: int, request: Request):
         if r.get("loi"):
             kq = "LOI"
         elif r["du"] and du_luc and h:
-            kq = "DAT" if du_luc <= h else "TRE"
+            kq = "DAT" if du_luc <= h else "QUA_HAN"   # 16/10 Khánh: chỉ 1 khái niệm "Quá hạn"
         elif r["du"]:
             kq = "DU"
         elif not h:

@@ -36,7 +36,7 @@ ALIAS = {
     "ngay_thong_quan": ["cleared_at"],
 }
 JOB_COLS = {"etd", "eta", "vat_invoice_no"}
-TUY_CHON = {"special_requirements"}          # "Ghi chú" — chỉ ghi khi có, không tính thiếu
+TUY_CHON = {"special_requirements", "scheduled_date"}   # 16/10 Khánh: Ngày lấy không tính KPI, chỉ ghi khi có          # "Ghi chú" — chỉ ghi khi có, không tính thiếu
 NHAN = {"ky_thanh_toan": "Kỳ thanh toán", 
     "nguoi_book": "Người đặt dịch vụ", "vehicle_type": "Loại xe", "truck_capacity": "Trọng tải xe",
     "invoice_numbers": "Số invoice", "origin_address": "Điểm lấy", "dest_address": "Điểm giao",
@@ -105,6 +105,12 @@ def _co(col, job, svc, costs):
         return True
     if _mien_theo_don_vi(col, svc):
         return True
+    if col == "chargeable_weight_kg" and not svc["service_type_code"].startswith(("AIR", "SEA")):
+        # 16/10 Khánh: vận chuyển đã có GIÁ MUA mà tính theo chuyến/cont/xe ⇒ KL tính cước không cần.
+        u = str(svc.get("rate_unit") or "").strip().upper()
+        co_gia_mua = any((c.get("buying_amount") or 0) > 0 for c in costs if c.get("svc_id") in (svc["svc_id"], None))
+        if co_gia_mua and u in DON_VI_KHONG_CAN_KHOI:
+            return True
     if col == "gia_mua" and _sd(svc).get("tu_lam") is True:
         return True   # Khánh 13/10: CHỈ khi người dùng XÁC NHẬN dịch vụ do 5P tự làm (service_details.tu_lam=true)
                       # → không có chi phí thuê ngoài. Không vendor KHÔNG tự suy là tự làm (có thể quên điền).
@@ -173,6 +179,11 @@ def moc(buoc, svc, job, svcs, evs):
         # Khánh chốt 12/10: job có mail (mail đến TRƯỚC khi tạo job) → T = lúc mail có đủ thông tin tạo job;
         # không có mail / mail đến sau khi tạo job → T = lúc nhân viên tạo job.
         t_tao, n_tao = _dau_tien(evs, lambda e: True, "tạo job")
+        # 16/10: job tạo trước khi có bảng sự kiện → sự kiện đầu tiên có thể là Sen tự cập nhật muộn
+        # (VD điền lại từ tờ khai) ⇒ lấy giờ tạo job thật nếu sớm hơn.
+        tj = _ts(job.get("created_at")) if not _rong(job.get("created_at")) else None
+        if tj and (not t_tao or tj < t_tao):
+            t_tao, n_tao = tj, "tạo job"
         m = job.get("_mail_dau")
         if m and t_tao and m["t"] < t_tao:
             return m["t"], f"mail {m['loai'].lower()} {m['t'].astimezone(VN):%d/%m %H:%M} ({m['nguoi']})"
@@ -197,6 +208,11 @@ def moc(buoc, svc, job, svcs, evs):
                          "tải BBGH / báo đã giao")
 
     def thong_quan():
+        # 16/10 Khánh: dịch vụ CUS tính từ GIỜ THÔNG QUAN in trên tờ khai (Sen tự đọc tờ khai), không từ lúc nhập/tải.
+        if st.startswith("CUS") and not _rong(svc.get("cleared_at")):
+            t = _ts(svc["cleared_at"])
+            if t:
+                return t, "giờ thông quan trên tờ khai"
         return _dau_tien(cua_dv, lambda e: (e["event_type"] == "MOC" and e["field"] in ("cd_no", "declaration_datetime") and e.get("svc_id") == sid)
                          or (e["event_type"] == "DOC" and e["to_value"] == "CD")
                          or (e["event_type"] == "SVC_STATUS" and e["to_value"] in ("CUS_APPROVED", "COMPLETED") and e.get("svc_id") == sid),
@@ -223,6 +239,11 @@ def moc(buoc, svc, job, svcs, evs):
         if st.startswith(("WHS", "SVC", "LIFT")):
             return xong_dv()
         return giao()
+    if st.startswith("CUS") and st != "CUS_CO" and (buoc["buoc"] == 1 or ten.startswith("thông quan")):
+        # 16/10 Khánh: tờ khai phần lớn về qua mail, Sen tự đọc + gán ⇒ KHÔNG tính từ lúc nhận lô / tạo job.
+        # Mốc = giờ thông quan in trên tờ khai (cleared_at); chưa có ⇒ bước chưa bắt đầu tính.
+        t = _ts(svc.get("cleared_at")) if not _rong(svc.get("cleared_at")) else None
+        return (t, "giờ thông quan trên tờ khai") if t else (None, None)
     if buoc["buoc"] == 1:
         return nhan_lo()
     if ten.startswith("thông quan"):
@@ -551,6 +572,12 @@ def danh_gia_job(client, job_id, pre=None):
     # Bước Giá / Đối chiếu không bao giờ là bằng chứng bước trước đã xảy ra.
     evs_that = [e for e in evs if e["event_type"] in ("STATUS", "SVC_STATUS", "DOC")]
 
+    def _cho_tq(r):
+        # 16/10 Khánh: CUS bước Mở tờ khai / Thông quan chỉ tính khi đã có giờ thông quan trên tờ khai
+        # (Sen tự đọc tờ khai từ mail). Chưa có ⇒ không báo lỗi bỏ bước / thiếu, chờ tờ khai.
+        return (r["svc_type"].startswith("CUS") and r["svc_type"] != "CUS_CO" and r["T"] is None
+                and (r["buoc"] == 1 or (r["ten_buoc"] or "").lower().startswith("thông quan")))
+
     def _xay_ra(x):
         ten = (x["ten_buoc"] or "").lower()
         if "giá" in ten or "đối chiếu" in ten:
@@ -564,7 +591,7 @@ def danh_gia_job(client, job_id, pre=None):
         qua = QUA.get(job.get("status_code") or "", set()) | QUA.get(svc.get("status_code") or "", set())
         ds = sorted((r for r in out if r["svc_id"] == sid), key=lambda r: r["buoc"])
         for i, r in enumerate(ds):
-            if r["du"] or r.get("loi"):
+            if r["du"] or r.get("loi") or _cho_tq(r):
                 continue
             # Khánh chốt 13/10: bước SAU đã xảy ra (nhập đủ, hoặc có thao tác thực tế: up booking/AWB, gán xe,
             # BBGH...) mà bước NÀY còn thiếu → LỖI ngay, không chờ hết hạn.
@@ -578,7 +605,7 @@ def danh_gia_job(client, job_id, pre=None):
     for sid in {r["svc_id"] for r in out}:
         ds = sorted((r for r in out if r["svc_id"] == sid), key=lambda r: r["buoc"])
         for i, r in enumerate(ds):
-            if r["T"] is None and not r.get("loi") and any(_xay_ra(x) for x in ds[i + 1:]):
+            if r["T"] is None and not r.get("loi") and not _cho_tq(r) and any(_xay_ra(x) for x in ds[i + 1:]):
                 r["loi"] = "Bỏ qua bước (bước sau đã có, bước này chưa ghi)"
     return out
 

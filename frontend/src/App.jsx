@@ -472,7 +472,7 @@ function QuotationSelector({ type, rates, standardRates = [], selectedRateId, se
 
 // ── 12/10/2026: Tiến độ nhập liệu theo bước (file V1 chị Hà) — dùng API /api/jobs/{id}/tien-do-buoc ──
 const TD_MAU = {
-  DAT: ['#DCFCE7', '#166534', 'Đạt'], DU: ['#DCFCE7', '#166534', 'Đủ'], TRE: ['#FEE2E2', '#991B1B', 'Trễ'],
+  DAT: ['#DCFCE7', '#166534', 'Đạt'], DU: ['#DCFCE7', '#166534', 'Đủ'], TRE: ['#FEE2E2', '#991B1B', 'Quá hạn'],
   QUA_HAN: ['#FEE2E2', '#991B1B', 'Quá hạn'], LOI: ['#FED7AA', '#9A3412', 'Lỗi'],
   TRONG_HAN: ['#FEF3C7', '#92400E', 'Đang làm'], CHUA_DEN: ['#F3F4F6', '#6B7280', 'Chưa đến'],
 }
