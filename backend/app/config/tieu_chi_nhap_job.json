@@ -1,5 +1,5 @@
 {
- "nguon": "workspace-main/config/job_required_fields.yaml v0.11",
+ "nguon": "workspace-main/config/job_required_fields.yaml v0.12",
  "dich_vu": {
   "TRUCKING": {
    "tao_job": [
@@ -48,7 +48,6 @@
       "nguoi_book",
       "vehicle_type",
       "truck_capacity",
-      "invoice_numbers",
       "origin_address",
       "dest_address"
      ],
@@ -178,7 +177,6 @@
       "nguoi_book",
       "vehicle_type",
       "truck_capacity",
-      "invoice_numbers",
       "seller_name",
       "buyer_name",
       "incoterm",
@@ -332,7 +330,6 @@
       "nguoi_book",
       "vehicle_type",
       "truck_capacity",
-      "invoice_numbers",
       "seller_name",
       "buyer_name",
       "incoterm",
@@ -476,7 +473,8 @@
       "nguoi_book",
       "cd_no",
       "phan_luong",
-      "declaration_datetime"
+      "declaration_datetime",
+      "invoice_numbers"
      ],
      "chung_tu": [
       "CD thông quan"
@@ -572,7 +570,8 @@
       "nguoi_book",
       "cd_no",
       "phan_luong",
-      "declaration_datetime"
+      "declaration_datetime",
+      "invoice_numbers"
      ],
      "chung_tu": [
       "CD thông quan"
@@ -728,7 +727,6 @@
     "delivery_date",
     "buyer_name",
     "agent",
-    "invoice_numbers",
     "cont_type",
     "package_quantity",
     "cargo_type",
@@ -766,7 +764,6 @@
       "vessel_flight",
       "vendor_id",
       "agent",
-      "invoice_numbers",
       "container_no",
       "cont_type",
       "package_quantity",
@@ -779,7 +776,6 @@
      ],
      "chung_tu": [
       "booking",
-      "INVOICE",
       "phiếu cân",
       "BL (MBL, HBL final)"
      ],
@@ -917,7 +913,6 @@
       "vessel_flight",
       "vendor_id",
       "agent",
-      "invoice_numbers",
       "container_no",
       "cont_type",
       "package_quantity",
@@ -930,7 +925,6 @@
      ],
      "chung_tu": [
       "booking",
-      "INVOICE",
       "phiếu cân",
       "BL (MBL, HBL final)"
      ],
@@ -1024,7 +1018,6 @@
     "atd",
     "vessel_flight",
     "agent",
-    "invoice_numbers",
     "container_no",
     "cont_type",
     "cargo_type",
@@ -1065,7 +1058,6 @@
       "vessel_flight",
       "vendor_id",
       "agent",
-      "invoice_numbers",
       "container_no",
       "cont_type",
       "package_quantity",
@@ -1078,7 +1070,6 @@
      ],
      "chung_tu": [
       "booking",
-      "INVOICE",
       "phiếu cân",
       "BL (MBL, HBL final)"
      ],
@@ -1175,7 +1166,6 @@
     "delivery_date",
     "buyer_name",
     "agent",
-    "invoice_numbers",
     "cargo_type",
     "loai_cuoc",
     "package_quantity",
@@ -1212,7 +1202,6 @@
       "vessel_flight",
       "vendor_id",
       "agent",
-      "invoice_numbers",
       "weight_kg",
       "chargeable_weight_kg",
       "cargo_type",
@@ -1223,7 +1212,6 @@
      ],
      "chung_tu": [
       "booking",
-      "INVOICE",
       "phiếu cân",
       "AWB (MAWB, HAWB final)"
      ],
@@ -1317,7 +1305,6 @@
     "vessel_flight",
     "seller_name",
     "agent",
-    "invoice_numbers",
     "cargo_type",
     "loai_cuoc",
     "package_quantity",
@@ -1355,7 +1342,6 @@
       "vessel_flight",
       "vendor_id",
       "agent",
-      "invoice_numbers",
       "weight_kg",
       "chargeable_weight_kg",
       "cargo_type",
@@ -1366,7 +1352,6 @@
      ],
      "chung_tu": [
       "booking",
-      "INVOICE",
       "phiếu cân",
       "AWB (MAWB, HAWB final)"
      ],
@@ -1456,7 +1441,6 @@
     "booking_no",
     "vessel_flight",
     "agent",
-    "invoice_numbers",
     "chargeable_weight_kg",
     "cargo_type",
     "loai_cuoc",
@@ -1494,7 +1478,6 @@
       "vessel_flight",
       "vendor_id",
       "agent",
-      "invoice_numbers",
       "weight_kg",
       "chargeable_weight_kg",
       "cargo_type",
@@ -1505,7 +1488,6 @@
      ],
      "chung_tu": [
       "booking",
-      "INVOICE",
       "phiếu cân",
       "AWB (MAWB, HAWB final)"
      ],
