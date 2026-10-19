@@ -241,7 +241,7 @@ def format_confirm_message(file_name: str, job_no: str, doc_type: str, gdrive_ur
         'AN': 'Arrival Notice', 'DEBIT': 'Debit Note', 'DO': 'Delivery Order',
         'CD': 'Customs Declaration', 'CO': 'C/O', 'INVOICE': 'Hóa đơn',
         'AWB': 'Air Waybill', 'BL': 'Bill of Lading',
-        'PACKING_LIST': 'Packing List', 'OTHER': 'Khác',
+        'PACKING_LIST': 'Packing List', 'PO': 'PO', 'OTHER': 'Khác',
     }
     label = type_labels.get(doc_type, doc_type)
     msg = (

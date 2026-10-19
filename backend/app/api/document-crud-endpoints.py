@@ -329,7 +329,7 @@ async def upload_document(
         raise HTTPException(400, f"File type {ext} not allowed. Allowed: {', '.join(ALLOWED_EXTENSIONS)}")
 
     # Validate doc_type
-    valid_types = ['AN', 'DEBIT', 'DO', 'CD', 'CO', 'INVOICE', 'AWB', 'BL', 'PACKING_LIST', 'BBGH',
+    valid_types = ['AN', 'DEBIT', 'DO', 'CD', 'CO', 'INVOICE', 'AWB', 'BL', 'PACKING_LIST', 'BBGH', 'PO',
                    'BOOKING', 'WEIGHT_SLIP', 'PHOTO_PICKUP', 'PHOTO_DELIVERY', 'SERVICE_CONFIRM', 'QUOTATION', 'OTHER']
     if doc_type not in valid_types:
         raise HTTPException(400, f"Invalid doc_type. Must be one of: {', '.join(valid_types)}")

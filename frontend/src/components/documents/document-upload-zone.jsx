@@ -17,6 +17,7 @@ const DOC_TYPES = [
   { value: 'AWB', label: 'Air Waybill' },
   { value: 'BL', label: 'Bill of Lading' },
   { value: 'PACKING_LIST', label: 'Packing List' },
+  { value: 'PO', label: 'PO (đơn đặt hàng)' },
   { value: 'BBGH', label: 'Biên bản giao hàng (BBGH)' },
   { value: 'BOOKING', label: 'File booking' },
   { value: 'WEIGHT_SLIP', label: 'Phiếu cân' },

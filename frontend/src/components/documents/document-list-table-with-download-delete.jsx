@@ -18,6 +18,7 @@ const TYPE_BADGES = {
   AWB: { bg: '#E0E7FF', color: '#4F46E5', label: 'AWB' },
   BL: { bg: '#DBEAFE', color: '#2563EB', label: 'B/L' },
   PACKING_LIST: { bg: '#F3E8FF', color: '#7C3AED', label: 'PL' },
+  PO: { bg: '#ECFDF5', color: '#047857', label: 'PO' },
   BBGH: { bg: '#FEF3C7', color: '#B45309', label: 'BBGH' },
   OTHER: { bg: '#F1F5F9', color: '#64748B', label: 'Khác' },
 }
