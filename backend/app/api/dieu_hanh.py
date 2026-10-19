@@ -108,6 +108,7 @@ def _tinh():
         if qua or tuoi > 14:
             att.append({"job_id": j["job_id"], "job_no": j["job_no"], "nguoi": u, "uid": j["created_by"],
                         "khach": cust.get(j["customer_id"], ""), "trang_thai": j["status_code"], "tuoi": tuoi,
+                        "tao_luc": j["created_at"],
                         "qua_lich": len(qua),
                         "dich_vu": [{"loai": s["service_type_code"], "tt": s["status_code"],
                                      "ngay": s.get("scheduled_date"),
@@ -142,7 +143,8 @@ def _tinh():
         "gio": now.strftime("%H:%M %d/%m/%Y"), "tu_ngay": TU_NGAY,
         "tong_mo": sum(theo_tt.values()), "theo_tt": dict(theo_tt), "xong7": len(xong7_job),
         "n_chu_y": len(att), "nhan_vien": nhan_vien,
-        "can_chu_y": sorted(att, key=lambda x: (-x["qua_lich"], -x["tuoi"]))[:150],
+        # 19/10 (Khánh): xếp theo ngày, job gần nhất lên trước
+        "can_chu_y": sorted(att, key=lambda x: _ts(x["tao_luc"]), reverse=True)[:150],
         "thao_tac_24h": {"tong": len(ev24), "kenh": dict(collections.Counter(kenh(e.get("actor")) for e in ev24)),
                          "theo_nguoi": dict(tt24)},
     }

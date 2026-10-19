@@ -626,6 +626,15 @@ def danh_gia_job(client, job_id, pre=None):
         for i, r in enumerate(ds):
             if r["T"] is None and not r.get("loi") and not _cho_tq(r) and any(_xay_ra(x) for x in ds[i + 1:]):
                 r["loi"] = "Bỏ qua bước (bước sau đã có, bước này chưa ghi)"
+    # 19/10 (Khánh): bước trước CHƯA XẢY RA thì bước sau không thể lỗi "quá lịch" — VD hàng chưa thông quan
+    # thì chưa thể giao ⇒ bước "Đã giao" để Chưa đến. Lỗi chỉ hiện ở bước đầu tiên đang tắc.
+    for sid in {r["svc_id"] for r in out}:
+        ops = [r for r in sorted((r for r in out if r["svc_id"] == sid), key=lambda r: r["buoc"])
+               if not any(k in (r["ten_buoc"] or "").lower() for k in ("giá", "đối chiếu"))]
+        for i in range(1, len(ops)):
+            r, truoc = ops[i], ops[i - 1]
+            if (r.get("loi") or "").startswith("Quá lịch") and not (truoc["du"] or _xay_ra(truoc)):
+                r["loi"] = None
     return out
 
 
