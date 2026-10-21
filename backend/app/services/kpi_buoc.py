@@ -317,6 +317,11 @@ def ky_khach(client, customer_id):
     v = _KY_KHACH["d"].get(customer_id)
     return None if _rong(v) else str(v).strip()
 
+# 21/10 (Khánh duyệt theo đề nghị chị Hà 8887896178): khách MEIKO chỉ có Debit/bảng kê vào CUỐI THÁNG
+# ⇒ bước "Giá mua/bán" của mọi dịch vụ MEIKO tính hạn theo kỳ khách (cuối tháng), không T+1/T+2.
+KHACH_GIA_THEO_KY = {32, 70}     # 32 MEIKO VN, 70 MEIKO Thăng Long
+
+
 def han_ky(ky, T):
     """Hạn đối chiếu theo kỳ thanh toán khách nhập: 'ngày 25' → ngày 25 tháng sau T; còn lại → cuối tháng T."""
     if not T:
@@ -562,7 +567,10 @@ def danh_gia_job(client, job_id, pre=None):
                         "buoc": b["buoc"], "ten_buoc": b["ten"], "trang_thai": b.get("trang_thai"), "kpi": b.get("kpi"),
                         "thieu_o": thieu_o, "thieu_ct": thieu_ct, "du": not thieu_o and not thieu_ct,
                         "T": T, "ten_moc": ten_moc, "kpi": kpi_r, "loi": loi,
-                        "han": (han_ky(ky, T) if "kỳ khách" in (b.get("kpi") or "") else han(kpi_r, T)),
+                        "han": (han_ky(ky, T) if ("kỳ khách" in (b.get("kpi") or "")
+                                                  or (b["ten"].lower().startswith("giá")
+                                                      and job.get("customer_id") in KHACH_GIA_THEO_KY))
+                                else han(kpi_r, T)),
                         "thao_tac_cuoi": last})
     # Lịch dự kiến + bỏ qua bước (Khánh chốt 12/10)
     now = dt.datetime.now(VN)
